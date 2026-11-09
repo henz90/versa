@@ -28,8 +28,8 @@ g.hov circle{stroke:#fff!important;stroke-width:4!important}
 g.hov rect{stroke:#fff!important;stroke-width:3!important}
 .cand{fill:#15151c;stroke:#8ab4ff;stroke-dasharray:6 4;stroke-width:2;animation:march 2.4s linear infinite}
 @keyframes march{to{stroke-dashoffset:-10}}
-.ring-atk,.ring-selh,.ring-idle,.ring-o{fill:none;stroke-width:2.5;pointer-events:none;animation:pulse 1s ease-in-out infinite}
-.ring-atk{stroke:#ff5252}.ring-selh{stroke:#7cf0ff}.ring-o{stroke:#ffd54f}
+.ring-atk,.ring-selh,.ring-idle,.ring-o,.ring-nk{fill:none;stroke-width:2.5;pointer-events:none;animation:pulse 1s ease-in-out infinite}
+.ring-atk{stroke:#ff5252}.ring-selh{stroke:#7cf0ff}.ring-o{stroke:#ffd54f}.ring-nk{stroke:#ff3d3d}
 .ring-idle{stroke:#ffffffaa;stroke-dasharray:3 3;animation:none}
 @keyframes pulse{0%,100%{opacity:.3}50%{opacity:1}}
 text{pointer-events:none;text-anchor:middle;dominant-baseline:central;font-family:system-ui,sans-serif}
@@ -64,6 +64,7 @@ text{pointer-events:none;text-anchor:middle;dominant-baseline:central;font-famil
 @keyframes pop{from{opacity:0;transform:scale(.3)}to{opacity:1;transform:none}}
 @keyframes natin{0%{opacity:0;transform:scale(.3) rotate(-8deg)}60%{transform:scale(1.12)}100%{opacity:1;transform:none}}
 .ghostc{position:fixed;pointer-events:none;z-index:30;transform:translate(-50%,-50%);background:#24243a;border:2px solid #ffe066;border-radius:.6em;padding:.4em .7em;font-size:1.2em;opacity:.9}
+#carry{position:fixed;pointer-events:none;z-index:31;background:#000e;border:1px solid #ffe066;border-radius:.5em;padding:.3em .6em;font-size:1em;white-space:nowrap}
 #tip{position:fixed;display:none;pointer-events:none;background:#000f;border:1px solid #556;border-radius:.6em;padding:.6em .8em;font-size:1.25em;line-height:1.45;z-index:9;max-width:26em}
 #modal{position:fixed;inset:0;background:#06060acc;display:none;align-items:center;justify-content:center;z-index:20}
 #modal .card{background:#1c1c28;border:1px solid #2c2c3e;border-radius:.8em;width:min(92vw,40em);padding:1.6em;display:flex;flex-direction:column;gap:1em;font-size:1.15em;text-align:center}
@@ -88,8 +89,8 @@ const HC=['#ff8fab','#7cf0ff','#c3f584','#ffd166','#b28dff','#ffa94d','#f1faee',
 const TC={str:'#7a2e38',def:'#24527a',rng:'#4f6b26',int:'#5b3478',bar:'#7a5a22'},NEUT='#2a2a38',GZF='#4d4118';
 const ICON={str:'✊',def:'🛡️',rng:'🏹',int:'🧠',bar:'🛑'},NAME={str:'Strength',def:'Defense',rng:'Range',int:'Intelligence',bar:'Barrier'},SK=['str','def','rng','int'];
 const DIRS=[[1,-1,0],[1,0,-1],[0,1,-1],[-1,1,0],[-1,0,1],[0,-1,1]],R=36;
-const HINT={attack:'Drag your hero onto an enemy hero in range to attack.',barrier:'Click a tile next to one of your heroes (creates L3, or +1).',hero:'Click a tile with one of your heroes to spawn a new one (acts next turn).',obj:'Click a tile with one of your heroes to place an object.',buyskill:'Cyan rings: heroes you can pick. Gold rings: objects you can pick.'};
-const HINT_DEV={barrier:'Click a tile within 1 of your hero: builds your barrier, or lowers an opponent\'s.',object:'Click a tile within 1 of your hero that has one of your heroes.',skill:'Cyan rings: heroes you can pick. Gold rings: objects you can pick.'};
+const HINT={attack:'Drag your hero onto an enemy hero in range to attack. Drop on the Nuke to attack it.',barrier:'Click a discovered tile next to one of your heroes (creates L3, or +1).',hero:'Click a tile with one of your heroes to spawn a new one (acts next turn).',obj:'Click a tile with one of your heroes to place an object.',buyskill:'Cyan rings: heroes you can pick. Gold rings: objects you can pick.'};
+const HINT_DEV={barrier:'Click a discovered tile within 1 of your hero: builds your barrier, or lowers an opponent\'s.',object:'Click a tile within 1 of your hero that has one of your heroes.',skill:'Cyan rings: heroes you can pick. Gold rings: objects you can pick.'};
 const K=c=>c.join(','),P=k=>k.split(',').map(Number);
 const dist=(a,b)=>(Math.abs(a[0]-b[0])+Math.abs(a[1]-b[1])+Math.abs(a[2]-b[2]))/2;
 const px=c=>Math.sqrt(3)*R*(c[0]+c[2]/2),py=c=>1.5*R*c[2];
@@ -98,6 +99,7 @@ const shuffle=a=>{for(let i=a.length-1;i>0;i--){const j=Math.random()*(i+1)|0;[a
 const makeDeck=()=>shuffle(['str','def','rng','int','v'].flatMap(s=>[s,s,s]));
 const adj=c=>DIRS.map(d=>[c[0]+d[0],c[1]+d[1],c[2]+d[2]]);
 const esc=s=>String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+const NUKE_DEF=3;
 
 // ---------- session state ----------
 let G=null,PRIV=null,ME=null,ROOM=null,ROW=null,chan=null,lastPub='',lastPriv='',privP=null;
@@ -108,8 +110,10 @@ const validName=n=>/^[A-Za-z0-9]{2,16}$/.test(n);
 const tile=c=>G.tiles[K(c)];
 const heroesAt=c=>G.heroes.filter(h=>h.alive&&K(h.c)==K(c));
 const objHere=c=>G.objs.find(o=>o.alive&&K(o.c)==K(c));
-const objFor=h=>G.objs.find(o=>o.alive&&o.p==h.p&&K(o.c)==K(h.c));
-const objCount=p=>G.objs.filter(o=>o.alive&&o.p==p).length;
+const objFor=h=>G.objs.find(o=>o.alive&&!o.nuke&&o.p==h.p&&K(o.c)==K(h.c));
+const carriedBy=h=>G.objs.filter(o=>o.alive&&K(o.c)==K(h.c)&&(o.nuke||o.p==h.p));
+const nukeAt=c=>G.objs.find(o=>o.alive&&o.nuke&&K(o.c)==K(c));
+const objCount=p=>G.objs.filter(o=>o.alive&&!o.nuke&&o.p==p).length;
 const gzb=h=>tile(h.c)?.gz?1:0;
 const hcol=h=>HC[G.heroes.indexOf(h)%HC.length];
 const hpos=h=>{const here=heroesAt(h.c),i=here.indexOf(h),n=here.length;return [px(h.c)+(i-(n-1)/2)*19,py(h.c)+12]};
@@ -124,23 +128,28 @@ const needsBoard=()=>G.rd<=5?G.pl[G.cur].pool.length>0:G.rd>=7&&removable();
 const boardOK=()=>G.done||!needsBoard();
 const canRep=(h,m)=>!h.t.some(x=>x.type==m&&!x.fail)||h.ok[m];
 const canAct=(h,t)=>!G.over&&h.alive&&h.p==G.cur&&boardOK()&&h.acts>0&&canRep(h,t)&&(t!='attack'||G.rd>=4);
+const canNukeHit=h=>!G.over&&h.alive&&h.p==G.cur&&boardOK()&&h.acts>0&&canRep(h,'attack');
 const barMine=t=>heroesAt(t.c).some(h=>h.p==myIdx())||t.barOwn==myIdx();
 const note=s=>{G.msg=s};
 function log(t,p=-1){G.log.unshift({t,p});G.log.length=Math.min(G.log.length,80)}
 function act(h,type,fail){h.acts--;h.t.push({type,fail:!!fail});h.ok[type]=0}
 function spend(n){const p=G.pl[G.cur];if(p.v<n){note(`Need ${n}V (you have ${p.v}V)`);return false}p.v-=n;return true}
+// Barriers below L3 are destroyed; the tile stays.
+function fixBars(){if(!G)return;Object.values(G.tiles).forEach(t=>{if(t.bar&&t.bar<3){t.bar=0;t.barOwn=undefined}})}
 
 // ---------- room, lobby and sync ----------
 function makeState(players){
-  const S={n:players.length,rd:1,cur:0,started:true,apoc:0,over:'',done:false,first:true,
+  const n=players.length,S={n,rd:1,cur:0,started:true,apoc:0,nd:0,over:'',done:false,first:true,
     pl:players.map(p=>({uid:p.uid,name:p.name,v:0,poolN:5,handN:0})),
     tiles:{'0,0,0':{c:[0,0,0],gz:1,disc:1,bar:0,own:-1,sk:null}},
     heroes:players.map((p,i)=>({p:i,k:1,c:[0,0,0],s:{str:1,def:1,rng:1,int:1},dmg:0,acts:i==0?2:0,t:[],ok:{},alive:1})),
-    objs:[],log:[{t:`New game: ${players.length} players. Everyone starts on Ground Zero.`,p:-1}]};
-  S.pl[0].v=5;
+    objs:n==2?[{nuke:1,p:-1,c:[0,0,0],s:{str:0,def:NUKE_DEF,rng:0,int:0},dmg:0,alive:1}]:[],
+    log:[{t:`New game: ${n} players. Everyone starts on Ground Zero.${n==2?' A Nuke sits on Ground Zero.':''}`,p:-1}]};
+  // 2-player games: the first player skips their first 5V
+  S.pl[0].v=n==2?0:5;
   return S;
 }
-function pubOf(){return JSON.stringify({n:G.n,rd:G.rd,cur:G.cur,started:G.started,apoc:G.apoc,over:G.over,done:G.done,first:G.first,
+function pubOf(){return JSON.stringify({n:G.n,rd:G.rd,cur:G.cur,started:G.started,apoc:G.apoc,nd:G.nd||0,over:G.over,done:G.done,first:G.first,
   pl:G.pl.map(p=>({uid:p.uid,name:p.name,v:p.v,poolN:p.pool.length,handN:p.hand.length})),
   tiles:Object.fromEntries(Object.entries(G.tiles).map(([k,t])=>[k,{...t,sk:t.disc?t.sk:null}])),
   heroes:G.heroes,objs:G.objs,log:G.log})}
@@ -160,6 +169,7 @@ function applyState(st){
   G={...st,sel:null,mode:'',wheel:null,wstack:[],dev:null,devSkill:old?.devSkill||'str',take:false,dd:null,drag:null,cdrag:null,pend:null,tw:null,msg:'',swallow:false,swallowH:false,
     pl:st.pl.map((p,i)=>({...p,pool:i==mi?PV.pool:Array(p.poolN).fill('?'),hand:i==mi?PV.hand:Array(p.handN).fill('?'),deck:i==mi?PV.deck:[]}))};
   Object.values(G.tiles).forEach(t=>{if(!t.disc&&t.own===mi&&PV.sks[K(t.c)])t.sk=PV.sks[K(t.c)]});
+  fixBars();
   lastPub=pubOf();lastPriv=JSON.stringify(PV);
   if(myTurn())G.mode=needsBoard()?(G.rd<=5?'place':'remove'):'';
   render();
@@ -235,11 +245,13 @@ function endTurn(){
 function check(){
   const al=alivePlayers();
   if(al.length<=1){G.over=al.length?`${G.pl[al[0]].name} wins: last hero standing!`:'Everyone is gone: draw.';log(G.over);return}
-  if(G.n>=3&&al.length==2&&!G.apoc){G.apoc=1;Object.values(G.tiles).forEach(t=>{t.bar=0;t.barOwn=undefined});G.objs.forEach(o=>o.alive=0);log('☢ APOCALYPSE: barriers and objects destroyed')}
+  // 3+ players: Apocalypse when two remain. 2 players: only when the Nuke is destroyed.
+  const trig=(G.n>=3&&al.length==2)||(G.n==2&&G.nd);
+  if(trig&&!G.apoc){G.apoc=1;Object.values(G.tiles).forEach(t=>{t.bar=0;t.barOwn=undefined});G.objs.forEach(o=>o.alive=0);log('☢ APOCALYPSE: barriers and objects destroyed')}
 }
 function kill(h,why){h.alive=0;h.dmg=0;log(`☠ ${who(h)} dies${why?' ('+why+')':''}`,h.p);check()}
 function valid(c){
-  const k=K(c),t=tile(c),p=G.pl[G.cur],mi=myIdx(),me=G.heroes.filter(h=>h.alive&&h.p==G.cur),m=G.mode;
+  const k=K(c),t=tile(c),p=G.pl[G.cur],me=G.heroes.filter(h=>h.alive&&h.p==G.cur),m=G.mode;
   const s=G.sel&&G.sel.alive&&G.sel.p==G.cur&&G.sel.acts>0?G.sel:null;
   if(['attack','develop','barrier','hero','obj','buyskill'].includes(m)&&!boardOK())return false;
   if(['attack','develop'].includes(m)&&(!s||!canRep(s,m)))return false;
@@ -249,14 +261,14 @@ function valid(c){
     case 'attack':return G.rd>=4&&!!s&&dist(s.c,c)<=s.s.rng&&heroesAt(c).some(h=>h.p!=G.cur);
     case 'develop':{
       if(!t||!G.dev||!s||dist(s.c,c)>1)return false;
-      if(G.dev=='barrier')return !G.apoc;
+      if(G.dev=='barrier')return !G.apoc&&t.disc;
       if(G.dev=='object')return !G.apoc&&objCount(G.cur)<3&&!objHere(c)&&heroesAt(c).some(h=>h.p==G.cur);
-      return heroesAt(c).some(h=>h.p==G.cur)||G.objs.some(o=>o.alive&&o.p==G.cur&&K(o.c)==k);
+      return heroesAt(c).some(h=>h.p==G.cur)||G.objs.some(o=>o.alive&&!o.nuke&&o.p==G.cur&&K(o.c)==k);
     }
-    case 'barrier':return !G.apoc&&!!t&&t.bar<12&&me.some(h=>dist(h.c,c)<=1);
+    case 'barrier':return !G.apoc&&!!t&&t.disc&&t.bar<12&&me.some(h=>dist(h.c,c)<=1);
     case 'hero':return me.some(h=>K(h.c)==k);
     case 'obj':return !G.apoc&&objCount(G.cur)<3&&!objHere(c)&&me.some(h=>K(h.c)==k);
-    case 'buyskill':return !!t&&(heroesAt(c).some(h=>h.p==G.cur&&h.s[G.devSkill]<5)||G.objs.some(o=>o.alive&&o.p==G.cur&&o.s[G.devSkill]<5&&K(o.c)==k));
+    case 'buyskill':return !!t&&(heroesAt(c).some(h=>h.p==G.cur&&h.s[G.devSkill]<5)||G.objs.some(o=>o.alive&&!o.nuke&&o.p==G.cur&&o.s[G.devSkill]<5&&K(o.c)==k));
   }
   return false;
 }
@@ -285,14 +297,21 @@ function discardCard(i){const p=G.pl[G.cur];p.hand.splice(i,1);p.v+=2;log('Disca
 function applyCard(i,u){
   const p=G.pl[G.cur],c=p.hand[i];
   if(c=='v'){p.v+=5;p.hand.splice(i,1);log('Played a 5V card: +5V',G.cur);return}
-  if(!u||u.p!=G.cur)return note('Drop a skill card on one of your heroes or objects');
+  if(!u||u.nuke||u.p!=G.cur)return note('Drop a skill card on one of your heroes or objects');
   if(u.s[c]>=5)return note('That skill is maxed');
   u.s[c]++;p.hand.splice(i,1);log(`${u.k?G.pl[G.cur].name+' H'+u.k:'Object'} +1 ${NAME[c]} from a card`,G.cur);
 }
+function carryText(h){
+  const c=carriedBy(h);
+  return c.length?'Carrying: '+c.map(o=>o.nuke?'☢ Nuke':`🧱 object (DEF ${o.s.def})`).join(' · '):'Moving alone';
+}
 function moveCore(h,c){
   const a=d6(),b=d6(),r=a+b;
-  G.pl[G.cur].v+=r;act(h,'move',0);const ob=objFor(h);h.c=c;if(ob){ob.c=c;log('  Object carried along',h.p)}
+  G.pl[G.cur].v+=r;act(h,'move',0);
+  const carried=carriedBy(h);
+  h.c=c;carried.forEach(o=>o.c=c);
   log(`${who(h)} 🏃 (${c}) rolled ${a}+${b}: +${r}V`,h.p);
+  if(carried.length)log(`  Carried along: ${carried.map(o=>o.nuke?'☢ Nuke':'🧱 object (DEF '+o.s.def+')').join(', ')}`,h.p);
   if(G.first){G.first=false;drawCard()}
   const t=tile(c);
   if(!t.disc){t.disc=1;
@@ -319,6 +338,15 @@ function attack(a,d){
   if(ra==20){a.acts++;a.ok.attack=1;natFx('⚔️','Attack');log('  Natural 20: Attack available again',a.p)}
   check();
 }
+function attackNuke(a,nk){
+  const ra=d20(),rd=d20(),sa=a.s.str,ga=gzb(a),A=ra+sa+ga,D=rd+nk.s.def,hit=A>D;
+  act(a,'attack',!hit);
+  fx(`☢ ${who(a)} vs Nuke: ${ra} + ${sa} STR${ga?' + 1 GZ':''} = <b>${A}</b><br>Nuke: ${rd} + ${nk.s.def} DEF = <b>${D}</b> · ${hit?'HIT':'MISS'}`);
+  log(`${who(a)} ☢ Nuke: rolled ${ra}+${sa}${ga?'+1 GZ':''} = ${A} vs ${rd}+${nk.s.def} = ${D}: ${hit?'hit':'miss'}`,a.p);
+  if(hit){nk.dmg+=sa;log(`  Nuke takes ${sa} damage (${nk.dmg}/${nk.s.def})`,a.p);if(nk.dmg>=nk.s.def){nk.alive=0;G.nd=1;log('☢ The Nuke is destroyed!',a.p)}}
+  if(ra==20){a.acts++;a.ok.attack=1;natFx('⚔️','Attack');log('  Natural 20: Attack available again',a.p)}
+  check();
+}
 function develop(h,c,tu){
   const o=objFor(h),tk=G.take,r=tk?0:d20(),ob=o?o.s.int:0,gz=gzb(h),tot=tk?10:r+h.s.int+gz+ob,t=c?tile(c):null,op=G.dev;
   const bd=tk?'take 10':`${r} + ${h.s.int} INT${gz?' + 1 GZ':''}${ob?' + '+ob+' obj':''}`;
@@ -328,6 +356,7 @@ function develop(h,c,tu){
   fx(`🛠 ${who(h)}: ${bd} = <b>${tot}</b> · +${b} bonus`);
   log(`${who(h)} 🛠 rolled ${bd} = ${tot}: bonus ${b}`,h.p);
   if(op=='barrier'){
+    if(!t.disc)return note('Barriers can only go on discovered tiles');
     if(t.bar){
       if(barMine(t)){t.bar=Math.min(12,t.bar+b);log(`  builds own barrier at (${c}) up by ${b} to L${t.bar}`,h.p)}
       else{const nb=t.bar-b;
@@ -341,7 +370,7 @@ function develop(h,c,tu){
   if(r==20){h.acts++;h.ok.develop=1;natFx('🛠️','Develop');log('  Natural 20: Develop available again',h.p)}
   note(`Develop rolled ${tk?'taken (10)':tot}: ${op} bonus ${b}`);
 }
-function buyBarrier(c){if(!spend(5))return;const t=tile(c);if(!t.bar)t.barOwn=G.cur;t.bar=t.bar?t.bar+1:3;log(`${G.pl[G.cur].name} barrier at (${c}) is now L${t.bar} (5V)`,G.cur)}
+function buyBarrier(c){const t=tile(c);if(!t.disc)return note('Barriers can only go on discovered tiles');if(!spend(5))return;if(!t.bar)t.barOwn=G.cur;t.bar=t.bar?t.bar+1:3;log(`${G.pl[G.cur].name} barrier at (${c}) is now L${t.bar} (5V)`,G.cur)}
 function buyHero(c){if(G.heroes.filter(h=>h.alive&&h.p==G.cur).length>=3)return note('Max 3 heroes alive');if(!spend(30))return;addHero(G.cur,c);log(`${G.pl[G.cur].name} spawns a new hero at (${c}) for 30V; it acts next turn`,G.cur)}
 function buyObj(c){if(objCount(G.cur)>=3)return note('Max 3 objects');if(!spend(5))return;G.objs.push({p:G.cur,c,s:{str:0,def:1,rng:0,int:0},dmg:0,alive:1});log(`${G.pl[G.cur].name} places an object at (${c}) for 5V`,G.cur)}
 function buySkill(u){if(u.s[G.devSkill]>=5)return note('That skill is maxed');if(!spend(5))return;u.s[G.devSkill]++;log(`${u.k?who(u):'Object'}: +1 ${G.devSkill} (5V)`,G.cur)}
@@ -369,7 +398,7 @@ function drawBoard(){
   const cands=G.mode=='place'?[...new Set(Object.values(G.tiles).flatMap(t=>adj(t.c)).filter(c=>!tile(c)&&valid(c)).map(K))].map(P):[];
   const all=[...Object.values(G.tiles).map(t=>t.c),...cands],xs=all.map(px),ys=all.map(py),pad=R+12;
   svg.setAttribute('viewBox',`${Math.min(...xs)-pad} ${Math.min(...ys)-pad} ${Math.max(...xs)-Math.min(...xs)+2*pad} ${Math.max(...ys)-Math.min(...ys)+2*pad}`);
-  const mi=myIdx();
+  const mi=myIdx(),dh=G.drag&&G.drag.moved?G.drag.h:null;
   let o='<defs><marker id="ar" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 z" fill="#ffe066"/></marker></defs>';
   cands.forEach(c=>o+=`<polygon class="cand" data-k="${K(c)}" points="${hexPts(c)}" style="animation-delay:-${((performance.now()/1000)%2.4).toFixed(2)}s"/>`);
   Object.values(G.tiles).forEach(t=>{
@@ -388,9 +417,16 @@ function drawBoard(){
   });
   G.objs.forEach((ob,oi)=>{
     if(!ob.alive)return;
+    const tip=ob.nuke?`<b>☢ Nuke</b><br>Defense ${ob.s.def} · Damage ${ob.dmg}/${ob.s.def}<br>Destroying it triggers the Apocalypse`:`<b>${esc(G.pl[ob.p].name)} object</b><br>✊ ${ob.s.str} · 🛡️ ${ob.s.def} · 🏹 ${ob.s.rng} · 🧠 ${ob.s.int}<br>Damage ${ob.dmg}/${ob.s.def}`;
+    if(ob.nuke){
+      const x=px(ob.c)-22,y=py(ob.c)-2;
+      o+=`<g data-k="${K(ob.c)}" data-tip="${tip}"><circle cx="${x}" cy="${y}" r="10" fill="#2a0a0a" stroke="#ff3d3d" stroke-width="2.5"/><text x="${x}" y="${y+1}" font-size="13" fill="#ff3d3d">☢</text>${G.mode=='attack'||dh?`<circle class='ring-nk' cx='${x}' cy='${y}' r='15'/>`:''}</g>`;
+      return;
+    }
     const own=heroesAt(ob.c).find(h=>h.p==ob.p),[hx,hy]=own?hpos(own):[px(ob.c),py(ob.c)+12];
-    const x=hx,y=hy+13,tip=`<b>${esc(G.pl[ob.p].name)} object</b><br>✊ ${ob.s.str} · 🛡️ ${ob.s.def} · 🏹 ${ob.s.rng} · 🧠 ${ob.s.int}<br>Damage ${ob.dmg}/${ob.s.def}`;
-    o+=`<g class="${G.mode&&(G.mode=='buyskill'||G.mode=='develop')&&!uSel(ob)?'mute':''}" data-u="o${oi}" data-k="${K(ob.c)}" data-tip="${tip}"><rect x="${x-9}" y="${y-9}" width="18" height="18" rx="5" fill="${COL[ob.p]}" stroke="#0e0e12" stroke-width="2"/>${uSel(ob)?`<rect class='ring-o' x='${x-13}' y='${y-13}' width='26' height='26' rx='6'/>`:''}<text x="${x}" y="${y}" font-size="13">🛡️</text><text x="${x}" y="${y+2}" font-size="11" font-weight="bold" fill="#fff" stroke="#000" stroke-width="2.5" paint-order="stroke">${ob.s.def}</text></g>`;
+    const x=hx,y=hy+13;
+    const car=dh&&K(ob.c)==K(dh.c)&&ob.p==dh.p;
+    o+=`<g class="${G.mode&&(G.mode=='buyskill'||G.mode=='develop')&&!uSel(ob)?'mute':''}" data-u="o${oi}" data-k="${K(ob.c)}" data-tip="${tip}"><rect x="${x-9}" y="${y-9}" width="18" height="18" rx="5" fill="${COL[ob.p]}" stroke="#0e0e12" stroke-width="2"/>${uSel(ob)||car?`<rect class='ring-o' x='${x-13}' y='${y-13}' width='26' height='26' rx='6'/>`:''}<text x="${x}" y="${y}" font-size="13">🛡️</text><text x="${x}" y="${y+2}" font-size="11" font-weight="bold" fill="#fff" stroke="#000" stroke-width="2.5" paint-order="stroke">${ob.s.def}</text></g>`;
   });
   if(G.drag&&G.drag.moved){const [hx,hy]=hpos(G.drag.h);o+=`<line x1="${hx}" y1="${hy}" x2="${G.drag.cx}" y2="${G.drag.cy}" stroke="#ffe066" stroke-width="3" stroke-dasharray="6 4" marker-end="url(#ar)" style="animation:march .5s linear infinite"/>`}
   svg.innerHTML=o;
@@ -432,9 +468,10 @@ function drawModal(){
   const ni=$('nameIn');if(ni)ni.value=UNAME;
 }
 const noOpts=()=>!G.over&&boardOK()&&!G.heroes.some(h=>h.alive&&h.p==G.cur&&h.acts>0&&(canAct(h,'move')||canAct(h,'attack')||canAct(h,'develop')))&&G.pl[G.cur].v<5;
-function vsify(){[...['top','side','log','hand','fx','modal','wheel','tip'].map(i=>$(i)),...document.querySelectorAll('.ghostc')].forEach(root=>{if(!root)return;const w=document.createTreeWalker(root,NodeFilter.SHOW_TEXT),nodes=[];while(w.nextNode())nodes.push(w.currentNode);nodes.forEach(n=>{if(!/\d ?V\b/.test(n.nodeValue))return;const parts=n.nodeValue.split(/(\d+ ?)V\b/),frag=document.createDocumentFragment();parts.forEach((p,i)=>{if(i%2){frag.append(p);const s=document.createElement('span');s.className='vs';s.textContent='V';frag.append(s)}else if(p)frag.append(p)});n.replaceWith(frag)})})}
+function vsify(){[...['top','side','log','hand','fx','modal','wheel','tip','carry'].map(i=>$(i)),...document.querySelectorAll('.ghostc')].forEach(root=>{if(!root)return;const w=document.createTreeWalker(root,NodeFilter.SHOW_TEXT),nodes=[];while(w.nextNode())nodes.push(w.currentNode);nodes.forEach(n=>{if(!/\d ?V\b/.test(n.nodeValue))return;const parts=n.nodeValue.split(/(\d+ ?)V\b/),frag=document.createDocumentFragment();parts.forEach((p,i)=>{if(i%2){frag.append(p);const s=document.createElement('span');s.className='vs';s.textContent='V';frag.append(s)}else if(p)frag.append(p)});n.replaceWith(frag)})})}
 function render(){
   if(G&&G.mode=='develop'&&!G.dev&&!G.wheel)G.mode='';
+  fixBars();
   drawBoard();drawModal();vsify();syncOut();
 }
 
@@ -448,10 +485,14 @@ $('svg').addEventListener('pointerdown',e=>{
 addEventListener('pointermove',e=>{
   const d=G&&G.drag;if(!d)return;
   if(!d.moved){if(Math.hypot(e.clientX-d.sx,e.clientY-d.sy)<6)return;d.moved=true;G.sel=d.h;G.mode='move';G.wheel=null}
-  const v=s2v(e.clientX,e.clientY);d.cx=v.x;d.cy=v.y;drawBoard();
+  const v=s2v(e.clientX,e.clientY);d.cx=v.x;d.cy=v.y;
+  let cl=$('carry');if(!cl){cl=document.createElement('div');cl.id='carry';document.body.appendChild(cl)}
+  cl.style.left=(e.clientX+18)+'px';cl.style.top=(e.clientY+18)+'px';cl.textContent=carryText(d.h);vsify();
+  drawBoard();
 });
 addEventListener('pointerup',e=>{
   const d=G&&G.drag;if(!d)return;G.drag=null;
+  $('carry')?.remove();
   G.swallow=true;setTimeout(()=>{if(G)G.swallow=false},80);
   if(!d.moved){
     G.sel=d.h;
@@ -462,8 +503,11 @@ addEventListener('pointerup',e=>{
   const v=s2v(e.clientX,e.clientY);
   let tgt=null;for(const t of Object.values(G.tiles)){if(Math.hypot(px(t.c)-v.x,py(t.c)-v.y)<R){tgt=t.c;break}}
   if(!tgt){note('Drop on a tile or an enemy hero to act');return render()}
-  const en=heroesAt(tgt).find(x=>x.p!=G.cur);
+  const en=heroesAt(tgt).find(x=>x.p!=G.cur),nk=nukeAt(tgt);
   if(en){if(canAct(d.h,'attack')&&dist(d.h.c,tgt)<=d.h.s.rng)attack(d.h,en);else note('Attack needs range, an action left, and round 4+')}
+  else if(nk&&!heroesAt(tgt).some(x=>x.p==G.cur&&x!==d.h)&&dist(d.h.c,tgt)<=d.h.s.rng){
+    if(canNukeHit(d.h))attackNuke(d.h,nk);else note('This hero has no attack action left');
+  }
   else{
     if(!canAct(d.h,'move')){note('This hero has already moved this turn');return render()}
     if(dist(d.h.c,tgt)<1||dist(d.h.c,tgt)>d.h.s.rng){note('Out of range');return render()}
