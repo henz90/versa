@@ -3,15 +3,16 @@
 <style>
 :root{color-scheme:dark;--r:clamp(70px,9vmin,130px)}
 *{box-sizing:border-box}
-html,body{height:100%}
-body{margin:0;font-size:clamp(12px,1.05vw,17px);font-family:system-ui,sans-serif;background:#0e0e12;color:#e8e8ee;overflow:hidden}
-#board{position:absolute;inset:0;display:flex;flex-direction:column}
-#top{display:flex;flex-wrap:wrap;gap:.5em;align-items:center;padding:.5em .8em;background:#17171f;border-bottom:1px solid #2c2c3e;position:relative;z-index:7}
-#svg{width:100%;flex:1;min-height:0;position:relative}
-#bottom{display:flex;height:clamp(120px,22vh,220px);border-top:1px solid #2c2c3e}
-#log{flex:0 1 auto;width:max-content;max-width:55%;overflow:auto;background:#0a0a0e;padding:.5em .9em;font:.85em/1.45 ui-monospace,monospace;border-right:1px solid #2c2c3e}
+html,body{height:100%;overflow:hidden;max-width:100vw}
+body{margin:0;font-size:clamp(12px,1.05vw,17px);font-family:system-ui,sans-serif;background:#0e0e12;color:#e8e8ee}
+#board{position:absolute;inset:0;display:flex;flex-direction:column;min-width:0;max-width:100vw;overflow:hidden}
+#top{display:flex;flex-wrap:wrap;row-gap:.4em;gap:.5em;align-items:center;padding:.5em .8em;background:#17171f;border-bottom:1px solid #2c2c3e;position:relative;z-index:7;max-width:100%;max-height:30vh;overflow:auto}
+#top>*{max-width:100%}
+#svg{width:100%;flex:1;min-height:0;min-width:0;max-width:100%;position:relative;cursor:grab;touch-action:none}
+#bottom{display:flex;height:clamp(120px,22vh,220px);border-top:1px solid #2c2c3e;min-width:0;max-width:100%;overflow:hidden}
+#log{flex:0 1 auto;width:max-content;max-width:40%;min-width:0;overflow:auto;background:#0a0a0e;padding:.5em .9em;font:.85em/1.45 ui-monospace,monospace;border-right:1px solid #2c2c3e}
 #log div{white-space:pre-wrap}
-#hand{flex:1;min-width:0;overflow:auto;background:#101018;padding:.5em .7em;display:flex;flex-wrap:wrap;gap:.5em;align-content:flex-start}
+#hand{flex:1 1 0;min-width:0;overflow:auto;background:#101018;padding:.5em .7em;display:flex;flex-wrap:wrap;gap:.5em;align-content:flex-start}
 #hand .sec{width:100%}
 button{background:#2a2a36;color:inherit;border:1px solid #454558;border-radius:.45em;padding:.4em .6em;cursor:pointer;font:inherit}
 button.on{background:#4a6cf7;border-color:#4a6cf7}
@@ -31,6 +32,7 @@ g.hov rect{stroke:#fff!important;stroke-width:3!important}
 .ring-atk,.ring-selh,.ring-idle,.ring-o,.ring-nk{fill:none;stroke-width:2.5;pointer-events:none;animation:pulse 1s ease-in-out infinite}
 .ring-atk{stroke:#ff5252}.ring-selh{stroke:#7cf0ff}.ring-o{stroke:#ffd54f}.ring-nk{stroke:#ff3d3d}
 .ring-idle{stroke:#ffffffaa;stroke-dasharray:3 3;animation:none}
+.ring-mc{fill:none;stroke:#c77dff;stroke-width:2;stroke-dasharray:2 3;pointer-events:none}
 @keyframes pulse{0%,100%{opacity:.3}50%{opacity:1}}
 text{pointer-events:none;text-anchor:middle;dominant-baseline:central;font-family:system-ui,sans-serif}
 .mute{opacity:.28}
@@ -46,8 +48,8 @@ text{pointer-events:none;text-anchor:middle;dominant-baseline:central;font-famil
 .alert{background:#4a1d1d;color:#ffb3b3;border-radius:.4em;padding:.2em .5em;font-size:.85em}
 .hint{font-size:1.05em;font-weight:600;color:#ffe8a3;animation:hin .45s ease-out}
 @keyframes hin{from{opacity:0;transform:translateX(-12px)}to{opacity:1;transform:none}}
-.card-t{display:flex;flex-direction:column;align-items:center;gap:.4em;min-width:clamp(7.5em,10vw,13em);padding:clamp(.6em,1.1vw,1.2em);background:#24243a;border:1px solid #454558;border-radius:.7em}
-.card-t small{font-size:clamp(.95em,1.2vw,1.3em);color:#9a9ab0}
+.card-t{display:flex;flex-direction:column;align-items:center;gap:.4em;min-width:clamp(6em,9vw,11em);max-width:100%;padding:clamp(.6em,1.1vw,1.2em);background:#24243a;border:1px solid #454558;border-radius:.7em}
+.card-t small{font-size:clamp(.95em,1.2vw,1.3em);color:#9a9ab0;white-space:normal}
 .card-t .dc{font-size:clamp(.8em,1vw,1.05em);padding:.2em .6em}
 [data-card]{cursor:grab}
 #wheel{position:absolute;width:0;height:0;z-index:5;display:none}
@@ -55,7 +57,7 @@ text{pointer-events:none;text-anchor:middle;dominant-baseline:central;font-famil
 .wbtn .wi{font-size:1.6em}
 .wbtn small{font-size:.8em;font-weight:700}
 .wbtn.wx{left:0;top:0;width:clamp(34px,4vmin,44px);height:clamp(34px,4vmin,44px);background:#3a2a2a}
-#fx{position:absolute;left:50%;top:38%;transform:translate(-50%,-50%);display:flex;flex-direction:column;align-items:center;gap:.5em;pointer-events:none;z-index:6}
+#fx{position:absolute;left:50%;top:38%;transform:translate(-50%,-50%);display:flex;flex-direction:column;align-items:center;gap:.5em;pointer-events:none;z-index:6;max-width:90%}
 .fx{background:#000d;border:2px solid #8a8aff;border-radius:.7em;padding:.5em .9em;font-size:1.15em;font-weight:700;line-height:1.5;text-align:center;animation:fxin .3s ease-out,fxout .4s ease-in 2.2s forwards}
 .fx span{display:inline-block;animation:pop .35s both;animation-delay:var(--d,0s)}
 .fx.nat{border-color:#ffd54f;background:#2a2100f0;font-size:1.6em;box-shadow:0 0 50px #ffd54f88;animation:natin .6s ease-out,fxout .4s ease-in 2.6s forwards}
@@ -66,27 +68,13 @@ text{pointer-events:none;text-anchor:middle;dominant-baseline:central;font-famil
 .ghostc{position:fixed;pointer-events:none;z-index:30;transform:translate(-50%,-50%);background:#24243a;border:2px solid #ffe066;border-radius:.6em;padding:.4em .7em;font-size:1.2em;opacity:.9}
 #carry{position:fixed;pointer-events:none;z-index:31;background:#000e;border:1px solid #ffe066;border-radius:.5em;padding:.3em .6em;font-size:1em;white-space:nowrap}
 #tip{position:fixed;display:none;pointer-events:none;background:#000f;border:1px solid #556;border-radius:.6em;padding:.6em .8em;font-size:1.25em;line-height:1.45;z-index:9;max-width:26em}
-#modal{position:fixed;inset:0;background:#06060acc;display:none;align-items:center;justify-content:center;z-index:20}
-#modal .card{background:#1c1c28;border:1px solid #2c2c3e;border-radius:.8em;width:min(92vw,40em);padding:1.6em;display:flex;flex-direction:column;gap:1em;font-size:1.15em;text-align:center}
+#modal{position:fixed;inset:0;background:#06060acc;display:none;align-items:center;justify-content:center;z-index:20;padding:1em}
+#modal .card{background:#1c1c28;border:1px solid #2c2c3e;border-radius:.8em;width:min(92vw,40em);max-height:90vh;overflow:auto;padding:1.6em;display:flex;flex-direction:column;gap:1em;font-size:1.15em;text-align:center}
 #modal input{font-size:1em;padding:.5em;border-radius:.4em;border:1px solid #556;background:#0e0e12;color:inherit;text-align:center}
 #modal .row{display:flex;gap:.5em;justify-content:center;flex-wrap:wrap}
 .muted{color:#8a8aa0}
 .wait #hand button,.wait #top .dd,.wait #top .endb,.wait #wheel{pointer-events:none;opacity:.6}
-</style>
-<style>
-html,body{overflow:hidden;max-width:100vw}
-#board{min-width:0;max-width:100vw;overflow:hidden}
-#top{flex-wrap:wrap;row-gap:.4em;max-width:100%;max-height:30vh;overflow:auto}
-#top>*{max-width:100%}
-#svg{min-width:0;max-width:100%}
-#bottom{min-width:0;max-width:100%;overflow:hidden}
-#log{min-width:0;max-width:40%}
-#hand{min-width:0;flex:1 1 0}
-.card-t{min-width:clamp(6em,9vw,11em);max-width:100%}
-.card-t small{white-space:normal}
-#modal .card{max-height:90vh;overflow:auto}
-</style>
-</head>
+</style></head>
 <body>
 <div id="board"><div id="top"></div><svg id="svg" xmlns="http://www.w3.org/2000/svg"></svg><div id="wheel"></div><div id="fx"></div>
   <div id="bottom"><div id="log"></div><div id="hand"></div></div></div>
@@ -103,7 +91,7 @@ const HC=['#ff8fab','#7cf0ff','#c3f584','#ffd166','#b28dff','#ffa94d','#f1faee',
 const TC={str:'#7a2e38',def:'#24527a',rng:'#4f6b26',int:'#5b3478',bar:'#7a5a22'},NEUT='#2a2a38',GZF='#4d4118';
 const ICON={str:'✊',def:'🛡️',rng:'🏹',int:'🧠',bar:'🛑'},NAME={str:'Strength',def:'Defense',rng:'Range',int:'Intelligence',bar:'Barrier'},SK=['str','def','rng','int'];
 const DIRS=[[1,-1,0],[1,0,-1],[0,1,-1],[-1,1,0],[-1,0,1],[0,-1,1]],R=36;
-const HINT={attack:'Drag your hero onto an enemy hero in range to attack. Drop on the Nuke to attack it.',barrier:'Click a discovered tile next to one of your heroes (creates L3, or +1).',hero:'Click a tile with one of your heroes to spawn a new one (acts next turn).',obj:'Click a tile with one of your heroes to place an object.',buyskill:'Cyan rings: heroes you can pick. Gold rings: objects you can pick.'};
+const HINT={attack:'Drag your hero onto an enemy hero in range to attack. Drop on the Nuke to attack it.',mind:'Click an enemy hero in range to attempt Mind Control.',barrier:'Click a discovered tile next to one of your heroes (creates L3, or +1).',hero:'Click a tile with one of your heroes to spawn a new one (acts next turn).',obj:'Click a tile with one of your heroes to place an object.',buyskill:'Cyan rings: heroes you can pick. Gold rings: objects you can pick.'};
 const HINT_DEV={barrier:'Click a discovered tile within 1 of your hero: builds your barrier, or lowers an opponent\'s.',object:'Click a tile within 1 of your hero that has one of your heroes.',skill:'Cyan rings: heroes you can pick. Gold rings: objects you can pick.'};
 const K=c=>c.join(','),P=k=>k.split(',').map(Number);
 const dist=(a,b)=>(Math.abs(a[0]-b[0])+Math.abs(a[1]-b[1])+Math.abs(a[2]-b[2]))/2;
@@ -118,6 +106,7 @@ const NUKE_DEF=3;
 // ---------- session state ----------
 let G=null,PRIV=null,ME=null,ROOM=null,ROW=null,chan=null,lastPub='',lastPriv='',privP=null;
 let UNAME=localStorage.getItem('versa-name')||'';
+let VIEW={cx:0,cy:0,z:900},PAN=null,OUT=false;
 const validName=n=>/^[A-Za-z0-9]{2,16}$/.test(n);
 
 // ---------- lookups ----------
@@ -135,6 +124,12 @@ const alivePl=i=>G.heroes.some(h=>h.alive&&h.p==i);
 const alivePlayers=()=>G.pl.map((_,i)=>i).filter(alivePl);
 const myIdx=()=>G?G.pl.findIndex(p=>p.uid==ME):-1;
 const myTurn=()=>!!G&&G.started&&!G.over&&G.pl[G.cur]?.uid==ME;
+// the player whose hero this is acting for (a ceded, Mind Controlled hero acts for its controller)
+const ac=h=>h.mc&&h.mc.ceded?h.mc.by:h.p;
+// can I act with this hero right now?
+const canHero=h=>{if(!G||!G.started||G.over||!h||!h.alive||h.p!=G.cur)return false;if(h.p==myIdx())return myTurn()&&!h.mc;return !!h.mc&&h.mc.ceded&&h.mc.by==myIdx()};
+const ctrlActive=()=>!!G&&G.started&&!G.over&&G.cur!=myIdx()&&G.heroes.some(h=>h.alive&&h.p==G.cur&&h.mc&&h.mc.ceded&&h.mc.by==myIdx());
+const mindOK=(h,A)=>h.alive&&(!h.mc||h.mc.by==A)&&!(h.mcCool!==undefined&&(G.rd===h.mcCool||G.rd===h.mcCool+1));
 const who=h=>`${G.pl[h.p].name} H${h.k}`;
 const phase=()=>G.rd<=3?'Peace · Growth':G.rd<=5?'War · Growth':G.rd==6?'Stagnation':'Decline';
 const removable=()=>Object.values(G.tiles).some(t=>!t.gz&&t.own==G.cur&&!heroesAt(t.c).length);
@@ -148,7 +143,6 @@ const note=s=>{G.msg=s};
 function log(t,p=-1){G.log.unshift({t,p});G.log.length=Math.min(G.log.length,80)}
 function act(h,type,fail){h.acts--;h.t.push({type,fail:!!fail});h.ok[type]=0}
 function spend(n){const p=G.pl[G.cur];if(p.v<n){note(`Need ${n}V (you have ${p.v}V)`);return false}p.v-=n;return true}
-// Barriers below L3 are destroyed; the tile stays.
 function fixBars(){if(!G)return;Object.values(G.tiles).forEach(t=>{if(t.bar&&t.bar<3){t.bar=0;t.barOwn=undefined}})}
 
 // ---------- room, lobby and sync ----------
@@ -159,7 +153,6 @@ function makeState(players){
     heroes:players.map((p,i)=>({p:i,k:1,c:[0,0,0],s:{str:1,def:1,rng:1,int:1},dmg:0,acts:i==0?2:0,t:[],ok:{},alive:1})),
     objs:n==2?[{nuke:1,p:-1,c:[0,0,0],s:{str:0,def:NUKE_DEF,rng:0,int:0},dmg:0,alive:1}]:[],
     log:[{t:`New game: ${n} players. Everyone starts on Ground Zero.${n==2?' A Nuke sits on Ground Zero.':''}`,p:-1}]};
-  // 2-player games: the first player skips their first 5V
   S.pl[0].v=n==2?0:5;
   return S;
 }
@@ -246,12 +239,19 @@ function toast(msg){const d=document.createElement('div');d.className='fx';d.tex
 function addHero(p,c){const k=G.heroes.filter(h=>h.p==p).length+1;G.heroes.push({p,k,c,s:{str:1,def:1,rng:1,int:1},dmg:0,acts:0,t:[],ok:{},alive:1})}
 function beginEffects(){
   G.heroes.forEach(h=>{if(h.p==G.cur){h.dmg=0;h.acts=2;h.t=[];h.ok={}}});
+  G.heroes.forEach(h=>{if(h.mc&&h.mc.by==G.cur)h.mc.kept=false});
   G.objs.forEach(o=>{if(o.p==G.cur)o.dmg=0});
   G.pl[G.cur].v+=5;G.done=false;G.first=true;
   log(`— ${G.pl[G.cur].name} · Round ${G.rd} (${phase()}) · +5V`,G.cur);
 }
 function endTurn(){
   if(!boardOK())return note('Finish your board step first');
+  // Mind Control: the controller must have renewed control this turn, or it ends
+  G.heroes.forEach(h=>{
+    if(!h.alive)return;
+    if(h.mc&&h.mc.by==G.cur&&!h.mc.kept){log(`${G.pl[G.cur].name} did not renew Mind Control of ${who(h)}; control ends`,G.cur);h.mc=null;h.mcCool=G.rd}
+    if(h.mc&&h.p==G.cur&&h.mc.ceded)h.mc.ceded=false;
+  });
   G.mode='';G.sel=null;G.wheel=null;
   do{G.cur=(G.cur+1)%G.n;if(!G.cur)G.rd++}while(!alivePl(G.cur));
   check();if(!G.over)beginEffects();
@@ -259,25 +259,26 @@ function endTurn(){
 function check(){
   const al=alivePlayers();
   if(al.length<=1){G.over=al.length?`${G.pl[al[0]].name} wins: last hero standing!`:'Everyone is gone: draw.';log(G.over);return}
-  // 3+ players: Apocalypse when two remain. 2 players: only when the Nuke is destroyed.
   const trig=(G.n>=3&&al.length==2)||(G.n==2&&G.nd);
   if(trig&&!G.apoc){G.apoc=1;Object.values(G.tiles).forEach(t=>{t.bar=0;t.barOwn=undefined});G.objs.forEach(o=>o.alive=0);log('☢ APOCALYPSE: barriers and objects destroyed')}
 }
-function kill(h,why){h.alive=0;h.dmg=0;log(`☠ ${who(h)} dies${why?' ('+why+')':''}`,h.p);check()}
+function kill(h,why){h.alive=0;h.dmg=0;if(h.mc)h.mc=null;log(`☠ ${who(h)} dies${why?' ('+why+')':''}`,h.p);check()}
 function valid(c){
   const k=K(c),t=tile(c),p=G.pl[G.cur],me=G.heroes.filter(h=>h.alive&&h.p==G.cur),m=G.mode;
-  const s=G.sel&&G.sel.alive&&G.sel.p==G.cur&&G.sel.acts>0?G.sel:null;
-  if(['attack','develop','barrier','hero','obj','buyskill'].includes(m)&&!boardOK())return false;
-  if(['attack','develop'].includes(m)&&(!s||!canRep(s,m)))return false;
+  const s=G.sel&&G.sel.alive&&G.sel.p==G.cur&&G.sel.acts>0?G.sel:null,A=s?ac(s):null;
+  if(['attack','develop','mind','barrier','hero','obj','buyskill'].includes(m)&&!boardOK())return false;
+  if(['attack','develop','mind'].includes(m)&&(!s||!canRep(s,m)))return false;
   switch(m){
     case 'place':return G.rd<=5&&p.pool.length>0&&!t&&adj(c).some(a=>{const u=tile(a);return u&&(u.gz||u.own==G.cur)});
     case 'remove':return G.rd>=7&&!!t&&!t.gz&&t.own==G.cur&&!heroesAt(c).length;
-    case 'attack':return G.rd>=4&&!!s&&dist(s.c,c)<=s.s.rng&&heroesAt(c).some(h=>h.p!=G.cur);
+    case 'move':return !!t&&!!s&&dist(s.c,c)>0&&dist(s.c,c)<=s.s.rng;
+    case 'attack':return G.rd>=4&&!!s&&dist(s.c,c)<=s.s.rng&&heroesAt(c).some(h=>ac(h)!=A);
+    case 'mind':return G.rd>=4&&!G.apoc&&!!s&&dist(s.c,c)<=s.s.rng&&heroesAt(c).some(h=>ac(h)!=A&&mindOK(h,A));
     case 'develop':{
       if(!t||!G.dev||!s||dist(s.c,c)>1)return false;
       if(G.dev=='barrier')return !G.apoc&&t.disc;
-      if(G.dev=='object')return !G.apoc&&objCount(G.cur)<3&&!objHere(c)&&heroesAt(c).some(h=>h.p==G.cur);
-      return heroesAt(c).some(h=>h.p==G.cur)||G.objs.some(o=>o.alive&&!o.nuke&&o.p==G.cur&&K(o.c)==k);
+      if(G.dev=='object')return !G.apoc&&objCount(G.cur)<3&&!objHere(c)&&heroesAt(c).some(h=>ac(h)==A);
+      return heroesAt(c).some(h=>ac(h)==A)||G.objs.some(o=>o.alive&&!o.nuke&&o.p==A&&K(o.c)==k);
     }
     case 'barrier':return !G.apoc&&!!t&&t.disc&&t.bar<12&&me.some(h=>dist(h.c,c)<=1);
     case 'hero':return me.some(h=>K(h.c)==k);
@@ -311,9 +312,9 @@ function discardCard(i){const p=G.pl[G.cur];p.hand.splice(i,1);p.v+=2;log('Disca
 function applyCard(i,u){
   const p=G.pl[G.cur],c=p.hand[i];
   if(c=='v'){p.v+=5;p.hand.splice(i,1);log('Played a 5V card: +5V',G.cur);return}
-  if(!u||u.nuke||u.p!=G.cur)return note('Drop a skill card on one of your heroes or objects');
+  if(!u||u.nuke||ac(u)!=G.cur&&u.p!=G.cur)return note('Drop a skill card on one of your heroes or objects');
   if(u.s[c]>=5)return note('That skill is maxed');
-  u.s[c]++;p.hand.splice(i,1);log(`${u.k?G.pl[G.cur].name+' H'+u.k:'Object'} +1 ${NAME[c]} from a card`,G.cur);
+  u.s[c]++;p.hand.splice(i,1);log(`${u.k?G.pl[u.p].name+' H'+u.k:'Object'} +1 ${NAME[c]} from a card`,G.cur);
 }
 function carryText(h){
   const c=carriedBy(h);
@@ -321,10 +322,11 @@ function carryText(h){
 }
 function moveCore(h,c){
   const a=d6(),b=d6(),r=a+b;
-  G.pl[G.cur].v+=r;act(h,'move',0);
+  if(!h.mc)G.pl[G.cur].v+=r;   // Mind Controlled heroes' moves earn no Versa
+  act(h,'move',0);
   const carried=carriedBy(h);
   h.c=c;carried.forEach(o=>o.c=c);
-  log(`${who(h)} 🏃 (${c}) rolled ${a}+${b}: +${r}V`,h.p);
+  log(`${who(h)} 🏃 (${c}) rolled ${a}+${b}${h.mc?'':': +'+r+'V'}`,h.p);
   if(carried.length)log(`  Carried along: ${carried.map(o=>o.nuke?'☢ Nuke':'🧱 object (DEF '+o.s.def+')').join(', ')}`,h.p);
   if(G.first){G.first=false;drawCard()}
   const t=tile(c);
@@ -333,7 +335,7 @@ function moveCore(h,c){
     else{h.s[t.sk]=Math.min(5,h.s[t.sk]+1);log(`  Discovered ${t.sk} HexTile: +1`,h.p)}}
 }
 function move(h,c){
-  if(heroesAt(c).some(x=>x.p!=h.p)&&K(c)!='0,0,0')return note('Opponents can\'t share a tile online yet');
+  if(heroesAt(c).some(x=>ac(x)!=ac(h))&&K(c)!='0,0,0')return note('Opponents can\'t share a tile online yet');
   const t0=tile(c),before=K(h.c),ask=t0&&!t0.disc&&t0.sk!='bar'&&objFor(h);
   const wasD=t0&&t0.disc;if(ask)t0.disc=1;
   moveCore(h,c);
@@ -359,6 +361,14 @@ function attackNuke(a,nk){
   log(`${who(a)} ☢ Nuke: rolled ${ra}+${sa}${ga?'+1 GZ':''} = ${A} vs ${rd}+${nk.s.def} = ${D}: ${hit?'hit':'miss'}`,a.p);
   if(hit){nk.dmg+=sa;log(`  Nuke takes ${sa} damage (${nk.dmg}/${nk.s.def})`,a.p);if(nk.dmg>=nk.s.def){nk.alive=0;G.nd=1;log('☢ The Nuke is destroyed!',a.p)}}
   if(ra==20){a.acts++;a.ok.attack=1;natFx('⚔️','Attack');log('  Natural 20: Attack available again',a.p)}
+  check();
+}
+function mindRoll(h,tg){
+  const oa=objFor(h),ob=objFor(tg),a=d20(),b=d20(),ai=h.s.int+gzb(h)+(oa?oa.s.int:0),bi=tg.s.int+(tile(tg.c).bar||0)+(ob?ob.s.int:0),A=a+ai,D=b+bi,ok=A>D;
+  act(h,'mind',!ok);
+  fx(`🧠 ${who(h)} Mind Control: ${a} + ${ai} INT = <b>${A}</b><br>vs ${who(tg)}: ${b} + ${bi} INT/barrier = <b>${D}</b> · ${ok?'CONTROLLED':'RESISTED'}`);
+  if(ok){tg.mc={by:h.p,ceded:false,kept:true};log(`${who(h)} 🧠 Mind Controls ${who(tg)} (${A} vs ${D})`,h.p)}
+  else{log(`${who(h)} 🧠 failed to control ${who(tg)} (${A} vs ${D})`,h.p);if(tg.mc&&tg.mc.by==h.p){tg.mc=null;tg.mcCool=G.rd;log(`  Control of ${who(tg)} lost; it can't be controlled again until the next round ends`,h.p)}}
   check();
 }
 function develop(h,c,tu){
@@ -388,7 +398,7 @@ function buyBarrier(c){const t=tile(c);if(!t.disc)return note('Barriers can only
 function buyHero(c){if(G.heroes.filter(h=>h.alive&&h.p==G.cur).length>=3)return note('Max 3 heroes alive');if(!spend(30))return;addHero(G.cur,c);log(`${G.pl[G.cur].name} spawns a new hero at (${c}) for 30V; it acts next turn`,G.cur)}
 function buyObj(c){if(objCount(G.cur)>=3)return note('Max 3 objects');if(!spend(5))return;G.objs.push({p:G.cur,c,s:{str:0,def:1,rng:0,int:0},dmg:0,alive:1});log(`${G.pl[G.cur].name} places an object at (${c}) for 5V`,G.cur)}
 function buySkill(u){if(u.s[G.devSkill]>=5)return note('That skill is maxed');if(!spend(5))return;u.s[G.devSkill]++;log(`${u.k?who(u):'Object'}: +1 ${G.devSkill} (5V)`,G.cur)}
-const devItems=()=>[['barrier','🛑','Barrier'],['object','🧱','Object'],['skill','⬆️','Skill']].map(([v,ic,t])=>({v,ic,t}));
+const devItems=()=>[['barrier','🛑','Barrier'],['object','🧱','Object'],['skill','⬆️','Skill'],['mind','🧠','Mind Control']].map(([v,ic,t])=>({v,ic,t}));
 const skillItems=()=>SK.map(k=>({v:k,ic:ICON[k],t:NAME[k]}));
 const rollItems=()=>[{v:'roll',ic:'🎲',t:'Roll d20'},{v:'take',ic:'1️⃣',t:'Take 1 pt'}];
 const buyItems=()=>{const p=G.pl[G.cur],mine=G.heroes.filter(h=>h.alive&&h.p==G.cur).length,bok=boardOK();return [['barrier','🛑','Barrier 5V',p.v<5||G.apoc||!bok],['obj','🧱','Object 5V',p.v<5||G.apoc||!bok||objCount(G.cur)>=3],['hero','👤','Hero 30V',p.v<30||mine>=3||!bok],['s:str','✊','STR +1',p.v<5||!bok],['s:def','🛡️','DEF +1',p.v<5||!bok],['s:rng','🏹','RNG +1',p.v<5||!bok],['s:int','🧠','INT +1',p.v<5||!bok]].map(([v,ic,t,dis])=>({v,ic,t,dis}))};
@@ -399,19 +409,24 @@ const natFx=(ic,name)=>fx(`<span>NATURAL 20!</span> ${ic} ${name} available agai
 
 // ---------- input helpers ----------
 const s2v=(x,y)=>{const svg=$('svg'),pt=svg.createSVGPoint();pt.x=x;pt.y=y;return pt.matrixTransform(svg.getScreenCTM().inverse())};
-const uSel=u=>{if(!G||G.over||!myTurn())return false;const s=G.sel;if(G.mode=='buyskill')return u.p==G.cur&&u.s[G.devSkill]<5;if(G.mode=='develop'&&G.dev=='skill')return u.p==G.cur&&!!s&&s.acts>0&&canRep(s,'develop')&&dist(s.c,u.c)<=1&&boardOK();return false};
-const ringH=(h,x,y)=>{let c=null;if(G.drag&&G.drag.moved&&h.p!=G.cur&&canAct(G.drag.h,'attack')&&dist(G.drag.h.c,h.c)<=G.drag.h.s.rng)c='atk';else if(uSel(h))c='selh';else if(!G.mode&&!G.drag&&h.p==G.cur&&myTurn()&&(canAct(h,'move')||canAct(h,'develop')))c='idle';return c?`<circle class='ring-${c}' cx='${x}' cy='${y}' r='14'/>`:''};
+const uSel=u=>{if(!G||G.over||!G.started)return false;const s=G.sel;if(G.mode=='buyskill')return myTurn()&&u.p==G.cur&&u.s[G.devSkill]<5;if(G.mode=='develop'&&G.dev=='skill')return !!s&&canHero(s)&&s.acts>0&&canRep(s,'develop')&&dist(s.c,u.c)<=1&&boardOK()&&ac(u)==ac(s);return false};
+const ringH=(h,x,y)=>{let c=null;const d=G.drag;if(d&&d.moved&&ac(h)!=ac(d.h)&&canAct(d.h,'attack')&&dist(d.h.c,h.c)<=d.h.s.rng)c='atk';else if(G.mode=='mind'&&G.sel&&ac(h)!=ac(G.sel)&&mindOK(h,ac(G.sel))&&dist(G.sel.c,h.c)<=G.sel.s.rng)c='atk';else if(uSel(h))c='selh';else if(!G.mode&&!G.drag&&canHero(h)&&(canAct(h,'move')||canAct(h,'develop')))c='idle';return c?`<circle class='ring-${c}' cx='${x}' cy='${y}' r='14'/>`:''};
 function hexPts(c){return [0,1,2,3,4,5].map(i=>{const a=Math.PI/3*i+Math.PI/6;return (px(c)+(R-4)*Math.cos(a)).toFixed(1)+','+(py(c)+(R-4)*Math.sin(a)).toFixed(1)}).join(' ')}
 function scr(c){const svg=$('svg'),pt=svg.createSVGPoint();pt.x=px(c);pt.y=py(c);const m=pt.matrixTransform(svg.getScreenCTM()),br=$('board').getBoundingClientRect();return [m.x-br.left,m.y-br.top]}
 
 // ---------- drawing ----------
+function setViewBox(){
+  const svg=$(svg_id()),r=svg.getBoundingClientRect(),asp=r.width?r.height/r.width:0.6;
+  const h=VIEW.z*asp;
+  svg.setAttribute('viewBox',`${VIEW.cx-VIEW.z/2} ${VIEW.cy-h/2} ${VIEW.z} ${h}`);
+}
+const svg_id=()=>'svg';
 function drawBoard(){
   const svg=$('svg'),top=$('top'),logEl=$('log'),hand=$('hand'),wh=$('wheel');
-  document.body.classList.toggle('wait',!!G&&!myTurn());
+  document.body.classList.toggle('wait',!!G&&!myTurn()&&!ctrlActive());
   if(!G){svg.innerHTML='';top.innerHTML='';logEl.innerHTML='';hand.innerHTML='';wh.style.display='none';return}
+  setViewBox();
   const cands=G.mode=='place'?[...new Set(Object.values(G.tiles).flatMap(t=>adj(t.c)).filter(c=>!tile(c)&&valid(c)).map(K))].map(P):[];
-  const all=[...Object.values(G.tiles).map(t=>t.c),...cands],xs=all.map(px),ys=all.map(py),pad=R+12;
-  svg.setAttribute('viewBox',`${Math.min(...xs)-pad} ${Math.min(...ys)-pad} ${Math.max(...xs)-Math.min(...xs)+2*pad} ${Math.max(...ys)-Math.min(...ys)+2*pad}`);
   const mi=myIdx(),dh=G.drag&&G.drag.moved?G.drag.h:null;
   let o='<defs><marker id="ar" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 z" fill="#ffe066"/></marker></defs>';
   cands.forEach(c=>o+=`<polygon class="cand" data-k="${K(c)}" points="${hexPts(c)}" style="animation-delay:-${((performance.now()/1000)%2.4).toFixed(2)}s"/>`);
@@ -425,9 +440,9 @@ function drawBoard(){
     if(!h.alive)return;
     let [x,y]=hpos(h);const sel=G.sel===h;
     if(G.tw&&G.tw.h===h){const tt=Math.min(1,(performance.now()-G.tw.t0)/420),ee=1-Math.pow(1-tt,3);x=G.tw.x0+(x-G.tw.x0)*ee;y=G.tw.y0+(y-G.tw.y0)*ee}
-    const tip=`<b>${esc(who(h))}</b><br>✊ ${h.s.str} · 🛡️ ${h.s.def} · 🏹 ${h.s.rng} · 🧠 ${h.s.int}<br>Damage ${h.dmg}/${h.s.def} · Actions left ${h.acts}`;
-    const acts=h.p==G.cur&&myTurn()?`<text x="${x}" y="${y-13}" font-size="9" fill="#ffe8a3" stroke="#000" stroke-width="2" paint-order="stroke">${'●'.repeat(h.acts)}${'✕'.repeat(Math.max(0,2-h.acts))}</text>`:'';
-    o+=`<g class="${G.mode&&(G.mode=='buyskill'||G.mode=='develop')&&!uSel(h)?'mute':''}" data-u="h${hi}" data-k="${K(h.c)}" data-tip="${tip}"><circle cx="${x}" cy="${y}" r="9" fill="${hcol(h)}" stroke="${COL[h.p]}" stroke-width="${sel?4:3}"/>${ringH(h,x,y)}${acts}${h.dmg?`<text x="${x+12}" y="${y-9}" font-size="10" font-weight="bold" fill="#ff5252">-${h.dmg}</text>`:''}</g>`;
+    const tip=`<b>${esc(who(h))}</b><br>✊ ${h.s.str} · 🛡️ ${h.s.def} · 🏹 ${h.s.rng} · 🧠 ${h.s.int}<br>Damage ${h.dmg}/${h.s.def}${canHero(h)?' · Actions left '+h.acts:''}${h.mc?'<br>Mind Controlled by '+esc(G.pl[h.mc.by].name)+(h.mc.ceded?' · ceded':''):''}`;
+    const dots=canHero(h)?`<text x="${x}" y="${y-13}" font-size="9" fill="#ffe8a3" stroke="#000" stroke-width="2" paint-order="stroke">${'●'.repeat(h.acts)}${'✕'.repeat(Math.max(0,2-h.acts))}</text>`:'';
+    o+=`<g class="${G.mode&&(G.mode=='buyskill'||G.mode=='develop')&&!uSel(h)?'mute':''}" data-u="h${hi}" data-k="${K(h.c)}" data-tip="${tip}"><circle cx="${x}" cy="${y}" r="9" fill="${hcol(h)}" stroke="${COL[h.p]}" stroke-width="${sel?4:3}"/>${h.mc?`<circle class='ring-mc' cx='${x}' cy='${y}' r='15'/>`:''}${ringH(h,x,y)}${dots}${h.dmg?`<text x="${x+12}" y="${y-9}" font-size="10" font-weight="bold" fill="#ff5252">-${h.dmg}</text>`:''}</g>`;
   });
   G.objs.forEach((ob,oi)=>{
     if(!ob.alive)return;
@@ -466,10 +481,11 @@ function drawBoard(){
 function hintText(){
   if(G.over)return G.over;
   if(G.msg)return G.msg;
+  if(ctrlActive())return 'You control a ceded hero this turn. Drag it to act with it.';
   if(!myTurn())return `Waiting for ${G.pl[G.cur].name}…`;
   if(!boardOK())return G.rd<=5?'Place a tile: click a dashed spot, then choose its skill.':'Decline: click one of your tiles with no hero on it.';
   if(G.mode=='develop')return G.dev?HINT_DEV[G.dev=='skill'?'skill':G.dev]:'Pick a develop option, then a target.';
-  return HINT[G.mode]||'Drag your hero to move or attack. Click it to develop. Drag a card onto a hero.';
+  return HINT[G.mode]||'Drag your hero to move or attack. Click it to develop or Mind Control. Drag a card onto a hero.';
 }
 function drawModal(){
   const m=$('modal');let h='';
@@ -491,20 +507,40 @@ function render(){
 
 // ---------- input ----------
 $('svg').addEventListener('pointerdown',e=>{
-  if(!G||G.over||!myTurn()||G.mode||!boardOK())return;
-  const t=e.target.closest('[data-u^="h"]');if(!t)return;
-  const h=G.heroes[+t.dataset.u.slice(1)];if(!h||h.p!=G.cur||h.acts<1||!canRep(h,'attack'))return;
-  G.drag={h,sx:e.clientX,sy:e.clientY,moved:false,cx:0,cy:0};
+  if(!G||G.over)return;
+  const t=e.target.closest('[data-u^="h"]');
+  const h=t?G.heroes[+t.dataset.u.slice(1)]:null;
+  if(h&&canHero(h)&&!G.mode&&boardOK()&&h.acts>0){
+    G.drag={h,sx:e.clientX,sy:e.clientY,moved:false,cx:0,cy:0,canDrag:canRep(h,'attack')&&(canAct(h,'move')||canAct(h,'attack'))};
+    return;
+  }
+  PAN={sx:e.clientX,sy:e.clientY,cx0:VIEW.cx,cy0:VIEW.cy,moved:false};
 });
 addEventListener('pointermove',e=>{
+  if(PAN){
+    const dx=e.clientX-PAN.sx,dy=e.clientY-PAN.sy;
+    if(!PAN.moved&&Math.hypot(dx,dy)<5)return;
+    PAN.moved=true;
+    const s=$('svg').getBoundingClientRect().width/VIEW.z;
+    VIEW.cx=PAN.cx0-dx/s;VIEW.cy=PAN.cy0-dy/s;
+    if(G)drawBoard();
+    return;
+  }
   const d=G&&G.drag;if(!d)return;
-  if(!d.moved){if(Math.hypot(e.clientX-d.sx,e.clientY-d.sy)<6)return;d.moved=true;G.sel=d.h;G.mode='move';G.wheel=null}
+  if(!d.moved){if(Math.hypot(e.clientX-d.sx,e.clientY-d.sy)<6)return;if(!d.canDrag)return;d.moved=true;G.sel=d.h;G.mode='move';G.wheel=null}
   const v=s2v(e.clientX,e.clientY);d.cx=v.x;d.cy=v.y;
   let cl=$('carry');if(!cl){cl=document.createElement('div');cl.id='carry';document.body.appendChild(cl)}
   cl.style.left=(e.clientX+18)+'px';cl.style.top=(e.clientY+18)+'px';cl.textContent=carryText(d.h);vsify();
   drawBoard();
 });
 addEventListener('pointerup',e=>{
+  const out=OUT;OUT=false;
+  if(PAN){
+    const moved=PAN.moved;PAN=null;
+    if(moved){if(G){G.swallow=true;setTimeout(()=>{if(G)G.swallow=false},80)}}
+    else if(out&&G&&backOne())render();
+    return;
+  }
   const d=G&&G.drag;if(!d)return;G.drag=null;
   $('carry')?.remove();
   G.swallow=true;setTimeout(()=>{if(G)G.swallow=false},80);
@@ -517,9 +553,9 @@ addEventListener('pointerup',e=>{
   const v=s2v(e.clientX,e.clientY);
   let tgt=null;for(const t of Object.values(G.tiles)){if(Math.hypot(px(t.c)-v.x,py(t.c)-v.y)<R){tgt=t.c;break}}
   if(!tgt){note('Drop on a tile or an enemy hero to act');return render()}
-  const en=heroesAt(tgt).find(x=>x.p!=G.cur),nk=nukeAt(tgt);
+  const A=ac(d.h),en=heroesAt(tgt).find(x=>ac(x)!=A),nk=nukeAt(tgt);
   if(en){if(canAct(d.h,'attack')&&dist(d.h.c,tgt)<=d.h.s.rng)attack(d.h,en);else note('Attack needs range, an action left, and round 4+')}
-  else if(nk&&!heroesAt(tgt).some(x=>x.p==G.cur&&x!==d.h)&&dist(d.h.c,tgt)<=d.h.s.rng){
+  else if(nk&&!heroesAt(tgt).some(x=>ac(x)==A)&&dist(d.h.c,tgt)<=d.h.s.rng){
     if(canNukeHit(d.h))attackNuke(d.h,nk);else note('This hero has no attack action left');
   }
   else{
@@ -542,18 +578,27 @@ $('svg').addEventListener('pointermove',e=>{
   tipEl.style.left=Math.min(e.clientX+16,innerWidth-300)+'px';tipEl.style.top=(e.clientY+16)+'px';
 });
 $('svg').addEventListener('pointerleave',()=>{$('tip').style.display='none';if(hovEl){hovEl.classList.remove('hov');hovEl=null}});
-$('svg').onclick=e=>{if(G&&G.swallow){G.swallow=false;return}const g=e.target.closest('[data-k]');if(!g||!G||G.over||!myTurn())return;click(g.dataset.k,e.target.closest('[data-u]')?.dataset.u||null)};
+$('svg').addEventListener('wheel',e=>{e.preventDefault();VIEW.z=Math.max(380,Math.min(1800,VIEW.z*(e.deltaY>0?1.1:0.9)));if(G)drawBoard()},{passive:false});
+$('svg').onclick=e=>{if(G&&G.swallow){G.swallow=false;return}const g=e.target.closest('[data-k]');if(!g||!G||G.over)return;click(g.dataset.k,e.target.closest('[data-u]')?.dataset.u||null)};
 function click(k,u){
   G.msg='';G.dd=null;
   if(G.wheel)return render();
+  if(!myTurn()&&!ctrlActive())return render();
+  // owner ceding a controlled hero
+  if(u&&u[0]=='h'){const hh=G.heroes[+u.slice(1)];if(hh&&hh.mc&&!hh.mc.ceded&&hh.p==myIdx()&&myTurn()&&!G.mode){G.sel=null;G.wheel={c:hh.c,kind:'cede',u:hh,items:[{v:'cede',ic:'🤝',t:'Cede to '+G.pl[hh.mc.by].name}]};return render()}}
   const c=P(k),m=G.mode;
   const hero=u&&u[0]=='h'?G.heroes[+u.slice(1)]:null,obj=u&&u[0]=='o'?G.objs[+u.slice(1)]:null;
+  if(m=='mind'){
+    const A=ac(G.sel),tg=hero&&ac(hero)!=A?hero:heroesAt(c).find(x=>ac(x)!=A);
+    if(!tg)return render();
+    if(!mindOK(tg,A)||dist(G.sel.c,tg.c)>G.sel.s.rng){note('Out of range, or that hero can\'t be controlled right now');return render()}
+    mindRoll(G.sel,tg);G.mode='';return render();
+  }
   if(m=='buyskill'||(m=='develop'&&G.dev=='skill')){
     if(!boardOK())return render();
     const tu=hero||obj;if(!tu){G.mode='';G.dev=null;return render()}
-    if(tu.p!=G.cur)return note('Pick one of your own heroes or objects');
-    if(m=='buyskill'){buySkill(tu);G.mode=''}
-    else{const s=G.sel;if(!s||s.acts<1||!canRep(s,'develop'))return note('Select a hero with a Develop action left');if(dist(s.c,tu.c)>1)return note('Target must be within 1 tile of the developing hero');G.wheel={c:tu.c,kind:'devskill',u:tu,items:skillItems()}}
+    if(m=='buyskill'){if(tu.p!=G.cur)return note('Pick one of your own heroes or objects');buySkill(tu);G.mode=''}
+    else{const s=G.sel;if(!s||!canHero(s)||s.acts<1||!canRep(s,'develop'))return note('Select a hero with a Develop action left');if(ac(tu)!=ac(s))return note('Pick one of your own heroes or objects');if(dist(s.c,tu.c)>1)return note('Target must be within 1 tile of the developing hero');G.wheel={c:tu.c,kind:'devskill',u:tu,items:skillItems()}}
     return render();
   }
   if(m=='place'){if(valid(c))G.wheel={c,kind:'place',items:G.pl[G.cur].pool.map(t=>({v:t,ic:ICON[t],t:NAME[t]}))};return render()}
@@ -569,7 +614,8 @@ function wheelPick(v){
   const w=G.wheel;
   if(!w||v=='x'){if(w&&w.kind=='discover')return;G.wheel=null;return render()}
   if(w.kind=='place'){G.wheel=null;place(w.c,v);return render()}
-  if(w.kind=='dev'){G.wheel=null;G.dev=v;if(v=='skill')G.msg='Click the hero or object to develop';return render()}
+  if(w.kind=='cede'){G.wheel=null;w.u.mc.ceded=true;log(`${G.pl[G.cur].name} cedes ${who(w.u)} to ${G.pl[w.u.mc.by].name}`,G.cur);return render()}
+  if(w.kind=='dev'){G.wheel=null;if(v=='mind'){G.mode='mind';G.dev=null;G.msg='Click an enemy hero in range to attempt Mind Control';return render()}G.dev=v;if(v=='skill')G.msg='Click the hero or object to develop';return render()}
   if(w.kind=='devskill'){if(w.u.s[v]>=5){note('That skill is maxed');return render()}G.devSkill=v;G.wheel={c:w.u.c,kind:'roll',u:w.u,items:rollItems()};return render()}
   if(w.kind=='roll'){G.wheel=null;G.take=v=='take';if(w.u)develop(G.sel,null,w.u);else develop(G.sel,w.t);G.mode='';G.dev=null;G.msg='';return render()}
   if(w.kind=='discover'){G.wheel=null;const pd=G.pend;G.pend=null;if(pd){pd.t.disc=1;const u=v=='obj'?objFor(pd.h):pd.h;if(!u)note('No object here to receive the bonus');else{u.s[pd.sk]=Math.min(5,u.s[pd.sk]+1);log(`  ${u.k?who(u):'Object'} +1 ${pd.sk} from discovery`,pd.h.p)}}return render()}
@@ -607,12 +653,15 @@ addEventListener('pointerup',e=>{
   else{if(!ou)return note('Drop a skill card on one of your heroes or objects');applyCard(d.i,ou.dataset.u[0]=='h'?G.heroes[+ou.dataset.u.slice(1)]:G.objs[+ou.dataset.u.slice(1)])}
   render();
 });
+// Clicks on empty board or non-target parts of the page step back one level
 addEventListener('pointerdown',e=>{
   if(!G||G.over)return;const t=e.target;
   if(t.closest('#wheel,#modal,#top button,#hand button,.ddp'))return;
-  if(t.closest('polygon.ok,polygon.cand'))return;
-  const kk=t.closest('[data-k]');if(kk&&G.mode&&valid(P(kk.dataset.k)))return;
-  if(t.closest('g[data-u]')?.querySelector('[class^="ring-"]'))return;
+  if(t.closest('#svg')){
+    const kk=t.closest('[data-k]');
+    OUT=!(t.closest('polygon.ok,polygon.cand')||(G.mode&&kk&&valid(P(kk.dataset.k)))||t.closest('g[data-u]')?.querySelector('[class^="ring-"]'));
+    return;
+  }
   if(backOne())render();
 });
 function backOne(){
