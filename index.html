@@ -488,7 +488,7 @@ function hintText(){
 }
 function drawModal(){
   const m=$('modal');let h='';
-  if(!UNAME||!validName(UNAME))h=`<div class='card'><h2 style='margin:0'>VERSA</h2><div class='muted'>Choose a username (2 to 16 letters or numbers)</div><input id='nameIn' maxlength='16'><div class='row'><button class='endb' data-saveName='1'>Continue</button></div></div>`;
+  if(!UNAME||!validName(UNAME))h=`<div class='card'><h2 style='margin:0'>VERSA</h2><div class='muted'>Choose a username (2 to 16 letters or numbers)</div><input id='nameIn' maxlength='16'><div class='row'><button class='endb' data-savename='1'>Continue</button></div></div>`;
   else if(!ROOM)h=`<div class='card'><h2 style='margin:0'>Play VERSA</h2><div class='muted'>Playing as <b>${esc(UNAME)}</b></div><div class='row'><button class='endb' data-create='1'>Create room</button></div><div class='row'><input id='codeIn' maxlength='6' placeholder='Room code'><button data-join='1'>Join room</button></div></div>`;
   else if(!G&&ROW){const ps=ROW.players||[];h=`<div class='card'><h2 style='margin:0'>Room ${ROOM}</h2><div class='muted'>Share this code with your opponent. Up to 6 players.</div><div>${ps.map((p,i)=>`<div style='color:${COL[i]}'>${i+1}. ${esc(p.name)}${p.uid==ME?' (you)':''}</div>`).join('')}</div>${ROW.host==ME?`<div class='row'><button class='endb' data-start='1' ${ps.length<2?'disabled':''}>Start game</button></div>`:`<div class='muted'>Waiting for the host to start…</div>`}<div class='row'><button class='ghost' data-leave='1'>Leave room</button></div></div>`}
   else if(G&&G.over)h=`<div class='card'><h2 style='margin:0'>${esc(G.over)}</h2><div class='row'><button class='endb' data-leave='1'>Back to lobby</button></div></div>`;
@@ -672,7 +672,7 @@ function backOne(){
 addEventListener('keydown',e=>{if(e.key=='Escape'&&G&&(G.mode||G.wheel)){if(G.mode!='place'&&G.mode!='remove'){G.mode='';G.dev=null}G.wheel=null;G.msg='';render()}});
 $('modal').onclick=e=>{
   const b=e.target.closest('button');if(!b)return;const d=b.dataset;
-  if(d.saveName!==undefined){const n=($('nameIn')?.value||'').trim();if(!validName(n))return toast('Use 2 to 16 letters or numbers');UNAME=n;localStorage.setItem('versa-name',n);return render()}
+  if(d.savename!==undefined){const n=($('nameIn')?.value||'').trim();if(!validName(n))return toast('Use 2 to 16 letters or numbers');UNAME=n;localStorage.setItem('versa-name',n);return render()}
   if(d.create!==undefined)return createRoom();
   if(d.join!==undefined){const c=($('codeIn')?.value||'').trim().toUpperCase();if(c)joinRoom(c);return}
   if(d.start!==undefined)return startGame();
