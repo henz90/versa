@@ -74,6 +74,13 @@ text{pointer-events:none;text-anchor:middle;dominant-baseline:central;font-famil
 #modal .row{display:flex;gap:.5em;justify-content:center;flex-wrap:wrap}
 .muted{color:#8a8aa0}
 .wait #hand button,.wait #top .dd,.wait #top .endb,.wait #wheel{pointer-events:none;opacity:.6}
+#hand{container-type:size;align-items:stretch}
+.card-t{width:clamp(4.5em,30cqh,9em);min-width:0;max-width:none;padding:3cqh 2cqh;gap:2cqh;justify-content:center}
+.card-t small{font-size:clamp(.65em,9cqh,1.05em);white-space:normal;text-align:center;line-height:1.2}
+.card-t .dc{font-size:clamp(.6em,8cqh,.95em);padding:.1em .4em;white-space:nowrap}
+.cicon{font-size:clamp(1.2em,26cqh,2.6em);line-height:1}
+#top{max-height:none;overflow:visible;z-index:50}
+.ddp{z-index:60}
 </style></head>
 <body>
 <div id="board"><div id="top"></div><svg id="svg" xmlns="http://www.w3.org/2000/svg"></svg><div id="wheel"></div><div id="fx"></div>
