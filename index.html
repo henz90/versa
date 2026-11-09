@@ -689,13 +689,11 @@ $('modal').onclick=e=>{
 
 // ---------- boot ----------
 (async()=>{
-  const {data,error}=await sb.auth.signInAnonymously();
-  if(error){toast('Sign-in failed: '+error.message);return}
-  ME=data.user.id;
-  const saved=localStorage.getItem('versa-room');
-  if(saved&&UNAME&&validName(UNAME))enterRoom(saved);
-  render();
-})();
-addEventListener('resize',()=>{if(G||ROOM)render()});
-render();
+  const {data:{session}}=await sb.auth.getSession();
+  if(session){ME=session.user.id}
+  else{
+    const {data,error}=await sb.auth.signInAnonymously();
+    if(error){toast('Sign-in failed: '+error.message);return}
+    ME=data.user.id;
+  }
 </script></body></html>
