@@ -72,7 +72,21 @@ text{pointer-events:none;text-anchor:middle;dominant-baseline:central;font-famil
 #modal .row{display:flex;gap:.5em;justify-content:center;flex-wrap:wrap}
 .muted{color:#8a8aa0}
 .wait #hand button,.wait #top .dd,.wait #top .endb,.wait #wheel{pointer-events:none;opacity:.6}
-</style></head>
+</style>
+<style>
+html,body{overflow:hidden;max-width:100vw}
+#board{min-width:0;max-width:100vw;overflow:hidden}
+#top{flex-wrap:wrap;row-gap:.4em;max-width:100%;max-height:30vh;overflow:auto}
+#top>*{max-width:100%}
+#svg{min-width:0;max-width:100%}
+#bottom{min-width:0;max-width:100%;overflow:hidden}
+#log{min-width:0;max-width:40%}
+#hand{min-width:0;flex:1 1 0}
+.card-t{min-width:clamp(6em,9vw,11em);max-width:100%}
+.card-t small{white-space:normal}
+#modal .card{max-height:90vh;overflow:auto}
+</style>
+</head>
 <body>
 <div id="board"><div id="top"></div><svg id="svg" xmlns="http://www.w3.org/2000/svg"></svg><div id="wheel"></div><div id="fx"></div>
   <div id="bottom"><div id="log"></div><div id="hand"></div></div></div>
@@ -412,7 +426,7 @@ function drawBoard(){
     let [x,y]=hpos(h);const sel=G.sel===h;
     if(G.tw&&G.tw.h===h){const tt=Math.min(1,(performance.now()-G.tw.t0)/420),ee=1-Math.pow(1-tt,3);x=G.tw.x0+(x-G.tw.x0)*ee;y=G.tw.y0+(y-G.tw.y0)*ee}
     const tip=`<b>${esc(who(h))}</b><br>✊ ${h.s.str} · 🛡️ ${h.s.def} · 🏹 ${h.s.rng} · 🧠 ${h.s.int}<br>Damage ${h.dmg}/${h.s.def} · Actions left ${h.acts}`;
-    const acts=h.p==G.cur?`<text x="${x}" y="${y-13}" font-size="9" fill="#ffe8a3" stroke="#000" stroke-width="2" paint-order="stroke">${'●'.repeat(h.acts)}${'✕'.repeat(Math.max(0,2-h.acts))}</text>`:'';
+    const acts=h.p==G.cur&&myTurn()?`<text x="${x}" y="${y-13}" font-size="9" fill="#ffe8a3" stroke="#000" stroke-width="2" paint-order="stroke">${'●'.repeat(h.acts)}${'✕'.repeat(Math.max(0,2-h.acts))}</text>`:'';
     o+=`<g class="${G.mode&&(G.mode=='buyskill'||G.mode=='develop')&&!uSel(h)?'mute':''}" data-u="h${hi}" data-k="${K(h.c)}" data-tip="${tip}"><circle cx="${x}" cy="${y}" r="9" fill="${hcol(h)}" stroke="${COL[h.p]}" stroke-width="${sel?4:3}"/>${ringH(h,x,y)}${acts}${h.dmg?`<text x="${x+12}" y="${y-9}" font-size="10" font-weight="bold" fill="#ff5252">-${h.dmg}</text>`:''}</g>`;
   });
   G.objs.forEach((ob,oi)=>{
