@@ -119,7 +119,7 @@ const nukeAt=c=>G.objs.find(o=>o.alive&&o.nuke&&K(o.c)==K(c));
 const objCount=p=>G.objs.filter(o=>o.alive&&!o.nuke&&o.p==p).length;
 const gzb=h=>tile(h.c)?.gz?1:0;
 const hcol=h=>HC[G.heroes.indexOf(h)%HC.length];
-const hpos=h=>{const here=heroesAt(h.c),i=here.indexOf(h),n=here.length;return [px(h.c)+(i-(n-1)/2)*19,py(h.c)+12]};
+const hpos=h=>{const here=heroesAt(h.c),i=here.indexOf(h),n=here.length;return [px(h.c)+(i-(n-1)/2)*13,py(h.c)+10]};
 const alivePl=i=>G.heroes.some(h=>h.alive&&h.p==i);
 const alivePlayers=()=>G.pl.map((_,i)=>i).filter(alivePl);
 const myIdx=()=>G?G.pl.findIndex(p=>p.uid==ME):-1;
@@ -410,17 +410,16 @@ const natFx=(ic,name)=>fx(`<span>NATURAL 20!</span> ${ic} ${name} available agai
 // ---------- input helpers ----------
 const s2v=(x,y)=>{const svg=$('svg'),pt=svg.createSVGPoint();pt.x=x;pt.y=y;return pt.matrixTransform(svg.getScreenCTM().inverse())};
 const uSel=u=>{if(!G||G.over||!G.started)return false;const s=G.sel;if(G.mode=='buyskill')return myTurn()&&u.p==G.cur&&u.s[G.devSkill]<5;if(G.mode=='develop'&&G.dev=='skill')return !!s&&canHero(s)&&s.acts>0&&canRep(s,'develop')&&dist(s.c,u.c)<=1&&boardOK()&&ac(u)==ac(s);return false};
-const ringH=(h,x,y)=>{let c=null;const d=G.drag;if(d&&d.moved&&ac(h)!=ac(d.h)&&canAct(d.h,'attack')&&dist(d.h.c,h.c)<=d.h.s.rng)c='atk';else if(G.mode=='mind'&&G.sel&&ac(h)!=ac(G.sel)&&mindOK(h,ac(G.sel))&&dist(G.sel.c,h.c)<=G.sel.s.rng)c='atk';else if(uSel(h))c='selh';else if(!G.mode&&!G.drag&&canHero(h)&&(canAct(h,'move')||canAct(h,'develop')))c='idle';return c?`<circle class='ring-${c}' cx='${x}' cy='${y}' r='14'/>`:''};
+const ringH=(h,x,y)=>{let c=null;const d=G.drag;if(d&&d.moved&&ac(h)!=ac(d.h)&&canAct(d.h,'attack')&&dist(d.h.c,h.c)<=d.h.s.rng)c='atk';else if(G.mode=='mind'&&G.sel&&ac(h)!=ac(G.sel)&&mindOK(h,ac(G.sel))&&dist(G.sel.c,h.c)<=G.sel.s.rng)c='atk';else if(uSel(h))c='selh';else if(!G.mode&&!G.drag&&canHero(h)&&(canAct(h,'move')||canAct(h,'develop')))c='idle';return c?`<circle class='ring-${c}' cx='${x}' cy='${y}' r='10'/>`:''};
 function hexPts(c){return [0,1,2,3,4,5].map(i=>{const a=Math.PI/3*i+Math.PI/6;return (px(c)+(R-4)*Math.cos(a)).toFixed(1)+','+(py(c)+(R-4)*Math.sin(a)).toFixed(1)}).join(' ')}
 function scr(c){const svg=$('svg'),pt=svg.createSVGPoint();pt.x=px(c);pt.y=py(c);const m=pt.matrixTransform(svg.getScreenCTM()),br=$('board').getBoundingClientRect();return [m.x-br.left,m.y-br.top]}
 
 // ---------- drawing ----------
 function setViewBox(){
-  const svg=$(svg_id()),r=svg.getBoundingClientRect(),asp=r.width?r.height/r.width:0.6;
+  const svg=$('svg'),r=svg.getBoundingClientRect(),asp=r.width?r.height/r.width:0.6;
   const h=VIEW.z*asp;
   svg.setAttribute('viewBox',`${VIEW.cx-VIEW.z/2} ${VIEW.cy-h/2} ${VIEW.z} ${h}`);
 }
-const svg_id=()=>'svg';
 function drawBoard(){
   const svg=$('svg'),top=$('top'),logEl=$('log'),hand=$('hand'),wh=$('wheel');
   document.body.classList.toggle('wait',!!G&&!myTurn()&&!ctrlActive());
@@ -434,28 +433,28 @@ function drawBoard(){
     const c=t.c,ok=valid(c),fill=t.gz?GZF:t.disc?TC[t.sk]:NEUT,stroke=t.own>=0?COL[t.own]:'#c9a227';
     const seen=t.disc||t.own==mi,lbl=t.gz?'⬡'+(t.bar?' 🛑'+t.bar:''):!seen?'?'+(t.bar?' 🛑'+t.bar:''):t.sk=='bar'?(t.bar?'🛑'+t.bar:'🛑'):ICON[t.sk]+(t.bar?' 🛑'+t.bar:'');
     o+=`<polygon data-k="${K(c)}" class="${ok?'ok':''}" fill="${fill}" stroke="${stroke}" stroke-width="3" points="${hexPts(c)}"/>`;
-    o+=`<text class="${t.bar&&G.mode&&!ok?'mute':''}" x="${px(c)}" y="${py(c)-14}" font-size="14" fill="#eee">${lbl}</text>`;
+    o+=`<text class="${t.bar&&G.mode&&!ok?'mute':''}" x="${px(c)}" y="${py(c)-12}" font-size="10" fill="#eee">${lbl}</text>`;
   });
   G.heroes.forEach((h,hi)=>{
     if(!h.alive)return;
     let [x,y]=hpos(h);const sel=G.sel===h;
     if(G.tw&&G.tw.h===h){const tt=Math.min(1,(performance.now()-G.tw.t0)/420),ee=1-Math.pow(1-tt,3);x=G.tw.x0+(x-G.tw.x0)*ee;y=G.tw.y0+(y-G.tw.y0)*ee}
     const tip=`<b>${esc(who(h))}</b><br>✊ ${h.s.str} · 🛡️ ${h.s.def} · 🏹 ${h.s.rng} · 🧠 ${h.s.int}<br>Damage ${h.dmg}/${h.s.def}${canHero(h)?' · Actions left '+h.acts:''}${h.mc?'<br>Mind Controlled by '+esc(G.pl[h.mc.by].name)+(h.mc.ceded?' · ceded':''):''}`;
-    const dots=canHero(h)?`<text x="${x}" y="${y-13}" font-size="9" fill="#ffe8a3" stroke="#000" stroke-width="2" paint-order="stroke">${'●'.repeat(h.acts)}${'✕'.repeat(Math.max(0,2-h.acts))}</text>`:'';
-    o+=`<g class="${G.mode&&(G.mode=='buyskill'||G.mode=='develop')&&!uSel(h)?'mute':''}" data-u="h${hi}" data-k="${K(h.c)}" data-tip="${tip}"><circle cx="${x}" cy="${y}" r="9" fill="${hcol(h)}" stroke="${COL[h.p]}" stroke-width="${sel?4:3}"/>${h.mc?`<circle class='ring-mc' cx='${x}' cy='${y}' r='15'/>`:''}${ringH(h,x,y)}${dots}${h.dmg?`<text x="${x+12}" y="${y-9}" font-size="10" font-weight="bold" fill="#ff5252">-${h.dmg}</text>`:''}</g>`;
+    const dots=canHero(h)?`<text x="${x}" y="${y-9}" font-size="6" fill="#ffe8a3" stroke="#000" stroke-width="1.5" paint-order="stroke">${'●'.repeat(h.acts)}${'✕'.repeat(Math.max(0,2-h.acts))}</text>`:'';
+    o+=`<g class="${G.mode&&(G.mode=='buyskill'||G.mode=='develop')&&!uSel(h)?'mute':''}" data-u="h${hi}" data-k="${K(h.c)}" data-tip="${tip}"><circle cx="${x}" cy="${y}" r="6" fill="${hcol(h)}" stroke="${COL[h.p]}" stroke-width="${sel?4:3}"/>${h.mc?`<circle class='ring-mc' cx='${x}' cy='${y}' r='9'/>`:''}${ringH(h,x,y)}${dots}${h.dmg?`<text x="${x+8}" y="${y-6}" font-size="7" font-weight="bold" fill="#ff5252">-${h.dmg}</text>`:''}</g>`;
   });
   G.objs.forEach((ob,oi)=>{
     if(!ob.alive)return;
     const tip=ob.nuke?`<b>☢ Nuke</b><br>Defense ${ob.s.def} · Damage ${ob.dmg}/${ob.s.def}<br>Destroying it triggers the Apocalypse`:`<b>${esc(G.pl[ob.p].name)} object</b><br>✊ ${ob.s.str} · 🛡️ ${ob.s.def} · 🏹 ${ob.s.rng} · 🧠 ${ob.s.int}<br>Damage ${ob.dmg}/${ob.s.def}`;
     if(ob.nuke){
       const x=px(ob.c)-22,y=py(ob.c)-2;
-      o+=`<g data-k="${K(ob.c)}" data-tip="${tip}"><circle cx="${x}" cy="${y}" r="10" fill="#2a0a0a" stroke="#ff3d3d" stroke-width="2.5"/><text x="${x}" y="${y+1}" font-size="13" fill="#ff3d3d">☢</text>${G.mode=='attack'||dh?`<circle class='ring-nk' cx='${x}' cy='${y}' r='15'/>`:''}</g>`;
+      o+=`<g data-k="${K(ob.c)}" data-tip="${tip}"><circle cx="${x}" cy="${y}" r="7" fill="#2a0a0a" stroke="#ff3d3d" stroke-width="2"/><text x="${x}" y="${y+1}" font-size="9" fill="#ff3d3d">☢</text>${G.mode=='attack'||dh?`<circle class='ring-nk' cx='${x}' cy='${y}' r='10'/>`:''}</g>`;
       return;
     }
     const own=heroesAt(ob.c).find(h=>h.p==ob.p),[hx,hy]=own?hpos(own):[px(ob.c),py(ob.c)+12];
-    const x=hx,y=hy+13;
+    const x=hx,y=hy+8;
     const car=dh&&K(ob.c)==K(dh.c)&&ob.p==dh.p;
-    o+=`<g class="${G.mode&&(G.mode=='buyskill'||G.mode=='develop')&&!uSel(ob)?'mute':''}" data-u="o${oi}" data-k="${K(ob.c)}" data-tip="${tip}"><rect x="${x-9}" y="${y-9}" width="18" height="18" rx="5" fill="${COL[ob.p]}" stroke="#0e0e12" stroke-width="2"/>${uSel(ob)||car?`<rect class='ring-o' x='${x-13}' y='${y-13}' width='26' height='26' rx='6'/>`:''}<text x="${x}" y="${y}" font-size="13">🛡️</text><text x="${x}" y="${y+2}" font-size="11" font-weight="bold" fill="#fff" stroke="#000" stroke-width="2.5" paint-order="stroke">${ob.s.def}</text></g>`;
+    o+=`<g class="${G.mode&&(G.mode=='buyskill'||G.mode=='develop')&&!uSel(ob)?'mute':''}" data-u="o${oi}" data-k="${K(ob.c)}" data-tip="${tip}"><rect x="${x-6}" y="${y-6}" width="12" height="12" rx="3" fill="${COL[ob.p]}" stroke="#0e0e12" stroke-width="1.5"/>${uSel(ob)||car?`<rect class='ring-o' x='${x-9}' y='${y-9}' width='18' height='18' rx='4'/>`:''}<text x="${x}" y="${y}" font-size="6">🛡️</text><text x="${x}" y="${y+2}" font-size="7" font-weight="bold" fill="#fff" stroke="#000" stroke-width="1.5" paint-order="stroke">${ob.s.def}</text></g>`;
   });
   if(G.drag&&G.drag.moved){const [hx,hy]=hpos(G.drag.h);o+=`<line x1="${hx}" y1="${hy}" x2="${G.drag.cx}" y2="${G.drag.cy}" stroke="#ffe066" stroke-width="3" stroke-dasharray="6 4" marker-end="url(#ar)" style="animation:march .5s linear infinite"/>`}
   svg.innerHTML=o;
@@ -498,7 +497,7 @@ function drawModal(){
   const ni=$('nameIn');if(ni)ni.value=UNAME;
 }
 const noOpts=()=>!G.over&&boardOK()&&!G.heroes.some(h=>h.alive&&h.p==G.cur&&h.acts>0&&(canAct(h,'move')||canAct(h,'attack')||canAct(h,'develop')))&&G.pl[G.cur].v<5;
-function vsify(){[...['top','side','log','hand','fx','modal','wheel','tip','carry'].map(i=>$(i)),...document.querySelectorAll('.ghostc')].forEach(root=>{if(!root)return;const w=document.createTreeWalker(root,NodeFilter.SHOW_TEXT),nodes=[];while(w.nextNode())nodes.push(w.currentNode);nodes.forEach(n=>{if(!/\d ?V\b/.test(n.nodeValue))return;const parts=n.nodeValue.split(/(\d+ ?)V\b/),frag=document.createDocumentFragment();parts.forEach((p,i)=>{if(i%2){frag.append(p);const s=document.createElement('span');s.className='vs';s.textContent='V';frag.append(s)}else if(p)frag.append(p)});n.replaceWith(frag)})})}
+function vsify(){[...['top','log','hand','fx','modal','wheel','tip','carry'].map(i=>$(i)),...document.querySelectorAll('.ghostc')].forEach(root=>{if(!root)return;const w=document.createTreeWalker(root,NodeFilter.SHOW_TEXT),nodes=[];while(w.nextNode())nodes.push(w.currentNode);nodes.forEach(n=>{if(!/\d ?V\b/.test(n.nodeValue))return;const parts=n.nodeValue.split(/(\d+ ?)V\b/),frag=document.createDocumentFragment();parts.forEach((p,i)=>{if(i%2){frag.append(p);const s=document.createElement('span');s.className='vs';s.textContent='V';frag.append(s)}else if(p)frag.append(p)});n.replaceWith(frag)})})}
 function render(){
   if(G&&G.mode=='develop'&&!G.dev&&!G.wheel)G.mode='';
   fixBars();
