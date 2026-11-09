@@ -6,13 +6,13 @@
 html,body{height:100%;overflow:hidden;max-width:100vw}
 body{margin:0;font-size:clamp(12px,1.05vw,17px);font-family:system-ui,sans-serif;background:#0e0e12;color:#e8e8ee}
 #board{position:absolute;inset:0;display:flex;flex-direction:column;min-width:0;max-width:100vw;overflow:hidden}
-#top{display:flex;flex-wrap:wrap;row-gap:.4em;gap:.5em;align-items:center;padding:.5em .8em;background:#17171f;border-bottom:1px solid #2c2c3e;position:relative;z-index:7;max-width:100%;max-height:30vh;overflow:auto}
+#top{display:flex;flex-wrap:wrap;row-gap:.4em;gap:.5em;align-items:center;padding:.5em .8em;background:#17171f;border-bottom:1px solid #2c2c3e;position:relative;z-index:50;max-width:100%;max-height:none;overflow:visible}
 #top>*{max-width:100%}
 #svg{width:100%;flex:1;min-height:0;min-width:0;max-width:100%;position:relative;cursor:grab;touch-action:none}
 #bottom{display:flex;height:clamp(120px,22vh,220px);border-top:1px solid #2c2c3e;min-width:0;max-width:100%;overflow:hidden}
 #log{flex:0 1 auto;width:max-content;max-width:40%;min-width:0;overflow:auto;background:#0a0a0e;padding:.5em .9em;font:.85em/1.45 ui-monospace,monospace;border-right:1px solid #2c2c3e}
 #log div{white-space:pre-wrap}
-#hand{flex:1 1 0;min-width:0;overflow:auto;background:#101018;padding:.5em .7em;display:flex;flex-wrap:wrap;gap:.5em;align-content:flex-start}
+#hand{flex:1 1 0;min-width:0;overflow:auto;background:#101018;padding:.5em .7em;display:flex;flex-wrap:wrap;gap:.5em;align-content:flex-start;container-type:size;align-items:stretch}
 #hand .sec{width:100%}
 button{background:#2a2a36;color:inherit;border:1px solid #454558;border-radius:.45em;padding:.4em .6em;cursor:pointer;font:inherit}
 button.on{background:#4a6cf7;border-color:#4a6cf7}
@@ -20,7 +20,7 @@ button:disabled{opacity:.35;cursor:default}
 .endb{background:linear-gradient(135deg,#ff2e7e,#ff9500);border:none;color:#fff;font-weight:800;padding:.4em .9em;box-shadow:0 0 14px #ff2e7e99}
 .ghost{background:transparent}
 .dd{position:relative;display:inline-block}
-.ddp{position:absolute;top:100%;left:0;margin-top:.3em;background:#1c1c2c;border:1px solid #556;border-radius:.5em;padding:.4em;display:flex;flex-direction:column;gap:.3em;min-width:13em;z-index:8;box-shadow:0 8px 20px #000c}
+.ddp{position:absolute;top:100%;left:0;margin-top:.3em;background:#1c1c2c;border:1px solid #556;border-radius:.5em;padding:.4em;display:flex;flex-direction:column;gap:.3em;min-width:13em;z-index:60;box-shadow:0 8px 20px #000c}
 .ddp button{text-align:left}
 polygon{cursor:pointer}
 polygon.ok{stroke:#ffe066!important;stroke-width:3!important}
@@ -48,9 +48,10 @@ text{pointer-events:none;text-anchor:middle;dominant-baseline:central;font-famil
 .alert{background:#4a1d1d;color:#ffb3b3;border-radius:.4em;padding:.2em .5em;font-size:.85em}
 .hint{font-size:1.05em;font-weight:600;color:#ffe8a3;animation:hin .45s ease-out}
 @keyframes hin{from{opacity:0;transform:translateX(-12px)}to{opacity:1;transform:none}}
-.card-t{display:flex;flex-direction:column;align-items:center;gap:.4em;min-width:clamp(6em,9vw,11em);max-width:100%;padding:clamp(.6em,1.1vw,1.2em);background:#24243a;border:1px solid #454558;border-radius:.7em}
-.card-t small{font-size:clamp(.95em,1.2vw,1.3em);color:#9a9ab0;white-space:normal}
-.card-t .dc{font-size:clamp(.8em,1vw,1.05em);padding:.2em .6em}
+.card-t{width:clamp(4.5em,30cqh,9em);min-width:0;max-width:none;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2cqh;padding:3cqh 2cqh;background:#24243a;border:1px solid #454558;border-radius:.7em}
+.card-t small{font-size:clamp(.65em,9cqh,1.05em);color:#9a9ab0;white-space:normal;text-align:center;line-height:1.2}
+.card-t .dc{font-size:clamp(.6em,8cqh,.95em);padding:.1em .4em;white-space:nowrap}
+.cicon{font-size:clamp(1.2em,26cqh,2.6em);line-height:1}
 [data-card]{cursor:grab}
 #wheel{position:absolute;width:0;height:0;z-index:5;display:none}
 .wbtn{position:absolute;width:clamp(60px,8vmin,92px);height:clamp(60px,8vmin,92px);transform:translate(-50%,-50%);border-radius:50%;display:flex;flex-direction:column;align-items:center;justify-content:center;background:#1c1c2c;border:2px solid #8a8aff;font-size:.95em;padding:0;line-height:1.1;box-shadow:0 4px 14px #000a}
@@ -74,13 +75,6 @@ text{pointer-events:none;text-anchor:middle;dominant-baseline:central;font-famil
 #modal .row{display:flex;gap:.5em;justify-content:center;flex-wrap:wrap}
 .muted{color:#8a8aa0}
 .wait #hand button,.wait #top .dd,.wait #top .endb,.wait #wheel{pointer-events:none;opacity:.6}
-#hand{container-type:size;align-items:stretch}
-.card-t{width:clamp(4.5em,30cqh,9em);min-width:0;max-width:none;padding:3cqh 2cqh;gap:2cqh;justify-content:center}
-.card-t small{font-size:clamp(.65em,9cqh,1.05em);white-space:normal;text-align:center;line-height:1.2}
-.card-t .dc{font-size:clamp(.6em,8cqh,.95em);padding:.1em .4em;white-space:nowrap}
-.cicon{font-size:clamp(1.2em,26cqh,2.6em);line-height:1}
-#top{max-height:none;overflow:visible;z-index:50}
-.ddp{z-index:60}
 </style></head>
 <body>
 <div id="board"><div id="top"></div><svg id="svg" xmlns="http://www.w3.org/2000/svg"></svg><div id="wheel"></div><div id="fx"></div>
@@ -98,7 +92,7 @@ const HC=['#ff8fab','#7cf0ff','#c3f584','#ffd166','#b28dff','#ffa94d','#f1faee',
 const TC={str:'#7a2e38',def:'#24527a',rng:'#4f6b26',int:'#5b3478',bar:'#7a5a22'},NEUT='#2a2a38',GZF='#4d4118';
 const ICON={str:'✊',def:'🛡️',rng:'🏹',int:'🧠',bar:'🛑'},NAME={str:'Strength',def:'Defense',rng:'Range',int:'Intelligence',bar:'Barrier'},SK=['str','def','rng','int'];
 const DIRS=[[1,-1,0],[1,0,-1],[0,1,-1],[-1,1,0],[-1,0,1],[0,-1,1]],R=36;
-const HINT={attack:'Drag your hero onto an enemy hero in range to attack. Drop on the Nuke to attack it.',mind:'Click an enemy hero in range to attempt Mind Control.',barrier:'Click a discovered tile next to one of your heroes (creates L3, or +1).',hero:'Click a tile with one of your heroes to spawn a new one (acts next turn).',obj:'Click a tile with one of your heroes to place an object.',buyskill:'Cyan rings: heroes you can pick. Gold rings: objects you can pick.'};
+const HINT={attack:'Drag your hero onto an enemy hero in range to attack. Click or drop on the Nuke to attack it.',mind:'Click an enemy hero in range to attempt Mind Control.',barrier:'Click a discovered tile next to one of your heroes (creates L3, or +1).',hero:'Click a tile with one of your heroes to spawn a new one (acts next turn).',obj:'Click a tile with one of your heroes to place an object.',buyskill:'Cyan rings: heroes you can pick. Gold rings: objects you can pick.'};
 const HINT_DEV={barrier:'Click a discovered tile within 1 of your hero: builds your barrier, or lowers an opponent\'s.',object:'Click a tile within 1 of your hero that has one of your heroes.',skill:'Cyan rings: heroes you can pick. Gold rings: objects you can pick.'};
 const K=c=>c.join(','),P=k=>k.split(',').map(Number);
 const dist=(a,b)=>(Math.abs(a[0]-b[0])+Math.abs(a[1]-b[1])+Math.abs(a[2]-b[2]))/2;
@@ -111,7 +105,7 @@ const esc=s=>String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'
 const NUKE_DEF=3;
 
 // ---------- session state ----------
-let G=null,PRIV=null,ME=null,ROOM=null,ROW=null,chan=null,lastPub='',lastPriv='',privP=null;
+let G=null,PRIV=null,ME=null,ROOM=null,ROW=null,chan=null,lastPub='',lastPriv='',privP=null,LOADING=false;
 let UNAME=localStorage.getItem('versa-name')||'';
 let VIEW={cx:0,cy:0,z:900},PAN=null,OUT=false;
 const validName=n=>/^[A-Za-z0-9]{2,16}$/.test(n);
@@ -201,13 +195,15 @@ function onRoom(row){
   ensurePriv().then(()=>applyState(row.state));
 }
 async function enterRoom(code){
+  LOADING=true;render();
   ROOM=code;localStorage.setItem('versa-room',code);
   if(chan)sb.removeChannel(chan);
   chan=sb.channel('room-'+code).on('postgres_changes',{event:'UPDATE',schema:'public',table:'rooms',filter:'code=eq.'+code},p=>onRoom(p.new)).subscribe();
-  const {data,error}=await sb.from('rooms').select('*').eq('code',code).single();
-  if(error)return toast('Room not found');
+  const {data,error}=await sb.from('rooms').select('*').eq('code',code).maybeSingle();
+  if(error||!data){toast('Room not found');leaveRoom();return}
   const {data:h}=await sb.from('hands').select('data').eq('room_code',code).eq('uid',ME).maybeSingle();
   if(h)PRIV=h.data;
+  LOADING=false;
   onRoom(data);
 }
 async function createRoom(){
@@ -217,7 +213,7 @@ async function createRoom(){
   enterRoom(code);
 }
 async function joinRoom(code){
-  const {data,error}=await sb.from('rooms').select('*').eq('code',code).single();
+  const {data,error}=await sb.from('rooms').select('*').eq('code',code).maybeSingle();
   if(error||!data)return toast('Room not found');
   const ps=data.players;
   if(ps.some(p=>p.uid==ME))return enterRoom(code);
@@ -237,7 +233,7 @@ async function startGame(){
 }
 function leaveRoom(){
   if(chan)sb.removeChannel(chan);
-  chan=null;ROOM=null;ROW=null;G=null;PRIV=null;privP=null;
+  chan=null;ROOM=null;ROW=null;G=null;PRIV=null;privP=null;LOADING=false;
   localStorage.removeItem('versa-room');render();
 }
 function toast(msg){const d=document.createElement('div');d.className='fx';d.textContent=msg;$('fx').appendChild(d);setTimeout(()=>d.remove(),2600)}
@@ -476,7 +472,7 @@ function drawBoard(){
     ${G.pl.map((_,i)=>`<span class="pchip ${i==G.cur?'cur':''} ${alivePl(i)?'':'out'}" style="--c:${COL[i]}">${esc(G.pl[i].name)} · ${alivePl(i)?G.heroes.filter(h=>h.alive&&h.p==i).length+' heroes':'out'}</span>`).join('')}`;
   logEl.innerHTML=G.log.slice(0,60).map(l=>`<div style="color:${l.p>=0?COL[l.p]:'#9a9ab0'}">${esc(l.t)}</div>`).join('');
   const hm=G.pl[mi]?.hand||[];
-  hand.innerHTML=mi<0?'<span class="muted">Spectating</span>':`<div class="sec">Traversal hand · ${hm.length} card${hm.length==1?'':'s'}</div>`+(hm.map((c,i)=>`<div class="card-t"><button data-card="${i}" class="card-t" style="border:0;padding:0;background:none"><span style="font-size:clamp(2.2em,3.6vw,4.2em)">${c=='v'?'💰':ICON[c]}</span><small>${c=='v'?'+5V':'+1 '+NAME[c]}</small></button><button class="dc" data-disc="${i}">Sell for 2V</button></div>`).join('')||'<span class="muted small">No cards. Move a hero to draw one.</span>');
+  hand.innerHTML=mi<0?'<span class="muted">Spectating</span>':`<div class="sec">Traversal hand · ${hm.length} card${hm.length==1?'':'s'}</div>`+(hm.map((c,i)=>`<div class="card-t"><button data-card="${i}" class="card-t" style="border:0;padding:0;background:none"><span class="cicon">${c=='v'?'💰':ICON[c]}</span><small>${c=='v'?'+5V':'+1 '+NAME[c]}</small></button><button class="dc" data-disc="${i}">Sell for 2V</button></div>`).join('')||'<span class="muted small">No cards. Move a hero to draw one.</span>');
   if(G.wheel){
     const w=G.wheel,[x,y]=w.xy||scr(w.c),n=w.items.length;
     wh.style.left=x+'px';wh.style.top=y+'px';wh.style.display='block';
@@ -496,7 +492,8 @@ function hintText(){
 function drawModal(){
   const m=$('modal');let h='';
   if(!UNAME||!validName(UNAME))h=`<div class='card'><h2 style='margin:0'>VERSA</h2><div class='muted'>Choose a username (2 to 16 letters or numbers)</div><input id='nameIn' maxlength='16'><div class='row'><button class='endb' data-savename='1'>Continue</button></div></div>`;
-  else if(!ROOM)h=`<div class='card'><h2 style='margin:0'>Play VERSA</h2><div class='muted'>Playing as <b>${esc(UNAME)}</b></div><div class='row'><button class='endb' data-create='1'>Create room</button></div><div class='row'><input id='codeIn' maxlength='6' placeholder='Room code'><button data-join='1'>Join room</button></div></div>`;
+  else if(!ROOM)h=`<div class='card'><h2 style='margin:0'>Play VERSA</h2><div class='muted'>Playing as <b>${esc(UNAME)}</b></div><div class='row'><button class='endb' data-create='1'>Create room</button></div><div class='row'><input id='codeIn' maxlength='6' placeholder='Room code'><button data-join='1'>Join room</button></div><div class='row'><button class='ghost' data-rename='1'>Change username</button></div></div>`;
+  else if(LOADING||(!G&&!ROW))h=`<div class='card'><h2 style='margin:0'>Loading room ${esc(ROOM)}…</h2><div class='row'><button class='ghost' data-leave='1'>Back to lobby</button></div></div>`;
   else if(!G&&ROW){const ps=ROW.players||[];h=`<div class='card'><h2 style='margin:0'>Room ${ROOM}</h2><div class='muted'>Share this code with your opponent. Up to 6 players.</div><div>${ps.map((p,i)=>`<div style='color:${COL[i]}'>${i+1}. ${esc(p.name)}${p.uid==ME?' (you)':''}</div>`).join('')}</div>${ROW.host==ME?`<div class='row'><button class='endb' data-start='1' ${ps.length<2?'disabled':''}>Start game</button></div>`:`<div class='muted'>Waiting for the host to start…</div>`}<div class='row'><button class='ghost' data-leave='1'>Leave room</button></div></div>`}
   else if(G&&G.over)h=`<div class='card'><h2 style='margin:0'>${esc(G.over)}</h2><div class='row'><button class='endb' data-leave='1'>Back to lobby</button></div></div>`;
   else if(G&&myTurn()&&noOpts())h=`<div class='card'><h2 style='margin:0'>Out of Actions and Versa</h2><div class='muted'>${esc(UNAME)} has no actions and not enough Versa to spend. End the turn.</div><div class='row'><button class='endb' data-end='1'>End turn ➜</button></div></div>`;
@@ -561,8 +558,8 @@ addEventListener('pointerup',e=>{
   if(!tgt){note('Drop on a tile or an enemy hero to act');return render()}
   const A=ac(d.h),en=heroesAt(tgt).find(x=>ac(x)!=A),nk=nukeAt(tgt);
   if(en){if(canAct(d.h,'attack')&&dist(d.h.c,tgt)<=d.h.s.rng)attack(d.h,en);else note('Attack needs range, an action left, and round 4+')}
-  else if(nk&&!heroesAt(tgt).some(x=>ac(x)==A)&&dist(d.h.c,tgt)<=d.h.s.rng){
-    if(canNukeHit(d.h))attackNuke(d.h,nk);else note('This hero has no attack action left');
+  else if(nk){
+    if(canNukeHit(d.h)&&dist(d.h.c,tgt)<=d.h.s.rng)attackNuke(d.h,nk);else note('Nuke attack needs range and an attack action left');
   }
   else{
     if(!canAct(d.h,'move')){note('This hero has already moved this turn');return render()}
@@ -593,6 +590,9 @@ function click(k,u){
   // owner ceding a controlled hero
   if(u&&u[0]=='h'){const hh=G.heroes[+u.slice(1)];if(hh&&hh.mc&&!hh.mc.ceded&&hh.p==myIdx()&&myTurn()&&!G.mode){G.sel=null;G.wheel={c:hh.c,kind:'cede',u:hh,items:[{v:'cede',ic:'🤝',t:'Cede to '+G.pl[hh.mc.by].name}]};return render()}}
   const c=P(k),m=G.mode;
+  // a selected hero attacks the Nuke by clicking it
+  const nk0=nukeAt(c);
+  if(nk0&&!G.mode&&G.sel&&canHero(G.sel)&&canNukeHit(G.sel)&&dist(G.sel.c,c)<=G.sel.s.rng){attackNuke(G.sel,nk0);return render()}
   const hero=u&&u[0]=='h'?G.heroes[+u.slice(1)]:null,obj=u&&u[0]=='o'?G.objs[+u.slice(1)]:null;
   if(m=='mind'){
     const A=ac(G.sel),tg=hero&&ac(hero)!=A?hero:heroesAt(c).find(x=>ac(x)!=A);
@@ -665,7 +665,7 @@ addEventListener('pointerdown',e=>{
   if(t.closest('#wheel,#modal,#top button,#hand button,.ddp'))return;
   if(t.closest('#svg')){
     const kk=t.closest('[data-k]');
-    OUT=!(t.closest('polygon.ok,polygon.cand')||(G.mode&&kk&&valid(P(kk.dataset.k)))||t.closest('g[data-u]')?.querySelector('[class^="ring-"]'));
+    OUT=!(t.closest('polygon.ok,polygon.cand')||(G.mode&&kk&&valid(P(kk.dataset.k)))||t.closest('g[data-u]')?.querySelector('[class^="ring-"]')||t.closest('g[data-k]')?.querySelector('[class^="ring-"]'));
     return;
   }
   if(backOne())render();
@@ -680,6 +680,7 @@ addEventListener('keydown',e=>{if(e.key=='Escape'&&G&&(G.mode||G.wheel)){if(G.mo
 $('modal').onclick=e=>{
   const b=e.target.closest('button');if(!b)return;const d=b.dataset;
   if(d.savename!==undefined){const n=($('nameIn')?.value||'').trim();if(!validName(n))return toast('Use 2 to 16 letters or numbers');UNAME=n;localStorage.setItem('versa-name',n);return render()}
+  if(d.rename!==undefined){UNAME='';localStorage.removeItem('versa-name');return render()}
   if(d.create!==undefined)return createRoom();
   if(d.join!==undefined){const c=($('codeIn')?.value||'').trim().toUpperCase();if(c)joinRoom(c);return}
   if(d.start!==undefined)return startGame();
@@ -696,4 +697,10 @@ $('modal').onclick=e=>{
     if(error){toast('Sign-in failed: '+error.message);return}
     ME=data.user.id;
   }
+  const saved=localStorage.getItem('versa-room');
+  if(saved&&UNAME&&validName(UNAME))enterRoom(saved);
+  render();
+})();
+addEventListener('resize',()=>{if(G||ROOM||!UNAME)render()});
+render();
 </script></body></html>
