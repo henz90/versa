@@ -26,7 +26,7 @@ button:disabled{opacity:.35;cursor:default}
 .endb{background:linear-gradient(135deg,#ff2e7e,#ff9500);border:none;color:#fff;font-weight:800;padding:.4em .9em;box-shadow:0 0 14px #ff2e7e99}
 .ghost{background:transparent}
 polygon{cursor:pointer}
-polygon.ok{stroke:#ffe066!important;stroke-width:1.5!important}
+polygon.rm{stroke-dasharray:6 4;animation:march 2.4s linear infinite}
 polygon.hov{stroke:#fff!important;stroke-width:2.5!important;filter:brightness(1.35)}
 g.hov circle{stroke:#fff!important;stroke-width:2.5!important}
 g.hov rect{stroke:#fff!important;stroke-width:1.5!important}
@@ -338,7 +338,7 @@ function moveCore(h,c,takeNuke){
   h.c=c;carried.forEach(o=>o.c=c);
   log(`${who(h)} 🏃 (${c}) rolled ${a}+${b}${h.mc?'':': +'+r+'V'}`,h.p);
   if(carried.length)log(`  Carried along: ${carried.map(o=>o.nuke?'☢ Nuke':'🧱 object (DEF '+o.s.def+')').join(', ')}`,h.p);
-  if(G.first){G.first=false;drawCard()}
+  if(G.first&&!h.mc){G.first=false;drawCard()}
   const t=tile(c);
   if(!t.disc){t.disc=1;
     if(t.sk=='bar'){
@@ -452,7 +452,7 @@ function drawBoard(){
     // hextiles highlight only for barrier actions
     const c=t.c,ok=valid(c)&&(G.mode=='barrier'||(G.mode=='develop'&&G.dev=='barrier')),fill=t.gz?GZF:t.disc?TC[t.sk]:NEUT,stroke=t.own>=0?COL[t.own]:'#c9a227';
     const seen=t.disc||t.own==mi,lbl=t.gz?'⬡'+(t.bar?' 🛑'+t.bar:''):!seen?'?'+(t.bar?' 🛑'+t.bar:''):t.sk=='bar'?(t.bar?'🛑'+t.bar:'🛑'):ICON[t.sk]+(t.bar?' 🛑'+t.bar:'');
-    o+=`<polygon data-k="${K(c)}" class="${ok?'ok':''}" fill="${fill}" stroke="${stroke}" stroke-width="1.5" points="${hexPts(c)}"/>`;
+    o+=`<polygon data-k="${K(c)}" class="${ok?(G.mode=='remove'?'ok rm':'ok'):''}" fill="${fill}" stroke="${stroke}" stroke-width="1.5" points="${hexPts(c)}"/>`;
     o+=`<text class="${t.bar&&G.mode&&!ok?'mute':''}" x="${px(c)}" y="${py(c)-12}" font-size="10" fill="#eee">${lbl}</text>`;
   });
   G.heroes.forEach((h,hi)=>{
