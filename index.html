@@ -9,7 +9,7 @@ body{margin:0;font-size:clamp(12px,1.05vw,17px);font-family:system-ui,sans-serif
 #top{display:flex;flex-wrap:wrap;row-gap:.4em;gap:.5em;align-items:center;padding:.5em .8em;background:#17171f;border-bottom:1px solid #2c2c3e;position:relative;z-index:50;max-width:100%}
 #top>*{max-width:100%}
 #svg{width:100%;flex:1;min-height:0;min-width:0;max-width:100%;position:relative;cursor:grab;touch-action:none}
-#bottom{display:flex;height:clamp(120px,22vh,220px);border-top:1px solid #2c2c3e;min-width:0;max-width:100%;overflow:hidden}
+#bottom{display:flex;height:clamp(170px,30vh,300px);border-top:1px solid #2c2c3e;min-width:0;max-width:100%;overflow:hidden}
 #log{flex:0 1 auto;width:max-content;max-width:28%;min-width:0;overflow:auto;background:#0a0a0e;padding:.5em .9em;font:.85em/1.45 ui-monospace,monospace;border-right:1px solid #2c2c3e}
 #log div{white-space:pre-wrap}
 #hand{flex:1 1 0;min-width:0;overflow:auto;background:#101018;padding:.5em .7em;display:flex;flex-wrap:wrap;gap:.5em;align-content:flex-start;container-type:size;align-items:stretch}
@@ -111,7 +111,7 @@ const NUKE_DEF=3;
 // ---------- session state ----------
 let G=null,PRIV=null,ME=null,ROOM=null,ROW=null,chan=null,lastPub='',lastPriv='',privP=null,LOADING=false;
 let UNAME=localStorage.getItem('versa-name')||'';
-let VIEW={cx:0,cy:0,z:900},PAN=null,OUT=false,BUY_OPEN=true;
+let VIEW={cx:0,cy:0,z:900},PAN=null,OUT=false;
 const validName=n=>/^[A-Za-z0-9]{2,16}$/.test(n);
 
 // ---------- lookups ----------
@@ -449,7 +449,8 @@ function drawBoard(){
   let o='<defs><marker id="ar" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 z" fill="#ffe066"/></marker></defs>';
   cands.forEach(c=>o+=`<polygon class="cand" data-k="${K(c)}" points="${hexPts(c)}" style="animation-delay:-${((performance.now()/1000)%2.4).toFixed(2)}s"/>`);
   Object.values(G.tiles).forEach(t=>{
-    const c=t.c,ok=valid(c),fill=t.gz?GZF:t.disc?TC[t.sk]:NEUT,stroke=t.own>=0?COL[t.own]:'#c9a227';
+    // hextiles highlight only for barrier actions
+    const c=t.c,ok=valid(c)&&(G.mode=='barrier'||(G.mode=='develop'&&G.dev=='barrier')),fill=t.gz?GZF:t.disc?TC[t.sk]:NEUT,stroke=t.own>=0?COL[t.own]:'#c9a227';
     const seen=t.disc||t.own==mi,lbl=t.gz?'⬡'+(t.bar?' 🛑'+t.bar:''):!seen?'?'+(t.bar?' 🛑'+t.bar:''):t.sk=='bar'?(t.bar?'🛑'+t.bar:'🛑'):ICON[t.sk]+(t.bar?' 🛑'+t.bar:'');
     o+=`<polygon data-k="${K(c)}" class="${ok?'ok':''}" fill="${fill}" stroke="${stroke}" stroke-width="1.5" points="${hexPts(c)}"/>`;
     o+=`<text class="${t.bar&&G.mode&&!ok?'mute':''}" x="${px(c)}" y="${py(c)-12}" font-size="10" fill="#eee">${lbl}</text>`;
@@ -483,13 +484,12 @@ function drawBoard(){
     <span class="hint" id="hint"></span>
     <span style="flex:1"></span>
     ${myTurn()?`<button class="endb" data-end="1" ${boardOK()?'':'disabled'}>➜ End Turn</button>`:''}
-    <button class="ghost" data-buytoggle="1">🛒 Buy ${BUY_OPEN?'hide':'show'}</button>
     <button class="ghost" data-leave="1">Leave</button>
     ${G.pl.map((_,i)=>`<span class="pchip ${i==G.cur?'cur':''} ${alivePl(i)?'':'out'}" style="--c:${COL[i]}">${esc(G.pl[i].name)} · ${alivePl(i)?G.heroes.filter(h=>h.alive&&h.p==i).length+' heroes':'out'}</span>`).join('')}`;
   logEl.innerHTML=G.log.slice(0,60).map(l=>`<div style="color:${l.p>=0?COL[l.p]:'#9a9ab0'}">${esc(l.t)}</div>`).join('');
   const hm=G.pl[mi]?.hand||[];
   hand.innerHTML=mi<0?'<span class="muted">Spectating</span>':`<div class="sec">Traversal hand · ${hm.length} card${hm.length==1?'':'s'}</div>`+(hm.map((c,i)=>`<div class="card-t"><button data-card="${i}" class="cbtn"><span class="cicon">${c=='v'?'💰':ICON[c]}</span><small>${c=='v'?'+5V':'+1 '+NAME[c]}</small></button><button class="dc" data-disc="${i}">Sell 2V</button></div>`).join('')||'<span class="muted small">No cards. Move a hero to draw one.</span>');
-  bs.style.display=BUY_OPEN?'flex':'none';
+  bs.style.display='flex';
   bs.innerHTML=myTurn()?'<div class="sec">Buy</div>'+buyItems().map(i=>`<button class="opt2 ${buyOn(i.v)?'on':''}" data-bi="${i.v}" ${i.dis?'disabled':''}>${i.ic} ${i.t}</button>`).join(''):'<span class="muted small">Buying is available on your turn.</span>';
   if(G.wheel){
     const w=G.wheel,[x,y]=w.xy||scr(w.c),n=w.items.length;
@@ -689,7 +689,6 @@ function buyPick(v){if(v.startsWith('s:')){G.devSkill=v.slice(2);G.mode='buyskil
 function cancelMode(){if(G.mode!='place'&&G.mode!='remove'){G.mode='';G.dev=null}G.wheel=null;G.pm=null;G.msg='';render()}
 $('top').onclick=e=>{
   if(!G)return;const t=e.target.closest('button');if(!t)return;const d=t.dataset;
-  if(d.buytoggle!==undefined){BUY_OPEN=!BUY_OPEN;return render()}
   if(d.end!==undefined){if(!myTurn())return;if(boardOK())endTurn();else note('Finish your board step first');return render()}
   if(d.leave!==undefined){leaveRoom();return}
 };
