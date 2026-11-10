@@ -452,7 +452,7 @@ function drawBoard(){
     // hextiles highlight only for barrier actions
     const c=t.c,ok=valid(c)&&(G.mode=='barrier'||(G.mode=='develop'&&G.dev=='barrier')),fill=t.gz?GZF:t.disc?TC[t.sk]:NEUT,stroke=t.own>=0?COL[t.own]:'#c9a227';
     const seen=t.disc||t.own==mi,lbl=t.gz?'⬡'+(t.bar?' 🛑'+t.bar:''):!seen?'?'+(t.bar?' 🛑'+t.bar:''):t.sk=='bar'?(t.bar?'🛑'+t.bar:'🛑'):ICON[t.sk]+(t.bar?' 🛑'+t.bar:'');
-    o+=`<polygon data-k="${K(c)}" class="${ok?(G.mode=='remove'?'ok rm':'ok'):''}" fill="${fill}" stroke="${stroke}" stroke-width="1.5" points="${hexPts(c)}"/>`;
+    o+=`<polygon data-k="${K(c)}" class="${ok?'ok':''}${G.mode=='remove'&&valid(c)?' rm':''}" fill="${fill}" stroke="${stroke}" stroke-width="1.5" points="${hexPts(c)}"/>`;
     o+=`<text class="${t.bar&&G.mode&&!ok?'mute':''}" x="${px(c)}" y="${py(c)-12}" font-size="10" fill="#eee">${lbl}</text>`;
   });
   G.heroes.forEach((h,hi)=>{
@@ -598,7 +598,7 @@ addEventListener('pointerup',e=>{
     if(!atkOk&&!mindOk)note('No attack or Mind Control available to this hero on that target');
     else G.wheel={c:tgt,kind:'atkchoice',a:d.h,d:en,items:[{v:'atk',ic:'⚔️',t:'Combat',dis:!atkOk},{v:'mind',ic:'🧠',t:'Mind Control',dis:!mindOk}]};
   }
-  else if(nk){
+  else if(nk&&!canAct(d.h,'move')){
     if(canNukeHit(d.h)&&dist(d.h.c,tgt)<=d.h.s.rng)attackNuke(d.h,nk);else note('Nuke attack needs range and an attack action left');
   }
   else{
