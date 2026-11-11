@@ -10,7 +10,12 @@ body{margin:0;font-size:clamp(12px,1.05vw,17px);font-family:system-ui,sans-serif
 #top{display:flex;flex-wrap:wrap;row-gap:.4em;gap:.5em;align-items:center;padding:.5em .8em;background:#17171f;border-bottom:1px solid #2c2c3e;position:relative;z-index:50;max-width:100%}
 #top>*{max-width:100%}
 #svg{width:100%;flex:1;min-height:0;min-width:0;max-width:100%;position:relative;cursor:grab;touch-action:none}
-#bottom{display:flex;height:clamp(170px,30vh,300px);border-top:1px solid #2c2c3e;min-width:0;max-width:100%;overflow:hidden}
+#bottom{display:flex;flex-direction:column;height:clamp(200px,32vh,320px);border-top:1px solid #2c2c3e;min-width:0;max-width:100%;overflow:hidden}
+#bottom.min{height:auto}
+#bar{display:flex;gap:.4em;align-items:center;padding:.3em .6em;background:#15151d;flex:none;flex-wrap:wrap}
+.sbtn{font-size:.85em;padding:.25em .6em;white-space:nowrap}
+#panels{display:flex;flex:1;min-height:0;min-width:0}
+#bottom.min #panels{display:none}
 #log{flex:0 1 auto;width:max-content;max-width:28%;min-width:0;overflow:auto;background:#0a0a0e;padding:.5em .9em;font:.85em/1.45 ui-monospace,monospace;border-right:1px solid #2c2c3e}
 #log div{white-space:pre-wrap}
 #hand{flex:1 1 0;min-width:0;overflow:auto;background:#101018;padding:.5em .7em;display:flex;flex-wrap:wrap;gap:.5em;align-content:flex-start;container-type:size;align-items:stretch}
@@ -18,6 +23,8 @@ body{margin:0;font-size:clamp(12px,1.05vw,17px);font-family:system-ui,sans-serif
 #buyside{flex:0 0 auto;width:clamp(140px,15vw,230px);min-width:0;background:#101018;border-left:1px solid #2c2c3e;padding:.5em;display:flex;flex-direction:column;gap:.35em;overflow:auto}
 #buyside .sec{font-size:.8em}
 .vside{font-size:1.5em;font-weight:800;color:#ffd54f;text-align:center;padding:.3em;background:#17171f;border-radius:.4em}
+#todo{position:absolute;right:.6em;top:60px;width:clamp(170px,17vw,250px);max-height:45%;overflow:hidden;background:#0f0f18e6;border:1px solid #2c2c3e;border-radius:.6em;padding:.5em .7em;font-size:.82em;line-height:1.4;pointer-events:none;z-index:7}
+#todo b{display:block;margin-bottom:.2em;color:#ffe8a3}
 button{background:#2a2a36;color:inherit;border:1px solid #454558;border-radius:.45em;padding:.4em .6em;cursor:pointer;font:inherit}
 button.on{background:#4a6cf7;border-color:#4a6cf7}
 button:disabled{opacity:.35;cursor:default}
@@ -30,6 +37,7 @@ button:disabled{opacity:.35;cursor:default}
 polygon{cursor:pointer}
 polygon.ok{stroke:#ffe066!important;stroke-width:1.5!important}
 polygon.rm{stroke:#ff9f6e!important;stroke-width:2!important;stroke-dasharray:6 4;animation:march 2.4s linear infinite}
+polygon.bar{stroke:#7cf0ff!important;stroke-width:2.5!important;filter:drop-shadow(0 0 3px #7cf0ff) drop-shadow(0 0 6px #7cf0ff)}
 polygon.hov{stroke:#fff!important;stroke-width:2.5!important;filter:brightness(1.35)}
 g.hov circle{stroke:#fff!important;stroke-width:2.5!important}
 g.hov rect{stroke:#fff!important;stroke-width:1.5!important}
@@ -89,8 +97,8 @@ text{pointer-events:none;text-anchor:middle;dominant-baseline:central;font-famil
 .wait #hand button,.wait #buyside button,.wait #top .endb,.wait #wheel{pointer-events:none;opacity:.6}
 </style></head>
 <body>
-<div id="board"><div id="top"></div><svg id="svg" xmlns="http://www.w3.org/2000/svg"></svg><div id="cx"></div><div id="wheel"></div><div id="fx"></div>
-  <div id="bottom"><div id="log"></div><div id="hand"></div><div id="buyside"></div></div></div>
+<div id="board"><div id="top"></div><svg id="svg" xmlns="http://www.w3.org/2000/svg"></svg><div id="cx"></div><div id="todo"></div><div id="wheel"></div><div id="fx"></div>
+  <div id="bottom"><div id="bar"></div><div id="panels"><div id="log"></div><div id="hand"></div><div id="buyside"></div></div></div></div>
 <div id="tip"></div><div id="modal"></div>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
@@ -103,6 +111,8 @@ const COL=['#e4572e','#29b6f6','#66bb6a','#ffca28','#ab47bc','#ff8a65'];
 const HC=['#ff8fab','#7cf0ff','#c3f584','#ffd166','#b28dff','#ffa94d','#f1faee','#90e0ef','#e76f51','#2ec4b6','#f72585','#caf0f8','#fbf8cc','#a0c4ff','#ffadad','#9bf6ff','#bdb2ff','#ffc6ff'];
 const TC={str:'#7a2e38',def:'#24527a',rng:'#4f6b26',int:'#5b3478',bar:'#7a5a22'},NEUT='#2a2a38',GZF='#4d4118';
 const ICON={str:'✊',def:'🛡️',rng:'🏹',int:'🧠',bar:'🛑'},NAME={str:'Strength',def:'Defense',rng:'Range',int:'Intelligence',bar:'Barrier'},SK=['str','def','rng','int'];
+// unique item symbols for objects, assigned at creation
+const ITEMS=['🔮','🗡️','🏺','📿','🧿','⚗️','🪬','🔑','🪄','🧭','🕯️','🏹'];
 const DIRS=[[1,-1,0],[1,0,-1],[0,1,-1],[-1,1,0],[-1,0,1],[0,-1,1]],R=36;
 const HINT={attack:'Drag your hero onto an enemy hero in range. Release to choose Combat or Mind Control. Drop on the Nuke to attack it.',barrier:'Click a discovered tile next to one of your heroes (creates L3, or +1).',hero:'Click a tile with one of your heroes to spawn a new one (acts next turn).',obj:'Click a tile with one of your heroes to place an object.',buyskill:'Cyan rings: heroes you can pick. Gold rings: objects you can pick.'};
 const HINT_DEV={barrier:'Where should the barrier go? Highlighted: your hero\'s tile and the tiles next to it.',object:'Where should the object go? Click a tile next to your hero or on its tile.',skill:'Click one of the highlighted heroes or objects to raise the chosen skill.'};
@@ -121,7 +131,7 @@ const NUKE_DEF=3;
 // ---------- session state ----------
 let G=null,PRIV=null,ME=null,ROOM=null,ROW=null,chan=null,lastPub='',lastPriv='',privP=null,LOADING=false;
 let UNAME=localStorage.getItem('versa-name')||'';
-let VIEW={cx:0,cy:0,z:900},PAN=null,OUT=false;
+let VIEW={cx:0,cy:0,z:900},PAN=null,OUT=false,BOT_MIN=false;
 const validName=n=>/^[A-Za-z0-9]{2,16}$/.test(n);
 
 // ---------- lookups ----------
@@ -165,6 +175,7 @@ function log(t,p=-1){G.log.unshift({t,p});G.log.length=Math.min(G.log.length,80)
 function act(h,type,fail){h.acts--;h.t.push({type,fail:!!fail});h.ok[type]=0}
 function spend(n){const p=G.pl[G.cur];if(p.v<n){note(`Need ${n}V (you have ${p.v}V)`);return false}p.v-=n;return true}
 function fixBars(){if(!G)return;Object.values(G.tiles).forEach(t=>{if(t.bar&&t.bar<3){t.bar=0;t.barOwn=undefined}})}
+function newObj(p,c,def){const o={p,c,s:{str:0,def,rng:0,int:0},dmg:0,alive:1,sym:ITEMS[G.objs.length%ITEMS.length]};G.objs.push(o);return o}
 
 // ---------- room, lobby and sync ----------
 function makeState(players){
@@ -191,14 +202,25 @@ async function ensurePriv(){
   })();
   return privP;
 }
+// the owner reveals hidden tiles that other players discovered; the bonus goes to the discovering hero
+function resolveHidden(mi,PV){
+  Object.values(G.tiles).forEach(t=>{
+    if(!t.pend||t.own!==mi||!PV.sks[K(t.c)])return;
+    const sk=PV.sks[K(t.c)],pd=t.pend;
+    t.sk=sk;t.disc=1;t.pend=undefined;
+    if(sk=='bar'){if(!G.apoc){t.bar=3;t.barOwn=pd.p}log('  Hidden barrier HexTile revealed by its owner: L3 barrier appears',pd.p)}
+    else{const h=G.heroes.find(x=>x.alive&&x.p==pd.p&&x.k==pd.k);if(h)h.s[sk]=Math.min(5,h.s[sk]+1);log(`  Hidden ${sk} HexTile revealed by its owner: +1 for ${G.pl[pd.p].name} H${pd.k}`,pd.p)}
+  });
+}
 function applyState(st){
   const PV=PRIV||{pool:[],hand:[],deck:[],sks:{}},mi=st.pl.findIndex(p=>p.uid==ME);
   const old=G;
-  G={...st,sel:null,mode:'',wheel:null,wstack:[],dev:null,devSkill:old?.devSkill||'str',take:false,drag:null,cdrag:null,pend:null,pm:null,tw:null,msg:'',swallow:false,swallowH:false,
+  G={...st,sel:null,mode:'',wheel:null,wstack:[],dev:null,devSkill:old?.devSkill||'str',bdir:null,take:false,drag:null,cdrag:null,pend:null,pm:null,tw:null,msg:'',swallow:false,swallowH:false,
     pl:st.pl.map((p,i)=>({...p,pool:i==mi?PV.pool:Array(p.poolN).fill('?'),hand:i==mi?PV.hand:Array(p.handN).fill('?'),deck:i==mi?PV.deck:[]}))};
   Object.values(G.tiles).forEach(t=>{if(!t.disc&&t.own===mi&&PV.sks[K(t.c)])t.sk=PV.sks[K(t.c)]});
-  fixBars();
   lastPub=pubOf();lastPriv=JSON.stringify(PV);
+  resolveHidden(mi,PV);
+  fixBars();
   // only open a placement/removal step if it hasn't already been completed this turn
   if(myTurn()&&!G.done&&!G.over)G.mode=needsBoard()?(G.rd<=5?'place':'remove'):'';
   render();
@@ -356,28 +378,35 @@ function moveCore(h,c,carry){
   if(carried.length)log(`  Carried along: ${carried.map(o=>o.nuke?'☢ Nuke':'🧱 object (DEF '+o.s.def+')').join(', ')}`,h.p);
   if(G.first&&!h.mc){G.first=false;drawCard()}
   const t=tile(c);
-  if(!t.disc){t.disc=1;
-    if(t.sk=='bar'){
-      if(!G.apoc){t.bar=3;t.barOwn=h.p;log('  Barrier HexTile: L3 barrier appears',h.p)}
-      else log('  Barrier HexTile: no barrier (Apocalypse)',h.p);
+  if(!t.disc){
+    if(t.sk==null){
+      // the tile's type is known only to its owner: the owner reveals it and applies the bonus
+      t.pend={p:h.p,k:h.k};log('  Undiscovered HexTile: its owner will reveal its type',h.p);
     }
-    else{h.s[t.sk]=Math.min(5,h.s[t.sk]+1);log(`  Discovered ${t.sk} HexTile: +1`,h.p)}}
+    else{t.disc=1;
+      if(t.sk=='bar'){
+        if(!G.apoc){t.bar=3;t.barOwn=h.p;log('  Barrier HexTile: L3 barrier appears',h.p)}
+        else log('  Barrier HexTile: no barrier (Apocalypse)',h.p);
+      }
+      else{h.s[t.sk]=Math.min(5,h.s[t.sk]+1);log(`  Discovered ${t.sk} HexTile: +1`,h.p)}}
+  }
 }
 // carry is undefined until the player chooses which objects come along
 function move(h,c,carry){
   if(heroesAt(c).some(x=>ac(x)!=ac(h))&&K(c)!='0,0,0')return note('Opponents can\'t share a tile online yet');
   const choices=carryable(h);
   if(carry===undefined&&choices.length){G.pm={h,c,sel:[]};G.wheel={c:h.c,kind:'carry',items:carryItems()};return}
-  const t0=tile(c),before=K(h.c),ask=t0&&!t0.disc&&t0.sk!='bar'&&objFor(h);
+  const t0=tile(c),before=K(h.c),ask=t0&&!t0.disc&&t0.sk!=null&&t0.sk!='bar'&&objFor(h);
   const wasD=t0&&t0.disc;if(ask)t0.disc=1;
   moveCore(h,c,carry||[]);
   if(t0&&!wasD&&t0.sk=='bar'&&t0.disc)t0.barOwn=h.p;
-  if(ask){t0.disc=0;if(K(h.c)!=before){G.pend={t:t0,h,sk:t0.sk};G.wheel={c,kind:'discover',items:[{v:'hero',ic:'👤',t:'Hero'},{v:'obj',ic:'🧱',t:'Object'}]}}}
+  if(ask){t0.disc=0;if(K(h.c)!=before){G.pend=null;G.pend2={t:t0,h,sk:t0.sk};G.wheel={c,kind:'discover',items:[{v:'hero',ic:'👤',t:'Hero'},{v:'obj',ic:'🧱',t:'Object'}]}}}
 }
-const carryItems=()=>{const pm=G.pm,sel=pm.sel;return [...carryable(pm.h).map(o=>({v:'o'+G.objs.indexOf(o),ic:o.nuke?'☢':'🧱',t:(sel.includes(o)?'✔ ':'')+(o.nuke?'Nuke':'DEF '+o.s.def),on:sel.includes(o)})),{v:'go',ic:'➜',t:'Move'}]};
+const carryItems=()=>{const pm=G.pm,sel=pm.sel;return [...carryable(pm.h).map(o=>({v:'o'+G.objs.indexOf(o),ic:o.nuke?'☢':(o.sym||'🧱'),t:(sel.includes(o)?'✔ ':'')+(o.nuke?'Nuke':'DEF '+o.s.def),on:sel.includes(o)})),{v:'go',ic:'➜',t:'Move'}]};
 function attack(a,d){
   const t=tile(d.c),tw=who(d);
-  if(t.bar){const r1=d6(),r2=d6(),r=r1+r2;if(r<=t.bar){act(a,'attack',1);log(`${who(a)} ⚔ barrier 2d6 rolled ${r1}+${r2}=${r} vs L${t.bar}: blocked`,a.p);fx(`🛑 ${who(a)} barrier: ${die(r1,0)} ${die(r2,.2)} = ${r} vs ${bon('🛑 L'+t.bar,.5)} · BLOCKED`);return}}
+  // Meets beats: a 2d6 total equal to the barrier level gets through
+  if(t.bar){const r1=d6(),r2=d6(),r=r1+r2;if(r<t.bar){act(a,'attack',1);log(`${who(a)} ⚔ barrier 2d6 rolled ${r1}+${r2}=${r} vs L${t.bar}: blocked`,a.p);fx(`🛑 ${who(a)} barrier: ${die(r1,0)} ${die(r2,.2)} = ${r} vs ${bon('🛑 L'+t.bar,.5)} · BLOCKED`);return}}
   const oa=objFor(a),od=objFor(d),ra=d20(),rd=d20(),sa=a.s.str,ga=gzb(a),oas=oa?oa.s.str:0,A=ra+sa+ga+oas;
   const sd=d.s.def,gd=gzb(d),ods=od?od.s.def:0,D=rd+sd+gd+ods,hit=A>D;
   act(a,'attack',!hit);
@@ -416,28 +445,47 @@ function develop(h,c,tu){
   log(`${who(h)} 🛠 rolled ${tk?'10 (taken)':r} +${tot-(tk?10:r)} = ${tot}: bonus ${b}`,h.p);
   if(op=='barrier'){
     if(!t.disc)return note('Barriers can only go on discovered tiles');
-    if(t.bar){
-      if(barMineFor(t,h)){t.bar=Math.min(12,t.bar+b);log(`  builds own barrier at (${c}) up by ${b} to L${t.bar}`,h.p)}
-      else{const nb=t.bar-b;
-        if(nb<3){t.bar=0;t.barOwn=undefined;log(`  destroys opponent barrier at (${c}): it fell below L3`,h.p)}
-        else{t.bar=nb;log(`  lowers opponent barrier at (${c}) by ${b} to L${t.bar}`,h.p)}}
+    const up=G.bdir!='down';
+    if(up){
+      if(t.bar){t.bar=Math.min(12,t.bar+b);log(`  builds own barrier at (${c}) up by ${b} to L${t.bar}`,h.p)}
+      else{t.bar=Math.min(12,3+(b-1));t.barOwn=ac(h);log(`  creates barrier at (${c}) at L${t.bar}`,h.p)}
+    }else{
+      const nb=t.bar-b;
+      if(nb<3){t.bar=0;t.barOwn=undefined;log(`  destroys opponent barrier at (${c}): it fell below L3`,h.p)}
+      else{t.bar=nb;log(`  lowers opponent barrier at (${c}) by ${b} to L${t.bar}`,h.p)}
     }
-    else{t.bar=Math.min(12,3+(b-1));t.barOwn=ac(h);log(`  creates barrier at (${c}) at L${t.bar}`,h.p)}
   }
-  else if(op=='object'){G.objs.push({p:G.cur,c,s:{str:0,def:b,rng:0,int:0},dmg:0,alive:1});log(`  creates an object at (${c}) with Defense ${b}`,h.p)}
+  else if(op=='object'){newObj(G.cur,c,b);log(`  creates an object at (${c}) with Defense ${b}`,h.p)}
   else{tu.s[G.devSkill]=Math.min(5,tu.s[G.devSkill]+b);log(`  ${tu.k?who(tu):'object'} ${G.devSkill} +${b} → ${tu.s[G.devSkill]}`,h.p)}
-  if(r==20){h.acts++;h.ok.develop=1;natFx('🛠️','Develop');log('  Natural 20: Develop available again',h.p)}
+  if(r==20){
+    // Natural 20: the hero may develop again, with the full develop menu
+    h.acts++;h.ok.develop=1;natFx('🛠️','Develop');log('  Natural 20: Develop available again',h.p);
+    G.mode='develop';G.dev=null;G.wstack=[];G.wheel={c:h.c,kind:'dev',items:devItems()};
+  }
   note(`Develop rolled ${tk?'taken (10)':tot}: ${op} bonus ${b}`);
 }
-function buyBarrier(c){const t=tile(c);if(!t.disc)return note('Barriers can only go on discovered tiles');if(!spend(5))return;if(!t.bar)t.barOwn=G.cur;t.bar=t.bar?t.bar+1:3;log(`${G.pl[G.cur].name} barrier at (${c}) is now L${t.bar} (5V)`,G.cur)}
+// Buying a barrier: up raises (creates at L3), down lowers one level for 5V
+function buyBarrier(c,dir){
+  const t=tile(c);if(!t.disc)return note('Barriers can only go on discovered tiles');if(!spend(5))return;
+  if(dir=='down'){t.bar=t.bar-1;if(t.bar<3){t.bar=0;t.barOwn=undefined;log(`${G.pl[G.cur].name} lowered the barrier at (${c}) below L3: it is destroyed (5V)`,G.cur)}else log(`${G.pl[G.cur].name} lowered the barrier at (${c}) to L${t.bar} (5V)`,G.cur)}
+  else{if(!t.bar)t.barOwn=G.cur;t.bar=t.bar?t.bar+1:3;log(`${G.pl[G.cur].name} barrier at (${c}) is now L${t.bar} (5V)`,G.cur)}
+}
+// Up/Down options for a barrier; only legal directions are enabled
+function bdirItems(c,buy){
+  const t=tile(c),p=G.pl[G.cur];
+  let up,dn;
+  if(buy){up=!t.disc||p.v<5||G.apoc;dn=!t.disc||!t.bar||p.v<5||G.apoc}
+  else{const mine=!t.bar||barMineFor(t,G.sel);up=!t.disc||!mine;dn=!t.disc||!t.bar||mine}
+  return [{v:'up',ic:'▲',t:buy?'Raise 5V':'Build up',dis:up},{v:'down',ic:'▼',t:buy?'Lower 5V':'Lower',dis:dn}];
+}
 function buyHero(c){if(G.heroes.filter(h=>h.alive&&h.p==G.cur).length>=3)return note('Max 3 heroes alive');if(!spend(30))return;addHero(G.cur,c);log(`${G.pl[G.cur].name} spawns a new hero at (${c}) for 30V; it acts next turn`,G.cur)}
-function buyObj(c){if(objCount(G.cur)>=3)return note('Max 3 objects');if(!spend(5))return;G.objs.push({p:G.cur,c,s:{str:0,def:1,rng:0,int:0},dmg:0,alive:1});log(`${G.pl[G.cur].name} places an object at (${c}) for 5V`,G.cur)}
+function buyObj(c){if(objCount(G.cur)>=3)return note('Max 3 objects');if(!spend(5))return;newObj(G.cur,c,1);log(`${G.pl[G.cur].name} places an object at (${c}) for 5V`,G.cur)}
 function buySkill(u){if(u.s[G.devSkill]>=5)return note('That skill is maxed');if(!spend(5))return;u.s[G.devSkill]++;log(`${u.k?who(u):'Object'}: +1 ${G.devSkill} (5V)`,G.cur)}
 // Apocalypse removes barrier and object development; skills stay available
-const devItems=()=>[['barrier','🛑','Barrier'],['object','🧱','Object'],['skill','⬆️','Skill']].filter(([v])=>!G.apoc||v=='skill').map(([v,ic,t])=>({v,ic,t}));
+const devItems=()=>[['barrier','🛑','Barrier'],['object','🧿','Object'],['skill','⬆️','Skill']].filter(([v])=>!G.apoc||v=='skill').map(([v,ic,t])=>({v,ic,t}));
 const skillItems=()=>SK.map(k=>({v:k,ic:ICON[k],t:NAME[k]}));
 const rollItems=()=>[{v:'roll',ic:'🎲',t:'Roll d20'},{v:'take',ic:'1️⃣',t:'Take 1 pt'}];
-const buyItems=()=>{const p=G.pl[G.cur],mine=G.heroes.filter(h=>h.alive&&h.p==G.cur).length,bok=boardOK();return [['barrier','🛑','Barrier 5V',p.v<5||G.apoc||!bok],['obj','🧱','Object 5V',p.v<5||G.apoc||!bok||objCount(G.cur)>=3],['hero','👤','Hero 30V',p.v<30||mine>=3||!bok],['s:str','✊','STR +1',p.v<5||!bok],['s:def','🛡️','DEF +1',p.v<5||!bok],['s:rng','🏹','RNG +1',p.v<5||!bok],['s:int','🧠','INT +1',p.v<5||!bok]].map(([v,ic,t,dis])=>({v,ic,t,dis}))};
+const buyItems=()=>{const p=G.pl[G.cur],mine=G.heroes.filter(h=>h.alive&&h.p==G.cur).length,bok=boardOK();return [['barrier','🛑','Barrier 5V',p.v<5||G.apoc||!bok],['obj','🔮','Object 5V',p.v<5||G.apoc||!bok||objCount(G.cur)>=3],['hero','👤','Hero 30V',p.v<30||mine>=3||!bok],['s:str','✊','STR +1',p.v<5||!bok],['s:def','🛡️','DEF +1',p.v<5||!bok],['s:rng','🏹','RNG +1',p.v<5||!bok],['s:int','🧠','INT +1',p.v<5||!bok]].map(([v,ic,t,dis])=>({v,ic,t,dis}))};
 
 // ---------- effects ----------
 function fx(html,cls){const d=document.createElement('div');d.className='fx '+(cls||'');d.innerHTML=html;$('fx').appendChild(d);vsify();setTimeout(()=>d.remove(),3000)}
@@ -446,7 +494,7 @@ const natFx=(ic,name)=>fx(`<span>NATURAL 20!</span> ${ic} ${name} available agai
 // ---------- input helpers ----------
 const s2v=(x,y)=>{const svg=$('svg'),pt=svg.createSVGPoint();pt.x=x;pt.y=y;return pt.matrixTransform(svg.getScreenCTM().inverse())};
 const uSel=u=>{if(!G||G.over||!G.started)return false;const s=G.sel;if(G.mode=='buyskill')return myTurn()&&u.p==G.cur&&u.s[G.devSkill]<5;if(G.mode=='develop'&&G.dev=='skill')return !!s&&canHero(s)&&s.acts>0&&canRep(s,'develop')&&dist(s.c,u.c)<=1&&boardOK()&&ac(u)==ac(s);return false};
-const ringH=(h,x,y)=>{let c=null;const d=G.drag;if(d&&d.moved&&ac(h)!=ac(d.h)&&dist(d.h.c,h.c)<=d.h.s.rng)c='atk';else if(uSel(h))c='selh';return c?`<circle class='ring-${c}' cx='${x}' cy='${y}' r='10'/>`:''};
+const ringH=(h,x,y)=>{let c=null;const d=G.drag;if(d&&d.moved&&ac(h)!=ac(d.h)&&canAct(d.h,'attack')&&dist(d.h.c,h.c)<=d.h.s.rng)c='atk';else if(uSel(h))c='selh';return c?`<circle class='ring-${c}' cx='${x}' cy='${y}' r='10'/>`:''};
 function hexPts(c){return [0,1,2,3,4,5].map(i=>{const a=Math.PI/3*i+Math.PI/6;return (px(c)+(R-4)*Math.cos(a)).toFixed(1)+','+(py(c)+(R-4)*Math.sin(a)).toFixed(1)}).join(' ')}
 function scr(c){const svg=$('svg'),pt=svg.createSVGPoint();pt.x=px(c);pt.y=py(c);const m=pt.matrixTransform(svg.getScreenCTM()),br=$('board').getBoundingClientRect();return [m.x-br.left,m.y-br.top]}
 
@@ -459,10 +507,24 @@ function setViewBox(){
 const buyOn=v=>v.startsWith('s:')?G.mode=='buyskill'&&G.devSkill==v.slice(2):G.mode==v;
 // Traversal card labels: full name, then the 3-letter form, then the symbol, whichever fits
 function fitCards(){document.querySelectorAll('#hand small.cl').forEach(el=>{const f=el.dataset.full,s=el.dataset.short,y=el.dataset.sym;el.textContent=f;if(el.scrollWidth>el.clientWidth){el.textContent=s;if(el.scrollWidth>el.clientWidth)el.textContent=y}})}
+// the to-do overlay: what the current player still has to do
+function todoItems(){
+  if(G.over)return [G.over];
+  if(!myTurn())return [`Waiting for ${G.pl[G.cur].name}…`];
+  const out=[],p=G.pl[G.cur];
+  if(!boardOK())out.push(G.rd<=5?`Place a tile (${p.pool.length} left to place)`:'Remove one of your tiles that has no hero on it');
+  G.heroes.forEach(h=>{if(h.alive&&h.p==G.cur&&!h.mc&&h.acts>0)out.push(`${who(h)}: ${h.acts} action${h.acts>1?'s':''} left (drag to move or attack, click to develop)`)});
+  G.heroes.forEach(h=>{if(h.alive&&h.mc&&h.p==G.cur&&h.acts>0)out.push(`${who(h)} is Mind Controlled: use it or cede it`)});
+  if(p.hand.length)out.push(`${p.hand.length} traversal card${p.hand.length>1?'s':''}: drag skill cards onto heroes, or play 5V`);
+  if(p.v>=5)out.push(`${p.v} V: buy options on the right`);
+  if(boardOK()&&!mcBlock()&&!G.heroes.some(h=>h.alive&&h.p==G.cur&&h.acts>0))out.push('Nothing left: end your turn');
+  return out;
+}
 function drawBoard(){
-  const svg=$('svg'),top=$('top'),logEl=$('log'),hand=$('hand'),wh=$('wheel'),bs=$('buyside'),cx=$('cx');
+  const svg=$('svg'),top=$('top'),logEl=$('log'),hand=$('hand'),wh=$('wheel'),bs=$('buyside'),cx=$('cx'),td=$('todo'),bar=$('bar'),bottom=$('bottom');
   document.body.classList.toggle('wait',!!G&&!myTurn()&&!ctrlActive());
-  if(!G){svg.innerHTML='';top.innerHTML='';logEl.innerHTML='';hand.innerHTML='';bs.innerHTML='';wh.style.display='none';cx.style.display='none';return}
+  bottom.classList.toggle('min',BOT_MIN);
+  if(!G){svg.innerHTML='';top.innerHTML='';logEl.innerHTML='';hand.innerHTML='';bs.innerHTML='';bar.innerHTML='';td.innerHTML='';wh.style.display='none';cx.style.display='none';return}
   setViewBox();
   const cands=G.mode=='place'?[...new Set(Object.values(G.tiles).flatMap(t=>adj(t.c)).filter(c=>!tile(c)&&valid(c)).map(K))].map(P):[];
   const mi=myIdx(),dh=G.drag&&G.drag.moved?G.drag.h:null;
@@ -471,9 +533,13 @@ function drawBoard(){
   Object.values(G.tiles).forEach(t=>{
     // hextiles highlight only for barrier actions and removable tiles during Decline
     const c=t.c,ok=valid(c)&&(G.mode=='barrier'||(G.mode=='develop'&&G.dev=='barrier')),rm=G.mode=='remove'&&valid(c),fill=t.gz?GZF:t.disc?TC[t.sk]:NEUT,stroke=t.own>=0?COL[t.own]:'#c9a227';
-    const seen=t.disc||t.own==mi,lbl=t.gz?'⬡'+(t.bar?' 🛑'+t.bar:''):!seen?'?'+(t.bar?' 🛑'+t.bar:''):t.sk=='bar'?(t.bar?'🛑'+t.bar:'🛑'):ICON[t.sk]+(t.bar?' 🛑'+t.bar:'');
-    o+=`<polygon data-k="${K(c)}" class="${ok?'ok':''}${rm?' rm':''}" fill="${fill}" stroke="${stroke}" stroke-width="1.5" points="${hexPts(c)}"/>`;
-    o+=`<text class="${t.bar&&G.mode&&!ok?'mute':''}" x="${px(c)}" y="${py(c)-12}" font-size="10" fill="#eee">${lbl}</text>`;
+    const seen=t.disc||t.own==mi;
+    // the tile symbol fills the hextile; barrier rating shows beside it
+    const sym=t.gz?'⬡':!seen?'?':(t.sk=='bar'?'🛑':ICON[t.sk]);
+    const big=(t.bar&&seen&&t.sk=='bar')?'🛑'+t.bar:sym;
+    o+=`<polygon data-k="${K(c)}" class="${ok?'ok':''}${rm?' rm':''}${t.bar>0?' bar':''}" fill="${fill}" stroke="${stroke}" stroke-width="1.5" points="${hexPts(c)}"/>`;
+    o+=`<text class="${t.bar&&G.mode&&!ok?'mute':''}" x="${px(c)}" y="${py(c)+4}" font-size="${big.length>2?16:24}" fill="#fff">${big}</text>`;
+    if(t.bar&&!(t.sk=='bar'&&seen))o+=`<text x="${px(c)+R*0.5}" y="${py(c)+R*0.6}" font-size="8" font-weight="bold" fill="#ffd54f" stroke="#000" stroke-width="1" paint-order="stroke">🛑${t.bar}</text>`;
   });
   G.heroes.forEach((h,hi)=>{
     if(!h.alive)return;
@@ -484,6 +550,7 @@ function drawBoard(){
     const dots=canHero(h)?`<text x="${x}" y="${y-9}" font-size="6" fill="#ffe8a3" stroke="#000" stroke-width="1" paint-order="stroke">${'●'.repeat(h.acts)}${'✕'.repeat(Math.max(0,2-h.acts))}</text>`:'';
     o+=`<g class="${G.mode&&(G.mode=='buyskill'||G.mode=='develop')&&!uSel(h)?'mute':''}" data-u="h${hi}" data-k="${K(h.c)}" data-tip="${tip}"><circle cx="${x}" cy="${y}" r="6" fill="${hcol(h)}" stroke="${COL[h.p]}" stroke-width="${sel?2:1.5}"/>${h.mc?`<circle class='ring-mc' cx='${x}' cy='${y}' r='9'/>`:''}${march}${ringH(h,x,y)}${dots}${h.dmg?`<text x="${x+8}" y="${y-6}" font-size="7" font-weight="bold" fill="#ff5252">-${h.dmg}</text>`:''}</g>`;
   });
+  // objects sit in a row above the tile symbol, each with its own item symbol
   G.objs.forEach((ob,oi)=>{
     if(!ob.alive)return;
     const tip=ob.nuke?`<b>☢ Nuke</b><br>Defense ${ob.s.def} · Damage ${ob.dmg}/${ob.s.def}<br>Any attack hits it. Destroying it triggers the Apocalypse`:`<b>${esc(G.pl[ob.p].name)} object</b><br>✊ ${ob.s.str} · 🛡️ ${ob.s.def} · 🏹 ${ob.s.rng} · 🧠 ${ob.s.int}<br>Damage ${ob.dmg}/${ob.s.def}`;
@@ -492,11 +559,10 @@ function drawBoard(){
       o+=`<g data-k="${K(ob.c)}" data-tip="${tip}"><circle cx="${x}" cy="${y}" r="7" fill="#2a0a0a" stroke="#ff3d3d" stroke-width="1.2"/><text x="${x}" y="${y+1}" font-size="9" fill="#ff3d3d">☢</text>${G.mode=='attack'||dh?`<circle class='ring-nk' cx='${x}' cy='${y}' r='10'/>`:''}</g>`;
       return;
     }
-    // ordinary objects sit in a row across their tile, in the middle
     const same=objsAt(ob.c).filter(x=>!x.nuke),i=same.indexOf(ob),n=same.length;
-    const x=px(ob.c)+(i-(n-1)/2)*13,y=py(ob.c)-1;
+    const x=px(ob.c)+(i-(n-1)/2)*15,y=py(ob.c)-20;
     const car=dh&&K(ob.c)==K(dh.c)&&ob.p==dh.p;
-    o+=`<g class="${G.mode&&(G.mode=='buyskill'||G.mode=='develop')&&!uSel(ob)?'mute':''}" data-u="o${oi}" data-k="${K(ob.c)}" data-tip="${tip}"><rect x="${x-6}" y="${y-6}" width="12" height="12" rx="3" fill="${COL[ob.p]}" stroke="#0e0e12" stroke-width="1"/>${uSel(ob)||car?`<rect class='ring-o' x='${x-9}' y='${y-9}' width='18' height='18' rx='4'/>`:''}<text x="${x}" y="${y}" font-size="6">🛡️</text><text x="${x}" y="${y+2}" font-size="7" font-weight="bold" fill="#fff" stroke="#000" stroke-width="1" paint-order="stroke">${ob.s.def}</text></g>`;
+    o+=`<g class="${G.mode&&(G.mode=='buyskill'||G.mode=='develop')&&!uSel(ob)?'mute':''}" data-u="o${oi}" data-k="${K(ob.c)}" data-tip="${tip}"><rect x="${x-7}" y="${y-7}" width="14" height="14" rx="3" fill="${COL[ob.p]}" stroke="#0e0e12" stroke-width="1"/>${uSel(ob)||car?`<rect class='ring-o' x="${x-10}" y="${y-10}" width="20" height="20" rx="4"/>`:''}<text x="${x}" y="${y-1}" font-size="9">${ob.sym||'🧱'}</text><text x="${x+5}" y="${y+5}" font-size="5" font-weight="bold" fill="#fff" stroke="#000" stroke-width=".8" paint-order="stroke">${ob.s.def}</text></g>`;
   });
   if(G.drag&&G.drag.moved){const [hx,hy]=hpos(G.drag.h);o+=`<line x1="${hx}" y1="${hy}" x2="${G.drag.cx}" y2="${G.drag.cy}" stroke="#ffe066" stroke-width="2" stroke-dasharray="6 4" marker-end="url(#ar)" style="animation:march .5s linear infinite"/>`}
   svg.innerHTML=o;
@@ -506,13 +572,15 @@ function drawBoard(){
     <span style="flex:1"></span>
     ${myTurn()?`<button class="endb" data-end="1" ${boardOK()&&!mcBlock()?'':'disabled'}>➜ End Turn</button>`:''}
     <button class="ghost" data-leave="1">Leave</button>
-    ${G.pl.map((_,i)=>`<span class="pchip ${i==G.cur?'cur':''} ${alivePl(i)?'':'out'}" style="--c:${COL[i]}">${esc(G.pl[i].name)} · ${alivePl(i)?G.heroes.filter(h=>h.alive&&h.p==i).length+' heroes':'out'}</span>`).join('')}`;
+    ${G.pl.map((_,i)=>`<span class="pchip ${i==G.cur?'cur':''} ${alivePl(i)?'':'out'}" style="--c:${COL[i]}">${esc(G.pl[i].name)} · ${G.pl[i].v} V · ${alivePl(i)?G.heroes.filter(h=>h.alive&&h.p==i).length+' heroes':'out'}</span>`).join('')}`;
   logEl.innerHTML=G.log.slice(0,60).map(l=>`<div style="color:${l.p>=0?COL[l.p]:'#9a9ab0'}">${esc(l.t)}</div>`).join('');
   const hm=G.pl[mi]?.hand||[];
   hand.innerHTML=mi<0?'<span class="muted">Spectating</span>':`<div class="sec">Traversal hand · ${hm.length} card${hm.length==1?'':'s'}</div>`+(hm.map((c,i)=>{const full=c=='v'?'+5V':'+1 '+NAME[c],short=c=='v'?'+5V':'+1 '+c.toUpperCase(),sym=c=='v'?'+5V':ICON[c];return `<div class="card-t"><button data-card="${i}" class="cbtn"><span class="cicon">${c=='v'?'💰':ICON[c]}</span><small class="cl" data-full="${full}" data-short="${short}" data-sym="${sym}">${full}</small></button><button class="dc" data-disc="${i}">Sell 2V</button></div>`}).join('')||'<span class="muted small">No cards. Move a hero to draw one.</span>');
   const vp=G.pl[mi>=0?mi:G.cur];
   bs.style.display='flex';
   bs.innerHTML=`<div class="vside">${vp.v} V</div>`+(myTurn()?'<div class="sec">Buy</div>'+buyItems().map(i=>`<button class="opt2 ${buyOn(i.v)?'on':''}" data-bi="${i.v}" ${i.dis?'disabled':''}>${i.ic} ${i.t}</button>`).join(''):'<span class="muted small">Buying is available on your turn.</span>');
+  // bottom bar: section labels and icon buttons, with minimize
+  bar.innerHTML=`<button class="sbtn" data-sec="log">📜 Log</button><button class="sbtn" data-sec="hand">🃏 Hand (${hm.length})</button><button class="sbtn" data-sec="buy">🛒 Buy</button><span style="flex:1"></span><button class="sbtn" data-min="1">${BOT_MIN?'▴ Expand':'▾ Minimize'}</button>`;
   if(G.wheel){
     const w=G.wheel,[x,y]=w.xy||scr(w.c),n=w.items.length;
     wh.style.left=x+'px';wh.style.top=y+'px';wh.style.display='block';
@@ -521,6 +589,9 @@ function drawBoard(){
   // round ✕ to cancel the current mode, shown like the wheel's close button
   if(G.mode&&G.mode!='place'&&G.mode!='remove'&&!G.wheel){cx.style.display='block';cx.style.top=(top.offsetHeight+8)+'px';cx.innerHTML='<button class="xbtn" data-cancel="1">✕</button>'}
   else{cx.style.display='none';cx.innerHTML=''}
+  // to-do overlay under the top bar
+  td.style.top=(top.offsetHeight+8)+'px';
+  td.innerHTML='<b>To do</b>'+todoItems().map(x=>`<div>☐ ${esc(x)}</div>`).join('');
   $('hint').textContent=hintText();
 }
 function hintText(){
@@ -546,7 +617,7 @@ function drawModal(){
 }
 // Out of options only when no hero can act, Versa is under 5 and no Traversal cards remain
 const noOpts=()=>!G.over&&boardOK()&&!mcBlock()&&!G.heroes.some(h=>h.alive&&h.p==G.cur&&h.acts>0&&(canAct(h,'move')||canAct(h,'attack')||canAct(h,'develop')))&&G.pl[G.cur].v<5&&G.pl[G.cur].hand.length==0;
-function vsify(){[...['top','log','hand','fx','modal','wheel','tip','carry','buyside'].map(i=>$(i)),...document.querySelectorAll('.ghostc')].forEach(root=>{if(!root)return;const w=document.createTreeWalker(root,NodeFilter.SHOW_TEXT),nodes=[];while(w.nextNode())nodes.push(w.currentNode);nodes.forEach(n=>{if(!/\d ?V\b/.test(n.nodeValue))return;const parts=n.nodeValue.split(/(\d+ ?)V\b/),frag=document.createDocumentFragment();parts.forEach((p,i)=>{if(i%2){frag.append(p);const s=document.createElement('span');s.className='vs';s.textContent='V';frag.append(s)}else if(p)frag.append(p)});n.replaceWith(frag)})})}
+function vsify(){[...['top','log','hand','fx','modal','wheel','tip','carry','buyside','todo','bar'].map(i=>$(i)),...document.querySelectorAll('.ghostc')].forEach(root=>{if(!root)return;const w=document.createTreeWalker(root,NodeFilter.SHOW_TEXT),nodes=[];while(w.nextNode())nodes.push(w.currentNode);nodes.forEach(n=>{if(!/\d ?V\b/.test(n.nodeValue))return;const parts=n.nodeValue.split(/(\d+ ?)V\b/),frag=document.createDocumentFragment();parts.forEach((p,i)=>{if(i%2){frag.append(p);const s=document.createElement('span');s.className='vs';s.textContent='V';frag.append(s)}else if(p)frag.append(p)});n.replaceWith(frag)})})}
 function render(){
   if(G&&G.mode=='develop'&&!G.dev&&!G.wheel)G.mode='';
   if(G&&G.started&&!G.over)check();
@@ -682,8 +753,12 @@ function click(k,u){
     else if(G.mode&&G.mode!='place'&&G.mode!='remove'){G.mode='';G.dev=null}
     return render();
   }
-  if(m=='develop')G.wheel={c,kind:'roll',t:c,items:rollItems()};
-  else if(m=='barrier'){buyBarrier(c);G.mode=''}
+  if(m=='develop'){
+    // barriers ask Up or Down first; other develop targets go straight to the roll
+    if(G.dev=='barrier')G.wheel={c,kind:'bdir',t:c,items:bdirItems(c,false)};
+    else G.wheel={c,kind:'roll',t:c,items:rollItems()};
+  }
+  else if(m=='barrier'){G.wheel={c,kind:'bdir',t:c,buy:true,items:bdirItems(c,true)}}
   else if(m=='hero'){buyHero(c);G.mode=''}
   else if(m=='obj'){buyObj(c);G.mode=''}
   render();
@@ -692,6 +767,10 @@ function wheelPick(v){
   const w=G.wheel;
   if(!w||v=='x'){if(w&&w.kind=='discover')return;if(w&&w.kind=='carry')G.pm=null;G.wheel=null;return render()}
   if(w.kind=='place'){G.wheel=null;place(w.c,v);return render()}
+  if(w.kind=='bdir'){
+    if(w.buy){G.wheel=null;G.mode='';buyBarrier(w.t,v);return render()}
+    G.wheel={c:w.t,kind:'roll',t:w.t,dir:v,items:rollItems()};return render();
+  }
   if(w.kind=='carry'){
     const pm=G.pm;
     if(v=='go'){G.wheel=null;G.pm=null;if(pm)move(pm.h,pm.c,pm.sel);return render()}
@@ -714,8 +793,16 @@ function wheelPick(v){
     return render();
   }
   if(w.kind=='devskill'){if(w.u.s[v]>=5){note('That skill is maxed');return render()}G.devSkill=v;G.wheel={c:w.u.c,kind:'roll',u:w.u,items:rollItems()};return render()}
-  if(w.kind=='roll'){G.wheel=null;G.take=v=='take';if(w.u)develop(G.sel,null,w.u);else develop(G.sel,w.t);G.mode='';G.dev=null;G.msg='';return render()}
-  if(w.kind=='discover'){G.wheel=null;const pd=G.pend;G.pend=null;if(pd){pd.t.disc=1;const u=v=='obj'?objFor(pd.h):pd.h;if(!u)note('No object here to receive the bonus');else{u.s[pd.sk]=Math.min(5,u.s[pd.sk]+1);log(`  ${u.k?who(u):'Object'} +1 ${pd.sk} from discovery`,pd.h.p)}}return render()}
+  if(w.kind=='roll'){
+    G.wheel=null;G.take=v=='take';G.bdir=w.dir||null;
+    if(w.u)develop(G.sel,null,w.u);else develop(G.sel,w.t);
+    G.bdir=null;
+    // a Natural 20 reopens the full develop menu; otherwise the develop step is over
+    if(!G.wheel){G.mode='';G.dev=null}
+    G.msg=G.msg||'';
+    return render();
+  }
+  if(w.kind=='discover'){G.wheel=null;const pd=G.pend2;G.pend2=null;if(pd){pd.t.disc=1;const u=v=='obj'?objFor(pd.h):pd.h;if(!u)note('No object here to receive the bonus');else{u.s[pd.sk]=Math.min(5,u.s[pd.sk]+1);log(`  ${u.k?who(u):'Object'} +1 ${pd.sk} from discovery`,pd.h.p)}}return render()}
 }
 $('wheel').onclick=e=>{const b=e.target.closest('[data-w]');if(b&&!b.disabled)wheelPick(b.dataset.w)};
 function buyPick(v){if(v.startsWith('s:')){G.devSkill=v.slice(2);G.mode='buyskill'}else G.mode=v;G.wheel=null;G.msg='';render()}
@@ -726,6 +813,7 @@ $('top').onclick=e=>{
   if(d.leave!==undefined){leaveRoom();return}
 };
 $('buyside').onclick=e=>{const b=e.target.closest('[data-bi]');if(b&&!b.disabled)buyPick(b.dataset.bi)};
+$('bar').onclick=e=>{const b=e.target.closest('button');if(!b)return;if(b.dataset.min!==undefined)BOT_MIN=!BOT_MIN;else if(b.dataset.sec)BOT_MIN=false;render()};
 $('cx').onclick=e=>{if(e.target.closest('[data-cancel]'))cancelMode()};
 $('hand').onclick=e=>{
   if(G&&G.swallowH){G.swallowH=false;return}
@@ -753,7 +841,7 @@ addEventListener('pointerup',e=>{
 // Clicks on empty board or non-target parts of the page step back one level (Develop exits entirely)
 addEventListener('pointerdown',e=>{
   if(!G||G.over)return;const t=e.target;
-  if(t.closest('#wheel,#modal,#top button,#hand button,#buyside,#cx,#cx button'))return;
+  if(t.closest('#wheel,#modal,#top button,#hand button,#buyside,#bar,#cx,#cx button'))return;
   if(t.closest('#svg')){
     const kk=t.closest('[data-k]');
     OUT=!(t.closest('polygon.ok,polygon.cand,polygon.rm')||(G.mode&&kk&&valid(P(kk.dataset.k)))||t.closest('g[data-u]')?.querySelector('[class^="ring-"]')||t.closest('g[data-k]')?.querySelector('[class^="ring-"]'));
