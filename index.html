@@ -6,21 +6,22 @@
   <title>VERSA</title>
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cpolygon points='16,2 28,9 28,23 16,30 4,23 4,9' fill='%2324243a' stroke='%23ffe066' stroke-width='3'/%3E%3C/svg%3E">
   <style>
-    /* ============================================================
+    /* =========================================================
        LAYOUT
-       ============================================================ */
+       ========================================================= */
     :root { color-scheme: dark; --r: clamp(70px, 9vmin, 130px); --top-h: 60px; --bottom-h: 240px; }
     * { box-sizing: border-box; -webkit-user-select: none; user-select: none; }
     input { -webkit-user-select: text; user-select: text; }
     html, body { height: 100%; overflow: hidden; max-width: 100vw; }
     body { margin: 0; font-size: clamp(12px, 1.05vw, 17px); font-family: system-ui, sans-serif; background: #0e0e12; color: #e8e8ee; }
 
-    #board { position: absolute; inset: 0; display: flex; flex-direction: column; min-width: 0; max-width: 100vw; overflow: hidden; }
+    #board { position: absolute; inset: 0; display: flex; flex-direction: column; overflow: hidden; }
     #top { display: flex; flex-wrap: wrap; row-gap: .4em; gap: .5em; align-items: center; padding: .5em .8em; background: #17171f; border-bottom: 1px solid #2c2c3e; position: relative; z-index: 50; }
     #svg { width: 100%; flex: 1; min-height: 0; position: relative; cursor: grab; touch-action: none; }
     #bottom { display: flex; flex-direction: column; height: clamp(200px, 32vh, 320px); border-top: 1px solid #2c2c3e; overflow: hidden; }
     #bottom.minimized { height: auto; }
     #bar { display: flex; gap: .4em; align-items: center; padding: .3em .6em; background: #15151d; flex: none; flex-wrap: wrap; }
+    .msg { color: #ffe8a3; font-size: .9em; }
     #panels { display: flex; flex: 1; min-height: 0; min-width: 0; }
     #bottom.minimized #panels { display: none; }
     #log { flex: 0 1 auto; width: max-content; max-width: 28%; overflow: auto; background: #0a0a0e; padding: .5em .9em; font: .85em/1.45 ui-monospace, monospace; border-right: 1px solid #2c2c3e; }
@@ -35,11 +36,11 @@
     #todo { position: absolute; right: .5em; top: calc(var(--top-h) + .4em); max-height: calc(100% - var(--top-h) - var(--bottom-h) - .8em); width: clamp(170px, 19vw, 280px); overflow: auto; background: #0f0f18ee; border: 1px solid #2c2c3e; border-radius: .6em; padding: .5em .7em; font-size: clamp(11px, .95vw, 14px); line-height: 1.4; z-index: 7; }
     #tip { position: fixed; display: none; pointer-events: none; --pc: #8a8aff; background: #0b0b12f5; border: 2px solid var(--pc); border-radius: .8em; padding: .5em .6em; font-size: clamp(12px, 1.05vw, 15px); line-height: 1.45; z-index: 9; min-width: 12em; max-width: 19em; box-shadow: 0 8px 24px #000c; }
     #modal { position: fixed; inset: 0; background: #06060acc; display: none; align-items: center; justify-content: center; z-index: 20; padding: 1em; }
-    #carry { position: fixed; pointer-events: none; z-index: 31; background: #000e; border: 1px solid #ffe066; border-radius: .5em; padding: .3em .6em; line-height: 1.5; white-space: nowrap; }
+    #carry { position: fixed; display: none; pointer-events: none; z-index: 31; background: #000e; border: 1px solid #ffe066; border-radius: .5em; padding: .3em .6em; line-height: 1.5; white-space: nowrap; }
 
-    /* ============================================================
+    /* =========================================================
        CONTROLS
-       ============================================================ */
+       ========================================================= */
     button { background: #2a2a36; color: inherit; border: 1px solid #454558; border-radius: .45em; padding: .4em .6em; cursor: pointer; font: inherit; }
     button:disabled { opacity: .35; cursor: default; }
     button.on { background: #4a6cf7; border-color: #4a6cf7; }
@@ -50,9 +51,9 @@
     .wait #hand button, .wait #buyside button, .wait #top .endb { pointer-events: none; opacity: .6; }
     .muted { color: #8a8aa0; }
 
-    /* ============================================================
+    /* =========================================================
        BUY PANEL
-       ============================================================ */
+       ========================================================= */
     .vside { font-size: 1.5em; font-weight: 800; color: #ffd54f; text-align: center; padding: .3em; background: #17171f; border-radius: .4em; }
     .bcol { flex: 1; display: flex; flex-direction: column; gap: .3em; min-height: 0; }
     .brow { display: grid; gap: .3em; flex: 1; min-height: 0; }
@@ -63,42 +64,44 @@
     .opt2:disabled { background: #15151d; color: #55556a; }
     .opt2:disabled small { color: #444458; }
 
-    /* ============================================================
+    /* =========================================================
        TO-DO LIST
-       ============================================================ */
+       ========================================================= */
     #todo > b { display: block; margin-bottom: .2em; color: #ffe8a3; }
     .td { padding: .15em 0; }
     .td.sub { padding-left: 1.1em; font-size: .92em; }
     .td.head { color: #ffe8a3; font-weight: 700; margin-top: .3em; }
     .td.temp { color: #8ab4ff; font-style: italic; }
     .td.dim { opacity: .35; }
-    .td.done { opacity: .6; background: linear-gradient(currentColor, currentColor) no-repeat left center / 100% 2px; }
-    .td.strike { background: linear-gradient(currentColor, currentColor) no-repeat left center / 0% 2px; animation: strike .6s .1s forwards; }
-    @keyframes strike { to { background-size: 100% 2px; } }
+    .td.done { opacity: .6; background-image: linear-gradient(currentColor, currentColor); background-repeat: no-repeat; background-position: left center; background-size: 100% 2px; }
+    .td.strike { animation: strike .6s .1s both; }
+    @keyframes strike { from { background-size: 0% 2px; } to { background-size: 100% 2px; } }
 
-    /* ============================================================
-       BOARD SVG
-       ============================================================ */
+    /* =========================================================
+       BOARD
+       ========================================================= */
     polygon { cursor: pointer; }
     polygon.ok { stroke: #ffe066 !important; stroke-width: 1.5 !important; }
     polygon.rm { stroke: #ff9f6e !important; stroke-width: 2 !important; stroke-dasharray: 6 4; animation: march 2.4s linear infinite; }
-    polygon.hov { stroke: #fff !important; stroke-width: 2.5 !important; filter: brightness(1.35); }
     polygon.cand { fill: #15151c; stroke: #8ab4ff; stroke-dasharray: 6 4; stroke-width: 1; animation: march 2.4s linear infinite; }
     .barglow { fill: none; stroke-width: 1.2; pointer-events: none; }
-    g.hov circle { stroke: #fff !important; stroke-width: 2.5 !important; }
-    g.hov rect { stroke: #fff !important; stroke-width: 1.5 !important; }
+    g[data-k]:hover circle, g[data-k]:hover rect { stroke: #fff; stroke-width: 2.5; }
+    polygon[data-tip]:hover { filter: brightness(1.35); }
     .mute { opacity: .28; }
     text { pointer-events: none; text-anchor: middle; dominant-baseline: central; font-family: system-ui, sans-serif; }
     @keyframes march { to { stroke-dashoffset: -10; } }
     @keyframes pulse { 0%, 100% { opacity: .3; } 50% { opacity: 1; } }
     .ring-atk, .ring-selh, .ring-o, .ring-nk { fill: none; stroke-width: 1.5; pointer-events: none; animation: pulse 1s ease-in-out infinite; }
-    .ring-atk { stroke: #ff5252; } .ring-selh { stroke: #7cf0ff; } .ring-o { stroke: #ffd54f; } .ring-nk { stroke: #ff3d3d; stroke-width: 2; }
+    .ring-atk { stroke: #ff5252; }
+    .ring-selh { stroke: #7cf0ff; }
+    .ring-o { stroke: #ffd54f; }
+    .ring-nk { stroke: #ff3d3d; stroke-width: 2; }
     .ring-march { fill: none; stroke: #ffffffcc; stroke-width: 1; stroke-dasharray: 2 2; pointer-events: none; animation: march 1s linear infinite; }
     .ring-mc { fill: none; stroke: #c77dff; stroke-width: 1.2; stroke-dasharray: 2 3; pointer-events: none; }
 
-    /* ============================================================
-       TOP BAR, CHIPS, ALERTS
-       ============================================================ */
+    /* =========================================================
+       TOP BAR
+       ========================================================= */
     .badge { color: #000; font-weight: 800; border-radius: .4em; padding: .2em .6em; }
     .chip { font-size: .85em; background: #2a2a3c; border-radius: 20px; padding: .2em .7em; }
     .pchip { font-size: .8em; border: 1px solid var(--c); color: var(--c); border-radius: 20px; padding: .15em .6em; }
@@ -106,9 +109,9 @@
     .pchip.out { opacity: .35; text-decoration: line-through; }
     .alert { background: #4a1d1d; color: #ffb3b3; border-radius: .4em; padding: .2em .5em; font-size: .85em; }
 
-    /* ============================================================
+    /* =========================================================
        TRAVERSAL HAND
-       ============================================================ */
+       ========================================================= */
     .card-t { width: clamp(4.5em, 30cqh, 9em); overflow: hidden; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2cqh; padding: 3cqh 2cqh; background: #24243a; border: 1px solid #454558; border-radius: .7em; }
     .cbtn { border: 0; background: none; padding: 0; display: flex; flex-direction: column; align-items: center; gap: 2cqh; min-width: 0; width: 100%; color: inherit; cursor: grab; }
     .card-t small { font-size: min(7cqh, 11cqw); color: #9a9ab0; white-space: nowrap; overflow: hidden; max-width: 100%; line-height: 1.15; }
@@ -116,21 +119,20 @@
     .cicon { font-size: clamp(1.2em, 26cqh, 2.6em); line-height: 1; }
     .ghostc { position: fixed; pointer-events: none; z-index: 30; transform: translate(-50%, -50%); background: #24243a; border: 1px solid #ffe066; border-radius: .6em; padding: .4em .7em; font-size: 1.2em; opacity: .9; }
 
-    /* ============================================================
+    /* =========================================================
        WHEEL MENU
-       ============================================================ */
+       ========================================================= */
     .wbtn { position: absolute; width: clamp(60px, 8vmin, 92px); height: clamp(60px, 8vmin, 92px); transform: translate(-50%, -50%); border-radius: 50%; display: flex; flex-direction: column; align-items: center; justify-content: center; background: #1c1c2c; border: 1.5px solid #8a8aff; font-size: .95em; padding: 0; line-height: 1.1; box-shadow: 0 4px 14px #000a; }
     .wbtn.on { background: #4a6cf7; border-color: #4a6cf7; }
     .wbtn .wi { font-size: 1.6em; }
     .wbtn small { font-size: .8em; font-weight: 700; }
     .wbtn.wx { left: 0; top: 0; width: clamp(34px, 4vmin, 44px); height: clamp(34px, 4vmin, 44px); background: #3a2a2a; }
-    /* emoji wheel buttons are separate from the floating emoji, so they stay clickable */
     .wbtn.emoji-btn { width: clamp(44px, 6vmin, 64px); height: clamp(44px, 6vmin, 64px); }
     .wbtn.emoji-btn .wi { font-size: 1.9em; }
 
-    /* ============================================================
+    /* =========================================================
        FLOATING FEEDBACK (dice, banners, emoji)
-       ============================================================ */
+       ========================================================= */
     .fx { background: #000d; border: 1px solid #8a8aff; border-radius: .7em; padding: .5em .9em; font-size: 1.15em; font-weight: 700; line-height: 1.7; text-align: center; animation: fxin .3s ease-out, fxout .4s ease-in 2.6s forwards; }
     .fx span { display: inline-block; animation: pop .35s both; animation-delay: var(--d, 0s); }
     .fx .die { display: inline-block; min-width: 1.7em; text-align: center; background: #f4f4f4; color: #111; border-radius: .3em; padding: .1em .3em; font-weight: 900; margin: 0 .15em; animation: roll .7s cubic-bezier(.2, .8, .3, 1) both; animation-delay: var(--d, 0s); }
@@ -147,9 +149,9 @@
     @keyframes natin { 0% { opacity: 0; transform: scale(.3) rotate(-8deg); } 60% { transform: scale(1.12); } 100% { opacity: 1; transform: none; } }
     @keyframes spin { from { transform: rotate(-360deg) scale(.2); } to { transform: none; } }
 
-    /* ============================================================
-       TOOLTIPS (each entity type has its own look)
-       ============================================================ */
+    /* =========================================================
+       TOOLTIPS: each kind of entity has its own look
+       ========================================================= */
     #tip .th { background: var(--pc); color: #000; font-weight: 800; border-radius: .4em; padding: .25em .5em; margin-bottom: .4em; }
     #tip .tsub { color: #b0b0c4; font-size: .92em; margin: .15em 0; }
     #tip .tstats { display: grid; grid-template-columns: repeat(4, 1fr); gap: .3em; margin: .2em 0; }
@@ -163,15 +165,13 @@
     #tip.kind-nuke { border-style: dashed; box-shadow: 0 0 22px #ff3d3d88; }
     #tip.kind-nuke .th { background: #ff3d3d; color: #fff; }
 
-    /* ============================================================
-       MODAL AND MISC
-       ============================================================ */
+    /* =========================================================
+       MODAL
+       ========================================================= */
     #modal .card { background: #1c1c28; border: 1px solid #2c2c3e; border-radius: .8em; width: min(92vw, 40em); max-height: 90vh; overflow: auto; padding: 1.6em; display: flex; flex-direction: column; gap: 1em; font-size: 1.15em; text-align: center; }
     #modal input { font-size: 1em; padding: .5em; border-radius: .4em; border: 1px solid #556; background: #0e0e12; color: inherit; text-align: center; }
     #modal .row { display: flex; gap: .5em; justify-content: center; flex-wrap: wrap; }
-    .vs { position: relative; display: inline-block; font-weight: 800; margin-left: .05em; }
-    .vs::before, .vs::after { content: ''; position: absolute; left: -.15em; right: -.15em; height: .09em; background: currentColor; top: 40%; }
-    .vs::after { top: 54%; }
+    .vs { position: relative; display: inline-block; font-weight: 800; }
   </style>
 </head>
 <body>
@@ -191,16 +191,17 @@
       </div>
     </div>
   </div>
+  <div id="carry"></div>
   <div id="tip"></div>
   <div id="modal"></div>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script>
-  /* =================================================================
+  /* =============================================================
      1. CONFIGURATION
-     Fixed values for the game: colours, icons, rule numbers, and the
-     Supabase connection (the publishable key is safe in browser code).
-     ================================================================= */
+     Fixed game rules, colours and icons, plus the Supabase
+     connection. The publishable key is safe in browser code.
+     ============================================================= */
 
   const SUPABASE_URL = 'https://jbdfcqqobtatxmmhmipa.supabase.co';
   const SUPABASE_KEY = 'sb_publishable_74fKEI9ilefM-7pR8A8bnw_cIYLsfqu';
@@ -209,8 +210,10 @@
   const PLAYER_COLORS = ['#e4572e', '#29b6f6', '#66bb6a', '#ffca28', '#ab47bc', '#ff8a65'];
   const HERO_COLORS = ['#ff8fab', '#7cf0ff', '#c3f584', '#ffd166', '#b28dff', '#ffa94d', '#f1faee', '#90e0ef', '#e76f51', '#2ec4b6', '#f72585', '#caf0f8', '#fbf8cc', '#a0c4ff', '#ffadad', '#9bf6ff', '#bdb2ff', '#ffc6ff'];
   const TILE_COLORS = { str: '#7a2e38', def: '#24527a', rng: '#4f6b26', int: '#5b3478', bar: '#7a5a22' };
-  const NEUTRAL_TILE = '#2a2a38';
+  const NEUTRAL_FILL = '#2a2a38';
   const GROUND_ZERO_FILL = '#4d4118';
+  const UNOWNED_STROKE = '#c9a227';
+  const UNOCCUPIED_BARRIER = '#9a9a9a';
 
   const SKILLS = ['str', 'def', 'rng', 'int'];
   const SKILL_ICON = { str: '✊', def: '🛡️', rng: '🏹', int: '🧠', bar: '🛑' };
@@ -218,47 +221,48 @@
   const SKILL_SHORT = { str: 'STR', def: 'DEF', rng: 'RNG', int: 'INT' };
   const OBJECT_SYMBOLS = ['🔮', '🗡️', '🏺', '📿', '🧿', '⚗️', '🪬', '🔑', '🪄', '🧭', '🕯️', '🏹'];
   const EMOJIS = ['😂', '👏', '😱', '🔥', '🤔', '💀', '🎯', '🙃'];
+  const HAND_CARDS = ['str', 'def', 'rng', 'int', 'v'];       // 'v' is the 5V card
 
-  // six neighbouring directions in cube coordinates
   const DIRECTIONS = [[1, -1, 0], [1, 0, -1], [0, 1, -1], [-1, 1, 0], [-1, 0, 1], [0, -1, 1]];
   const HEX_RADIUS = 36;
 
-  const NUKE_HITS = 3;          // attacks needed to destroy the Nuke
-  const MAX_HEROES = 3;
-  const MAX_OBJECTS = 3;
-  const MAX_PLAYERS = 6;
-  const OFFLINE_LIMIT_MS = 60000;
-  const LOG_LIMIT = 80;
-  const HAND_CARDS = ['str', 'def', 'rng', 'int', 'v'];   // 'v' = 5V card
+  const ROUND = { placementEnds: 5, attacksFrom: 4, declineFrom: 7 };
+  const RULES = {
+    maxPlayers: 6, maxHeroes: 3, maxObjects: 3, maxSkill: 5,
+    minBarrier: 3, maxBarrier: 12, nukeHits: 3,
+    startVersa: 5, heroCost: 30, actionCost: 5, sellValue: 2, cardVersa: 5,
+    heroActions: 2, offlineLimitMs: 60000, logLimit: 80,
+  };
 
-  /* =================================================================
-     2. SMALL UTILITIES
-     Pure helpers with no game state.
-     ================================================================= */
+  /* =============================================================
+     2. UTILITIES
+     Helpers with no game state.
+     ============================================================= */
 
   const el = id => document.getElementById(id);
-  const randomDie = sides => 1 + (Math.random() * sides | 0);
-  const rollD6 = () => randomDie(6);
-  const rollD20 = () => randomDie(20);
-  const shuffled = list => {
-    const copy = [...list];
+  const rollD6 = () => 1 + (Math.random() * 6 | 0);
+  const rollD20 = () => 1 + (Math.random() * 20 | 0);
+
+  function shuffled(items) {
+    const copy = [...items];
     for (let i = copy.length - 1; i > 0; i--) {
       const j = Math.random() * (i + 1) | 0;
       [copy[i], copy[j]] = [copy[j], copy[i]];
     }
     return copy;
-  };
-  // 3 of each skill and 3 of the 5V card
+  }
+
+  // three of each card, so the deck has 15 cards
   const makeTraversalDeck = () => shuffled(HAND_CARDS.flatMap(card => [card, card, card]));
   const escapeHtml = text => String(text).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-  const dieHtml = (value, delaySeconds) => `<span class="die" style="--d:${delaySeconds}s">${value}</span>`;
-  const bonusHtml = (text, delaySeconds) => `<span class="bon" style="--d:${delaySeconds}s">${text}</span>`;
+  const dieHtml = (value, delay) => `<span class="die" style="--d:${delay}s">${value}</span>`;
+  const bonusHtml = (text, delay) => `<span class="bon" style="--d:${delay}s">${text}</span>`;
   const isValidName = name => /^[A-Za-z0-9]{2,16}$/.test(name);
 
-  /* =================================================================
+  /* =============================================================
      3. HEX GEOMETRY
-     Tiles use cube coordinates [x, y, z]. Keys are "x,y,z" strings.
-     ================================================================= */
+     Tiles use cube coordinates [x, y, z]. Map keys are "x,y,z".
+     ============================================================= */
 
   const cubeKey = cube => cube.join(',');
   const keyToCube = key => key.split(',').map(Number);
@@ -268,7 +272,7 @@
   const hexX = cube => Math.sqrt(3) * HEX_RADIUS * (cube[0] + cube[2] / 2);
   const hexY = cube => 1.5 * HEX_RADIUS * cube[2];
 
-  // corner points of a pointy-top hexagon, optionally shrunk to a radius
+  // corners of a pointy-top hexagon, optionally shrunk to a smaller radius
   function hexPoints(cube, radius = HEX_RADIUS - 4) {
     return [0, 1, 2, 3, 4, 5].map(i => {
       const angle = Math.PI / 3 * i + Math.PI / 6;
@@ -276,157 +280,179 @@
     }).join(' ');
   }
 
-  /* =================================================================
+  /* =============================================================
      4. CLIENT STATE
-     G       shared game state, synced through Supabase
-     PRIV    this player's private data: hidden tiles, hand, pool, deck
-     ui      local-only interaction state (menus, drags, modes)
-     ================================================================= */
+     G     shared game state, synced through the database
+     PRIV  this player's private data: hidden tiles, hand, pool, deck
+     ui    local interaction state: open menus, modes, messages
+     ============================================================= */
 
   let G = null;
   let PRIV = null;
-  let ME = null;                  // this browser's Supabase user id
-  let ROOM = null;                // current room code
-  let ROOM_ROW = null;            // latest room row from the database
+  let ME = null;                 // this browser's Supabase user id
+  let ROOM = null;               // current room code
+  let ROOM_ROW = null;           // latest room row from the database
   let channel = null;
   let lastPublished = '';
   let lastPrivate = '';
   let privateLoad = null;
   let roomLoading = false;
   let username = localStorage.getItem('versa-name') || '';
-  let view = { cx: 0, cy: 0, z: 900 };
-  let panState = null;
+  let view = { cx: 0, cy: 0, zoom: 900 };
+  let pan = null;                // board panning gesture
+  let drag = null;               // hero drag gesture
+  let handDrag = null;           // skill card drag gesture
+  let suppressClick = false;
+  let suppressHandClick = false;
   let botMinimized = false;
   let lastActionWasRetry = false;
   let tooltips = {};
   let onlineUsers = new Set();
   let presenceReady = false;
   let offlineSince = {};
-  const seenTodoKeys = new Set();
+  const seenTodo = new Set();
 
   const ui = {
-    mode: '',                // '', place, remove, move, attack, develop, barrier, hero, obj, buyskill, mind
-    selected: null,          // hero being used this action
-    devType: null,           // 'barrier' | 'object' | 'skill' during develop
-    devSkill: 'str',         // skill being bought or developed
-    buildDir: null,          // 'up' | 'down' for barrier development
-    take: false,             // "take 10" instead of rolling in develop
-    wheel: null,             // open wheel menu
-    wheelStack: [],
-    press: null,             // pointer pressed on a hero
-    tween: null,             // animation of a hero moving
-    carryPick: null,         // {hero, cube, selected[]} while choosing objects to carry
-    pendingDiscovery: null,  // hidden tile revealed by moving onto it with an object
-    message: '',             // short hint shown beside the turn info
-    swallowBoardClick: false,
-    swallowHandClick: false,
-    handDrag: null,
+    mode: '',            // '', place, remove, develop, barrier, hero, obj, buyskill, move
+    selected: null,      // hero performing the current action
+    devType: null,       // develop choice: barrier | object | skill
+    devSkill: 'str',     // skill being raised by develop or by a purchase
+    buildDir: null,      // barrier develop direction: up | down
+    take: false,         // develop: take 10 instead of rolling
+    wheel: null,         // the open wheel menu
+    carry: null,         // move in progress: {hero, cube, selected}
+    pendingDiscovery: null,
+    message: '',
   };
 
-  /* =================================================================
+  /* =============================================================
      5. LOOKUPS
      Read-only questions about the game state.
-     ================================================================= */
+     ============================================================= */
 
   const tileAt = cube => G.tiles[cubeKey(cube)];
   const heroesAt = cube => G.heroes.filter(h => h.alive && sameTile(h.c, cube));
   const objectsAt = cube => G.objs.filter(o => o.alive && sameTile(o.c, cube));
   const nukeAt = cube => G.objs.find(o => o.alive && o.nuke && sameTile(o.c, cube));
   const objectCount = player => G.objs.filter(o => o.alive && !o.nuke && o.p === player).length;
+
   // the object a hero fights and develops with: its own object on its tile
   const objectFor = hero => G.objs.find(o => o.alive && !o.nuke && o.p === hero.p && sameTile(o.c, hero.c));
-  // anything left on the hero's tile can be taken along, including opponents' objects and the Nuke
+
+  // anything on the hero's tile can be taken along: own or opponent objects, and the Nuke
   const carryable = hero => objectsAt(hero.c);
-  // objects add range, so a hero can travel and attack farther if it takes them along
-  const reach = hero => hero.s.rng + Math.max(0, ...carryable(hero).map(o => o.s.rng || 0));
+
+  // objects add range, but a hero only gets that range by taking them along
+  const maxRangeWith = (hero, objects) => hero.s.rng + Math.max(0, ...objects.map(o => o.s.rng || 0));
+  const reach = hero => maxRangeWith(hero, carryable(hero));
   const gzBonus = hero => (tileAt(hero.c)?.gz ? 1 : 0);
-  const heroColor = hero => HERO_COLORS[G.heroes.indexOf(hero) % HERO_COLORS.length];
   const heroLabel = hero => `${G.pl[hero.p].name} H${hero.k}`;
   const isAlive = player => G.heroes.some(h => h.alive && h.p === player);
   const alivePlayers = () => G.pl.map((_, i) => i).filter(isAlive);
   const myIndex = () => (G ? G.pl.findIndex(p => p.uid === ME) : -1);
   const isMyTurn = () => !!G && G.started && !G.over && G.pl[G.cur]?.uid === ME;
-  // a Mind Controlled hero that has been ceded acts for its controller
-  const actingPlayer = hero => (hero.mc && hero.mc.ceded ? hero.mc.by : hero.p);
-  const phaseName = () => G.rd <= 3 ? 'Peace · Growth' : G.rd <= 5 ? 'War · Growth' : G.rd === 6 ? 'Stagnation' : 'Decline';
-  const barrierIsMine = (tile, hero) => heroesAt(tile.c).some(h => actingPlayer(h) === actingPlayer(hero)) || tile.barOwn === actingPlayer(hero);
-  const hasMindControlledHeroWithActions = () => G.heroes.some(h => h.alive && h.p === G.cur && h.mc && h.acts > 0);
 
-  // this browser may control a hero: it is their hero on their turn, or a ceded one they control
+  // a ceded Mind Controlled hero acts for its controller
+  const actingPlayer = hero => (hero.mc && hero.mc.ceded ? hero.mc.by : hero.p);
+
+  const phaseName = () => {
+    if (G.rd <= 3) return 'Peace · Growth';
+    if (G.rd <= ROUND.placementEnds) return 'War · Growth';
+    if (G.rd === 6) return 'Stagnation';
+    return 'Decline';
+  };
+
+  const barrierIsMine = (tile, hero) =>
+    heroesAt(tile.c).some(h => actingPlayer(h) === actingPlayer(hero)) || tile.barOwn === actingPlayer(hero);
+
+  // the glow takes the colour of the player occupying the tile
+  const barrierColor = cube => {
+    const hero = heroesAt(cube)[0];
+    return hero ? PLAYER_COLORS[hero.p] : UNOCCUPIED_BARRIER;
+  };
+
+  // this browser may move or attack with a hero: its own on its turn, or a ceded one it controls
   const canControlHero = hero => {
     if (!G || !G.started || G.over || !hero || !hero.alive || hero.p !== G.cur) return false;
     if (hero.p === myIndex()) return isMyTurn() && !hero.mc;
     return !!hero.mc && hero.mc.ceded && hero.mc.by === myIndex();
   };
+
   const isControllingOpponent = () => !!G && G.started && !G.over && G.cur !== myIndex()
     && G.heroes.some(h => h.alive && h.p === G.cur && h.mc && h.mc.ceded && h.mc.by === myIndex());
 
-  // Mind Control may not target a hero that was released this round or the one before
-  const canBeMindControlled = (hero, controllerPlayer) => hero.alive
-    && (!hero.mc || hero.mc.by === controllerPlayer)
+  // Mind Control cannot target a hero released in this round or the last
+  const canBeMindControlled = (hero, controller) => hero.alive
+    && (!hero.mc || hero.mc.by === controller)
     && !(hero.mcCooldown !== undefined && (G.rd === hero.mcCooldown || G.rd === hero.mcCooldown + 1));
 
-  /* =================================================================
-     6. ACTION RULES
-     ================================================================= */
+  const hasControlledHeroWithActions = () =>
+    G.heroes.some(h => h.alive && h.p === G.cur && h.mc && h.acts > 0);
 
-  // Decline: the player removes one tile for each owner in the removal order
-  const ownerHasRemovableTile = owner => Object.values(G.tiles).some(t => !t.gz && t.own === owner && !heroesAt(t.c).length);
-  // drop owners whose removal is no longer possible; the order was fixed at turn start
-  function advanceRemovalOrder() {
-    if (!G.remOrder) return;
-    while (G.remOrder.length && !ownerHasRemovableTile(G.remOrder[0])) G.remOrder.shift();
-  }
-  const removalOwner = () => (G.remOrder && G.remOrder.length ? G.remOrder[0] : undefined);
-  const needsRemoval = () => G.rd >= 7 && removalOwner() !== undefined;
-  const needsPlacement = () => G.rd <= 5 && G.pl[G.cur].pool.length > 0;
-  const needsBoardStep = () => (G.rd <= 5 ? needsPlacement() : needsRemoval());
+  /* =============================================================
+     6. ACTION RULES
+     Whether a board step or hero action is currently allowed.
+     ============================================================= */
+
+  const ownerHasRemovableTile = owner =>
+    Object.values(G.tiles).some(t => !t.gz && t.own === owner && !heroesAt(t.c).length);
+
+  // the owner whose removal is due next; owners blocked by a hero are skipped
+  const currentRemovalOwner = () => G.remOrder.find(ownerHasRemovableTile);
+  const needsRemoval = () => G.rd >= ROUND.declineFrom && currentRemovalOwner() !== undefined;
+  const needsPlacement = () => G.rd <= ROUND.placementEnds && G.pl[G.cur].pool.length > 0;
+  const needsBoardStep = () => (G.rd <= ROUND.placementEnds ? needsPlacement() : needsRemoval());
   const boardStepDone = () => G.done || !needsBoardStep();
 
-  // an action may be repeated only if it has never succeeded this turn
+  // an action can be repeated only if it has not succeeded yet this turn
   const canRepeat = (hero, type) => !hero.t.some(x => x.type === type && !x.fail) || hero.ok[type];
-  const canAct = (hero, type) => !G.over && hero.alive && hero.p === G.cur && boardStepDone() && hero.acts > 0
-    && canRepeat(hero, type) && (type !== 'attack' || G.rd >= 4);
-  const canHitNuke = hero => !G.over && hero.alive && hero.p === G.cur && boardStepDone() && hero.acts > 0 && canRepeat(hero, 'attack');
 
-  // Mind Controlled heroes cannot end their controller's turn while they still have actions
-  const endTurnBlocked = () => !!G && hasMindControlledHeroWithActions();
+  const canAct = (hero, type) => !G.over && hero.alive && hero.p === G.cur && boardStepDone()
+    && hero.acts > 0 && canRepeat(hero, type) && (type !== 'attack' || G.rd >= ROUND.attacksFrom);
 
-  /* =================================================================
+  const canHitNuke = hero => !G.over && hero.alive && hero.p === G.cur && boardStepDone()
+    && hero.acts > 0 && canRepeat(hero, 'attack');
+
+  const endTurnBlocked = () => hasControlledHeroWithActions();
+
+  /* =============================================================
      7. GAME SETUP AND SERIALIZATION
-     ================================================================= */
+     ============================================================= */
 
   function makeNewGame(players) {
     const n = players.length;
     const state = {
       n, rd: 1, cur: 0, started: true, apoc: 0, nd: 0, over: '', done: false, first: true,
-      remOrder: [],
+      remPlan: [], remOrder: [],
       pl: players.map(p => ({ uid: p.uid, name: p.name, v: 0, poolN: 5, handN: 0 })),
       tiles: { '0,0,0': { c: [0, 0, 0], gz: 1, disc: 1, bar: 0, own: -1, sk: null } },
-      heroes: players.map((p, i) => ({ p: i, k: 1, c: [0, 0, 0], s: { str: 1, def: 1, rng: 1, int: 1 }, dmg: 0, acts: i === 0 ? 2 : 0, t: [], ok: {}, alive: 1 })),
-      objs: n === 2 ? [{ nuke: 1, p: -1, c: [0, 0, 0], s: { str: 0, def: NUKE_HITS, rng: 0, int: 0 }, dmg: 0, alive: 1 }] : [],
+      heroes: players.map((p, i) => ({
+        p: i, k: 1, c: [0, 0, 0], s: { str: 1, def: 1, rng: 1, int: 1 },
+        dmg: 0, acts: i === 0 ? RULES.heroActions : 0, t: [], ok: {}, alive: 1,
+      })),
+      objs: n === 2 ? [{ nuke: 1, p: -1, c: [0, 0, 0], s: { str: 0, def: RULES.nukeHits, rng: 0, int: 0 }, dmg: 0, alive: 1 }] : [],
       log: [{ t: `New game: ${n} players. Everyone starts on Ground Zero.${n === 2 ? ' A Nuke sits on Ground Zero.' : ''}`, p: -1 }],
     };
-    state.pl[0].v = n === 2 ? 0 : 5;
+    state.pl[0].v = n === 2 ? 0 : RULES.startVersa;
     return state;
   }
 
-  // the part of G that is shared with every player
+  // the part of the game state that every player can see
   function publicSnapshot() {
     return JSON.stringify({
       n: G.n, rd: G.rd, cur: G.cur, started: G.started, apoc: G.apoc, nd: G.nd || 0,
-      over: G.over, done: G.done, first: G.first, remOrder: G.remOrder || [],
+      over: G.over, done: G.done, first: G.first, remPlan: G.remPlan, remOrder: G.remOrder,
       pl: G.pl.map(p => ({ uid: p.uid, name: p.name, v: p.v, poolN: p.pool.length, handN: p.hand.length })),
       tiles: Object.fromEntries(Object.entries(G.tiles).map(([k, t]) => [k, { ...t, sk: t.disc ? t.sk : null }])),
       heroes: G.heroes, objs: G.objs, log: G.log,
     });
   }
 
-  /* =================================================================
-     8. SYNC WITH THE DATABASE
-     ================================================================= */
+  /* =============================================================
+     8. DATABASE SYNC
+     ============================================================= */
 
-  // loads or creates this player's private data (hidden tiles, hand, pool)
+  // loads this player's private data, or creates it the first time
   async function ensurePrivateData() {
     if (PRIV) return;
     if (!privateLoad) {
@@ -440,52 +466,52 @@
     return privateLoad;
   }
 
-  // the owner reveals tiles that other players discovered, and the bonus goes to the discovering hero
+  // when another player's hero finds my hidden tile, I reveal it and the bonus goes to that hero
   function revealHiddenTiles(myPlayer, privateData) {
     Object.values(G.tiles).forEach(tile => {
-      if (!tile.pend || tile.own !== myPlayer || !privateData.sks[cubeKey(tile.c)]) return;
-      const skill = privateData.sks[cubeKey(tile.c)];
+      const key = cubeKey(tile.c);
+      if (!tile.pend || tile.own !== myPlayer || !privateData.sks[key]) return;
+      const skill = privateData.sks[key];
       const pending = tile.pend;
       tile.sk = skill;
       tile.disc = 1;
       tile.pend = undefined;
       if (skill === 'bar') {
-        if (!G.apoc) { tile.bar = 3; tile.barOwn = pending.p; }
-        log('  Hidden barrier HexTile revealed by its owner: L3 barrier appears', pending.p);
-      } else {
-        const hero = G.heroes.find(h => h.alive && h.p === pending.p && h.k === pending.k);
-        if (hero) hero.s[skill] = Math.min(5, hero.s[skill] + 1);
-        log(`  Hidden ${skill} HexTile revealed by its owner: +1 for ${G.pl[pending.p].name} H${pending.k}`, pending.p);
+        if (!G.apoc) { tile.bar = RULES.minBarrier; tile.barOwn = pending.p; }
+        addLog('  Hidden barrier HexTile revealed by its owner: L3 barrier appears', pending.p);
+        return;
       }
+      const hero = G.heroes.find(h => h.alive && h.p === pending.p && h.k === pending.k);
+      if (hero) hero.s[skill] = Math.min(RULES.maxSkill, hero.s[skill] + 1);
+      addLog(`  Hidden ${skill} HexTile revealed by its owner: +1 for ${G.pl[pending.p].name} H${pending.k}`, pending.p);
     });
   }
 
+  // replaces the local game state with a state received from the database
   function applyRemoteState(state) {
     const priv = PRIV || { pool: [], hand: [], deck: [], sks: {} };
-    const myPlayer = state.pl.findIndex(p => p.uid === ME);
+    const me = state.pl.findIndex(p => p.uid === ME);
     G = {
       ...state,
       pl: state.pl.map((p, i) => ({
         ...p,
-        pool: i === myPlayer ? priv.pool : Array(p.poolN).fill('?'),
-        hand: i === myPlayer ? priv.hand : Array(p.handN).fill('?'),
-        deck: i === myPlayer ? priv.deck : [],
+        pool: i === me ? priv.pool : Array(p.poolN).fill('?'),
+        hand: i === me ? priv.hand : Array(p.handN).fill('?'),
+        deck: i === me ? priv.deck : [],
       })),
     };
-    // my own undiscovered tiles show their type to me
-    Object.values(G.tiles).forEach(t => {
-      if (!t.disc && t.own === myPlayer && priv.sks[cubeKey(t.c)]) t.sk = priv.sks[cubeKey(t.c)];
+    // my own undiscovered tiles keep their type on my screen
+    Object.values(G.tiles).forEach(tile => {
+      if (!tile.disc && tile.own === me && priv.sks[cubeKey(tile.c)]) tile.sk = priv.sks[cubeKey(tile.c)];
     });
     lastPublished = publicSnapshot();
     lastPrivate = JSON.stringify(priv);
-    revealHiddenTiles(myPlayer, priv);
-    clearBarriersBelowLevelThree();
-    // a fresh turn may open the placement step, but only if it isn't already done
-    if (isMyTurn() && !G.done && !G.over) ui.mode = needsBoardStep() ? (G.rd <= 5 ? 'place' : 'remove') : '';
+    revealHiddenTiles(me, priv);
+    clearWeakBarriers();
     render();
   }
 
-  // publishes changes to the shared state and to this player's private data
+  // sends local changes to the database; only changed data is sent
   function publishChanges() {
     if (!G || !ROOM || !G.started) return;
     const snapshot = publicSnapshot();
@@ -507,14 +533,14 @@
   function onRoomUpdate(row) {
     ROOM_ROW = row;
     if (!row.state) { G = null; render(); return; }
-    // ignore stale updates that are older than what we already have
+    // ignore updates older than the state already on screen
     if (G && row.state.seq <= (G.seq || 0)) return;
     ensurePrivateData().then(() => applyRemoteState(row.state));
   }
 
-  /* =================================================================
-     9. PRESENCE, DISCONNECTS, EMOJI
-     ================================================================= */
+  /* =============================================================
+     9. PRESENCE, DISCONNECTS AND EMOJI
+     ============================================================= */
 
   function onPresenceSync() {
     onlineUsers = new Set(Object.keys(channel.presenceState()));
@@ -527,7 +553,7 @@
     render();
   }
 
-  // The lowest-numbered connected player checks the timer, so only one browser applies the penalty
+  // The lowest-numbered connected player applies the penalty, so only one browser does it
   function checkDisconnects() {
     if (!G || !G.started || G.over || !presenceReady) return;
     if (G.pl.findIndex(p => onlineUsers.has(p.uid)) !== myIndex()) return;
@@ -535,11 +561,10 @@
     let changed = false;
     G.pl.forEach((p, i) => {
       if (onlineUsers.has(p.uid) || !offlineSince[p.uid] || !isAlive(i)) return;
-      if (now - offlineSince[p.uid] > OFFLINE_LIMIT_MS) {
-        G.heroes.forEach(h => { if (h.alive && h.p === i) killHero(h, 'disconnected for over a minute'); });
-        log(`${p.name} disconnected for over a minute: their heroes are lost`, i);
-        changed = true;
-      }
+      if (now - offlineSince[p.uid] <= RULES.offlineLimitMs) return;
+      G.heroes.forEach(h => { if (h.alive && h.p === i) killHero(h, 'disconnected for over a minute'); });
+      addLog(`${p.name} disconnected for over a minute: their heroes are lost`, i);
+      changed = true;
     });
     if (changed) render();
   }
@@ -549,18 +574,18 @@
     return Object.keys(offlineSince).map(uid => {
       const i = G.pl.findIndex(p => p.uid === uid);
       if (i < 0 || !isAlive(i)) return '';
-      const secondsLeft = Math.max(0, Math.ceil((OFFLINE_LIMIT_MS - (now - offlineSince[uid])) / 1000));
+      const secondsLeft = Math.max(0, Math.ceil((RULES.offlineLimitMs - (now - offlineSince[uid])) / 1000));
       return `<span class="alert">⏱ ${escapeHtml(G.pl[i].name)} offline: ${secondsLeft}s</span>`;
     }).join('');
   }
 
-  // floats an emoji over a hero for everyone
+  // floats an emoji above a hero for everyone in the room
   function showEmoji({ uid, k, e }) {
     if (!G) return;
-    const playerIndex = G.pl.findIndex(p => p.uid === uid);
-    const hero = G.heroes.find(h => h.alive && h.p === playerIndex && h.k === k);
-    if (playerIndex < 0 || !hero) return;
-    const [x, y] = screenPosition(hero.c);
+    const owner = G.pl.findIndex(p => p.uid === uid);
+    const hero = G.heroes.find(h => h.alive && h.p === owner && h.k === k);
+    if (owner < 0 || !hero) return;
+    const [x, y] = screenPoint(...heroPosition(hero));
     const node = document.createElement('div');
     node.className = 'emo';
     node.textContent = e;
@@ -570,9 +595,15 @@
     setTimeout(() => node.remove(), 2300);
   }
 
-  /* =================================================================
-     10. LOBBY AND ROOM MANAGEMENT
-     ================================================================= */
+  function sendEmoji(hero, emoji) {
+    const payload = { uid: ME, k: hero.k, e: emoji };
+    if (channel) channel.send({ type: 'broadcast', event: 'emoji', payload });
+    showEmoji(payload);
+  }
+
+  /* =============================================================
+     10. LOBBY AND ROOMS
+     ============================================================= */
 
   function openRoomChannel(code) {
     if (channel) db.removeChannel(channel);
@@ -612,7 +643,7 @@
     const players = data.players;
     if (players.some(p => p.uid === ME)) return enterRoom(code);
     if (data.state) return toast('That game has already started');
-    if (players.length >= MAX_PLAYERS) return toast('Room full (6 players max)');
+    if (players.length >= RULES.maxPlayers) return toast('Room full (6 players max)');
     if (players.some(p => p.name.toLowerCase() === username.toLowerCase())) return toast('That username is already used in this room');
     const { error: joinError } = await db.from('rooms').update({ players: [...players, { uid: ME, name: username }] }).eq('code', code);
     if (joinError) return toast(joinError.message);
@@ -644,42 +675,44 @@
     setTimeout(() => node.remove(), 2600);
   }
 
-  /* =================================================================
+  /* =============================================================
      11. TURN FLOW
-     ================================================================= */
+     ============================================================= */
 
   function addHero(player, cube) {
     const k = G.heroes.filter(h => h.p === player).length + 1;
     G.heroes.push({ p: player, k, c: cube, s: { str: 1, def: 1, rng: 1, int: 1 }, dmg: 0, acts: 0, t: [], ok: {}, alive: 1 });
   }
 
-  // start of a turn: refresh the current player's heroes, pay 5V, decide the Decline removal order
+  // start of a turn: heroes reset, Versa is paid, and the Decline removal order is fixed
   function beginTurn() {
-    G.heroes.forEach(h => { if (h.p === G.cur) { h.dmg = 0; h.acts = 2; h.t = []; h.ok = {}; } });
+    G.heroes.forEach(h => { if (h.p === G.cur) { h.dmg = 0; h.acts = RULES.heroActions; h.t = []; h.ok = {}; } });
     G.heroes.forEach(h => { if (h.mc && h.mc.by === G.cur) h.mc.kept = false; });
     G.objs.forEach(o => { if (o.p === G.cur) o.dmg = 0; });
-    G.pl[G.cur].v += 5;
+    G.pl[G.cur].v += RULES.startVersa;
     G.done = false;
     G.first = true;
-    G.remOrder = G.rd >= 7 ? buildRemovalOrder() : [];
-    log(`— ${G.pl[G.cur].name} · Round ${G.rd} (${phaseName()}) · +5V`, G.cur);
+    G.remPlan = G.rd >= ROUND.declineFrom ? buildRemovalOrder() : [];
+    G.remOrder = [...G.remPlan];
+    addLog(`— ${G.pl[G.cur].name} · Round ${G.rd} (${phaseName()}) · +5V`, G.cur);
   }
 
-  // the current player first, then each eliminated player who still has a removable tile
+  // your own tile first, then each eliminated player who still has a removable tile
   function buildRemovalOrder() {
-    const eliminated = G.pl.map((_, i) => i).filter(i => i !== G.cur && !isAlive(i) && ownerHasRemovableTile(i));
-    const own = ownerHasRemovableTile(G.cur) ? [G.cur] : [];
-    return [...own, ...eliminated];
+    const order = ownerHasRemovableTile(G.cur) ? [G.cur] : [];
+    G.pl.forEach((_, i) => {
+      if (i !== G.cur && !isAlive(i) && ownerHasRemovableTile(i)) order.push(i);
+    });
+    return order;
   }
 
   function endTurn() {
-    if (!boardStepDone()) return setMessage('Finish your board step first');
-    if (endTurnBlocked()) return setMessage('Use or cede your Mind Controlled hero\'s actions first');
+    if (!boardStepDone() || endTurnBlocked()) return;
     // Mind Control lapses unless the controller renewed it this turn
     G.heroes.forEach(h => {
       if (!h.alive) return;
       if (h.mc && h.mc.by === G.cur && !h.mc.kept) {
-        log(`${G.pl[G.cur].name} did not renew Mind Control of ${heroLabel(h)}; control ends`, G.cur);
+        addLog(`${G.pl[G.cur].name} did not renew Mind Control of ${heroLabel(h)}; control ends`, G.cur);
         h.mc = null;
         h.mcCooldown = G.rd;
       }
@@ -694,20 +727,28 @@
     if (!G.over) beginTurn();
   }
 
+  function endTurnClick() {
+    if (!isMyTurn()) return;
+    if (!boardStepDone()) setMessage('Finish your board step first');
+    else if (endTurnBlocked()) setMessage('Use or cede your Mind Controlled hero\'s actions first');
+    else endTurn();
+    render();
+  }
+
   function checkWinner() {
     if (G.over) return;
     const alive = alivePlayers();
     if (alive.length <= 1) {
       G.over = alive.length ? `${G.pl[alive[0]].name} wins: last hero standing!` : 'Everyone is gone: draw.';
-      log(G.over);
+      addLog(G.over);
       return;
     }
-    const apocalypseTriggered = (G.n >= 3 && alive.length === 2) || (G.n === 2 && G.nd);
-    if (apocalypseTriggered && !G.apoc) {
+    const apocalypse = (G.n >= 3 && alive.length === 2) || (G.n === 2 && G.nd);
+    if (apocalypse && !G.apoc) {
       G.apoc = 1;
       Object.values(G.tiles).forEach(t => { t.bar = 0; t.barOwn = undefined; });
       G.objs.forEach(o => { o.alive = 0; });
-      log('☢ APOCALYPSE: barriers and objects destroyed');
+      addLog('☢ APOCALYPSE: barriers and objects destroyed');
     }
   }
 
@@ -715,33 +756,41 @@
     hero.alive = 0;
     hero.dmg = 0;
     if (hero.mc) hero.mc = null;
-    log(`☠ ${heroLabel(hero)} dies${reason ? ' (' + reason + ')' : ''}`, hero.p);
+    addLog(`☠ ${heroLabel(hero)} dies${reason ? ' (' + reason + ')' : ''}`, hero.p);
     checkWinner();
   }
 
-  function clearBarriersBelowLevelThree() {
-    Object.values(G.tiles).forEach(t => { if (t.bar && t.bar < 3) { t.bar = 0; t.barOwn = undefined; } });
+  function clearWeakBarriers() {
+    Object.values(G.tiles).forEach(t => {
+      if (t.bar && t.bar < RULES.minBarrier) { t.bar = 0; t.barOwn = undefined; }
+    });
   }
 
-  /* =================================================================
-     12. LOGGING AND MESSAGES
-     ================================================================= */
+  // keeps a board mode only while it still has something to do
+  function syncModeWithRules() {
+    if (ui.mode === 'place' && !needsPlacement()) ui.mode = '';
+    if (ui.mode === 'remove' && !needsRemoval()) ui.mode = '';
+  }
 
-  function log(text, player = -1) {
+  /* =============================================================
+     12. LOG, MESSAGES AND SPENDING
+     ============================================================= */
+
+  function addLog(text, player = -1) {
     G.log.unshift({ t: text, p: player });
-    G.log.length = Math.min(G.log.length, LOG_LIMIT);
+    G.log.length = Math.min(G.log.length, RULES.logLimit);
   }
 
   function setMessage(text) { ui.message = text; }
 
-  // records one action; a retry of a failed action is flagged for "(try again)"
+  // records an action; repeating a failed action is flagged "(try again)"
   function spendAction(hero, type, failed) {
     hero.acts--;
     const isRetry = hero.t.some(x => x.type === type && x.fail);
     hero.t.push({ type, fail: !!failed });
     hero.ok[type] = 0;
     lastActionWasRetry = isRetry;
-    if (isRetry) log(`  ${heroLabel(hero)} tries ${type} again (try again)`, hero.p);
+    if (isRetry) addLog(`  ${heroLabel(hero)} tries ${type} again (try again)`, hero.p);
   }
 
   function spendVersa(amount) {
@@ -751,9 +800,9 @@
     return true;
   }
 
-  /* =================================================================
+  /* =============================================================
      13. TILES AND PLACEMENT
-     ================================================================= */
+     ============================================================= */
 
   function placeTile(cube, skill) {
     const player = G.pl[G.cur];
@@ -762,22 +811,20 @@
     G.tiles[cubeKey(cube)] = { c: cube, own: G.cur, sk: skill, disc: 0, bar: 0 };
     G.done = true;
     ui.mode = '';
-    closeWheel();
-    log(`${G.pl[G.cur].name} places a face-down HexTile at (${cube})`, G.cur);
+    addLog(`${G.pl[G.cur].name} places a face-down HexTile at (${cube})`, G.cur);
   }
 
+  // each owner in the removal order loses one tile
   function removeTile(key) {
+    const tile = tileAt(keyToCube(key));
     delete G.tiles[key];
-    log(`${G.pl[G.cur].name} removes a HexTile at (${keyToCube(key)})`, G.cur);
-    // this owner's turn in the removal order is used up
-    if (G.remOrder) G.remOrder.shift();
+    addLog(`${G.pl[G.cur].name} removes a HexTile at (${keyToCube(key)})`, G.cur);
+    G.remOrder = G.remOrder.filter(owner => owner !== tile.own);
     cleanup();
-    advanceRemovalOrder();
     ui.mode = needsRemoval() ? 'remove' : '';
-    if (!needsRemoval()) G.done = true;
   }
 
-  // removes tiles cut off from Ground Zero, along with their objects and heroes
+  // tiles cut off from Ground Zero are removed, along with their objects and heroes
   function cleanup() {
     const connected = new Set(['0,0,0']);
     const queue = [[0, 0, 0]];
@@ -788,194 +835,248 @@
         if (G.tiles[key] && !connected.has(key)) { connected.add(key); queue.push(n); }
       });
     }
-    for (const key of Object.keys(G.tiles)) if (!connected.has(key)) delete G.tiles[key];
+    Object.keys(G.tiles).forEach(key => { if (!connected.has(key)) delete G.tiles[key]; });
     G.objs.forEach(o => { if (o.alive && !G.tiles[cubeKey(o.c)]) o.alive = 0; });
     G.heroes.forEach(h => { if (h.alive && !G.tiles[cubeKey(h.c)]) killHero(h, 'cut off from Ground Zero'); });
     checkWinner();
   }
 
-  // valid targets for each mode
+  // is this cube a legal target for the current board mode?
   function isValidTarget(cube) {
-    const key = cubeKey(cube), tile = tileAt(cube), player = G.pl[G.cur], myHeroes = G.heroes.filter(h => h.alive && h.p === G.cur);
-    const selected = ui.selected && ui.selected.alive && ui.selected.p === G.cur && ui.selected.acts > 0 ? ui.selected : null;
-    const selectedPlayer = selected ? actingPlayer(selected) : null;
-    const actionModes = ['attack', 'develop', 'barrier', 'hero', 'obj', 'buyskill'];
-    if (actionModes.includes(ui.mode) && !boardStepDone()) return false;
-    if (['attack', 'develop'].includes(ui.mode) && (!selected || !canRepeat(selected, ui.mode))) return false;
+    const tile = tileAt(cube);
+    const hero = ui.selected;
     switch (ui.mode) {
       case 'place':
-        return G.rd <= 5 && !G.done && player.pool.length > 0 && !tile && neighbours(cube).some(n => { const u = tileAt(n); return u && (u.gz || u.own === G.cur); });
+        return G.rd <= ROUND.placementEnds && !G.done && G.pl[G.cur].pool.length > 0 && !tile
+          && neighbours(cube).some(n => { const t = tileAt(n); return t && (t.gz || t.own === G.cur); });
       case 'remove':
-        return G.rd >= 7 && !!tile && !tile.gz && tile.own === removalOwner() && !heroesAt(cube).length;
-      case 'move':
-        return !!tile && !!selected && cubeDistance(selected.c, cube) > 0 && cubeDistance(selected.c, cube) <= reach(selected);
-      case 'attack':
-        return G.rd >= 4 && !!selected && cubeDistance(selected.c, cube) <= reach(selected) && heroesAt(cube).some(h => actingPlayer(h) !== selectedPlayer);
-      case 'develop': {
-        if (!tile || !ui.devType || !selected || cubeDistance(selected.c, cube) > 1) return false;
+        return needsRemoval() && !!tile && !tile.gz && tile.own === currentRemovalOwner() && !heroesAt(cube).length;
+      case 'develop':
+        if (!tile || !hero || cubeDistance(hero.c, cube) > 1) return false;
         if (ui.devType === 'barrier') return !G.apoc && tile.disc;
-        if (ui.devType === 'object') return !G.apoc && objectCount(G.cur) < MAX_OBJECTS;
-        return heroesAt(cube).some(h => actingPlayer(h) === selectedPlayer) || G.objs.some(o => o.alive && !o.nuke && o.p === selectedPlayer && sameTile(o.c, cube));
-      }
+        if (ui.devType === 'object') return !G.apoc && objectCount(G.cur) < RULES.maxObjects;
+        return false;
       case 'barrier':
-        return !G.apoc && !!tile && tile.disc && tile.bar < 12 && myHeroes.some(h => cubeDistance(h.c, cube) <= 1);
+        return !G.apoc && !!tile && tile.disc && tile.bar < RULES.maxBarrier
+          && G.heroes.some(h => h.alive && h.p === G.cur && cubeDistance(h.c, cube) <= 1);
       case 'hero':
-        return myHeroes.some(h => sameTile(h.c, cube));
+        return G.heroes.some(h => h.alive && h.p === G.cur && sameTile(h.c, cube));
       case 'obj':
-        return !G.apoc && objectCount(G.cur) < MAX_OBJECTS && myHeroes.some(h => sameTile(h.c, cube));
-      case 'buyskill':
-        return !!tile && (heroesAt(cube).some(h => h.p === G.cur && h.s[ui.devSkill] < 5)
-          || G.objs.some(o => o.alive && !o.nuke && o.p === G.cur && o.s[ui.devSkill] < 5 && sameTile(o.c, cube)));
+        return !G.apoc && objectCount(G.cur) < RULES.maxObjects && G.heroes.some(h => h.alive && h.p === G.cur && sameTile(h.c, cube));
       default:
         return false;
     }
   }
 
-  /* =================================================================
-     14. MOVEMENT
-     ================================================================= */
-
-  function moveHero(hero, cube, carriedObjects) {
-    const roll1 = rollD6(), roll2 = rollD6(), total = roll1 + roll2;
-    if (!hero.mc) G.pl[G.cur].v += total;     // Mind Controlled moves earn no Versa
-    spendAction(hero, 'move', false);
-    hero.c = cube;
-    carriedObjects.forEach(o => { o.c = cube; if (!o.nuke) o.p = hero.p; });   // taking an object makes it yours
-    fx(`🏃 ${heroLabel(hero)} ${dieHtml(roll1, 0)} ${dieHtml(roll2, .2)} ${bonusHtml(hero.mc ? 'no Versa' : '+' + total + ' V', .5)}`);
-    log(`${heroLabel(hero)} 🏃 (${cube}) rolled ${roll1}+${roll2}${hero.mc ? '' : ': +' + total + 'V'}`, hero.p);
-    if (carriedObjects.length) log(`  Carried along: ${carriedObjects.map(o => o.nuke ? '☢ Nuke' : (o.sym || '🧱') + ' object (DEF ' + o.s.def + ')').join(', ')}`, hero.p);
-    if (G.first && !hero.mc) { G.first = false; drawTraversalCard(); }
-    discoverTileOnArrival(hero, cube);
+  // is this unit a legal pick for a skill purchase or develop target?
+  function isSkillTarget(unit) {
+    if (ui.mode === 'buyskill') return unit.p === G.cur && unit.s[ui.devSkill] < RULES.maxSkill;
+    if (ui.mode === 'develop' && ui.devType === 'skill' && ui.selected) {
+      return actingPlayer(unit) === actingPlayer(ui.selected) && cubeDistance(unit.c, ui.selected.c) <= 1;
+    }
+    return false;
   }
 
-  // arriving on an undiscovered tile: its owner reveals it later, or it is revealed now
-  function discoverTileOnArrival(hero, cube) {
-    const tile = tileAt(cube);
+  /* =============================================================
+     14. MOVEMENT AND DISCOVERY
+     ============================================================= */
+
+  // dropping on an empty tile: move directly, or choose objects to take first
+  function moveTo(hero, cube) {
+    if (!canAct(hero, 'move')) {
+      return setMessage(hero.acts < 1 ? 'No actions left for this hero this turn' : 'This hero has already moved this turn');
+    }
+    const distance = cubeDistance(hero.c, cube);
+    if (distance < 1 || distance > reach(hero)) return setMessage('Out of range');
+    if (carryable(hero).length) return openCarryWheel(hero, cube);
+    performMove(hero, cube, []);
+  }
+
+  function openCarryWheel(hero, cube) {
+    ui.carry = { hero, cube, selected: [] };
+    openWheel({ cube: hero.c, kind: 'carry', items: carryItems() });
+  }
+
+  function carryItems() {
+    const { hero, selected } = ui.carry;
+    const options = carryable(hero).map(o => {
+      const label = o.nuke ? 'Nuke' : `${o.p !== hero.p ? G.pl[o.p].name + ' · ' : ''}DEF ${o.s.def} · RNG ${o.s.rng}`;
+      return { v: 'o' + G.objs.indexOf(o), ic: o.nuke ? '☢' : (o.sym || '🧱'), t: (selected.includes(o) ? '✔ ' : '') + label };
+    });
+    return [...options, { v: 'go', ic: '➜', t: 'Move' }];
+  }
+
+  function toggleCarry(value) {
+    const obj = G.objs[+value.slice(1)];
+    const list = ui.carry.selected;
+    const index = list.indexOf(obj);
+    if (index >= 0) list.splice(index, 1);
+    else list.push(obj);
+    openWheel({ cube: ui.carry.hero.c, kind: 'carry', items: carryItems() });
+  }
+
+  function confirmCarry() {
+    const { hero, cube, selected } = ui.carry;
+    ui.carry = null;
+    if (cubeDistance(hero.c, cube) > maxRangeWith(hero, selected)) {
+      setMessage('Too far for its own range: take an object with range along');
+      return;
+    }
+    performMove(hero, cube, selected);
+  }
+
+  function performMove(hero, cube, carried) {
+    const roll1 = rollD6(), roll2 = rollD6(), total = roll1 + roll2;
+    if (!hero.mc) G.pl[G.cur].v += total;      // Mind Controlled moves earn no Versa
+    spendAction(hero, 'move', false);
+    hero.c = cube;
+    carried.forEach(o => { o.c = cube; if (!o.nuke) o.p = hero.p; });   // taking an object makes it yours
+    showFloat(`🏃 ${heroLabel(hero)} ${dieHtml(roll1, 0)} ${dieHtml(roll2, .2)} ${bonusHtml(hero.mc ? 'no Versa' : '+' + total + ' V', .5)}`);
+    addLog(`${heroLabel(hero)} 🏃 (${cube}) rolled ${roll1}+${roll2}${hero.mc ? '' : ': +' + total + 'V'}`, hero.p);
+    if (carried.length) addLog(`  Carried along: ${carried.map(o => o.nuke ? '☢ Nuke' : (o.sym || '🧱') + ' object (DEF ' + o.s.def + ')').join(', ')}`, hero.p);
+    if (G.first && !hero.mc) { G.first = false; drawTraversalCard(); }
+    discoverTile(hero, carried);
+  }
+
+  // hidden tiles of other players are revealed later by their owner
+  function discoverTile(hero, carried) {
+    const tile = tileAt(hero.c);
     if (tile.disc) return;
     if (tile.sk == null) {
       tile.pend = { p: hero.p, k: hero.k };
-      log('  Undiscovered HexTile: its owner will reveal its type', hero.p);
+      addLog('  Undiscovered HexTile: its owner will reveal its type', hero.p);
       return;
     }
     tile.disc = 1;
     if (tile.sk === 'bar') {
-      if (!G.apoc) { tile.bar = 3; tile.barOwn = hero.p; log('  Barrier HexTile: L3 barrier appears', hero.p); }
-      else log('  Barrier HexTile: no barrier (Apocalypse)', hero.p);
-    } else {
-      hero.s[tile.sk] = Math.min(5, hero.s[tile.sk] + 1);
-      log(`  Discovered ${tile.sk} HexTile: +1`, hero.p);
-    }
-  }
-
-  // asks which objects to take first, then performs the move
-  function requestMove(hero, cube, carried) {
-    if (cubeDistance(hero.c, cube) > hero.s.rng && !(carried && carried.some(o => (o.s.rng || 0) > 0))) {
-      // no range object chosen: the move is only legal within the hero's own range
-    }
-    if (heroesAt(cube).some(h => actingPlayer(h) !== actingPlayer(hero)) && !sameTile(cube, [0, 0, 0])) {
-      return setMessage('Opponents can\'t share a tile online yet');
-    }
-    if (carried === undefined && carryable(hero).length) {
-      ui.carryPick = { hero, cube, selected: [] };
-      openWheel({ cube: hero.c, kind: 'carry', items: carryItems() });
+      if (!G.apoc) { tile.bar = RULES.minBarrier; tile.barOwn = hero.p; addLog('  Barrier HexTile: L3 barrier appears', hero.p); }
+      else addLog('  Barrier HexTile: no barrier (Apocalypse)', hero.p);
       return;
     }
-    const tile = tileAt(cube);
-    const wasDiscovered = tile.disc;
-    const askForDiscovery = !tile.disc && tile.sk != null && tile.sk !== 'bar' && carried && carried.length > 0;
-    if (askForDiscovery) tile.disc = 1;
-    const fromKey = cubeKey(hero.c);
-    moveHero(hero, cube, carried || []);
-    if (!wasDiscovered && tile.sk === 'bar' && tile.disc) tile.barOwn = hero.p;
-    if (askForDiscovery) {
-      tile.disc = 0;
-      if (cubeKey(hero.c) !== fromKey) {
-        ui.pendingDiscovery = { tile, hero, skill: tile.sk };
-        openWheel({ cube, kind: 'discovery', items: [{ v: 'hero', ic: '👤', t: 'Hero' }, { v: 'obj', ic: '🧱', t: 'Object' }] });
-      }
+    if (carried.length) {
+      ui.pendingDiscovery = { hero, skill: tile.sk };
+      openWheel({
+        cube: hero.c, kind: 'discovery',
+        items: [{ v: 'hero', ic: '👤', t: 'Hero' }, { v: 'obj', ic: '🧱', t: 'Object' }],
+      });
+      return;
     }
+    hero.s[tile.sk] = Math.min(RULES.maxSkill, hero.s[tile.sk] + 1);
+    addLog(`  Discovered ${tile.sk} HexTile: +1`, hero.p);
   }
 
-  /* =================================================================
+  function finishDiscovery(choice) {
+    const pending = ui.pendingDiscovery;
+    ui.pendingDiscovery = null;
+    if (!pending) return;
+    const target = choice === 'obj' ? objectFor(pending.hero) : pending.hero;
+    if (!target) return setMessage('No object here to receive the bonus');
+    target.s[pending.skill] = Math.min(RULES.maxSkill, target.s[pending.skill] + 1);
+    addLog(`  ${target.k ? heroLabel(target) : 'Object'} +1 ${pending.skill} from discovery`, pending.hero.p);
+  }
+
+  /* =============================================================
      15. COMBAT
-     ================================================================= */
+     ============================================================= */
+
+  function openAttackChoice(attacker, defender) {
+    const inRange = cubeDistance(attacker.c, defender.c) <= reach(attacker);
+    const attackOk = inRange && canAct(attacker, 'attack');
+    const mindOk = inRange && G.rd >= ROUND.attacksFrom && !G.apoc && boardStepDone()
+      && attacker.acts > 0 && canRepeat(attacker, 'mind') && canBeMindControlled(defender, actingPlayer(attacker));
+    if (!attackOk && !mindOk) return setMessage('No attack or Mind Control available to this hero on that target');
+    openWheel({
+      cube: defender.c, kind: 'attackChoice', attacker, defender,
+      items: [
+        { v: 'atk', ic: '⚔️', t: 'Combat', dis: !attackOk },
+        { v: 'mind', ic: '🧠', t: 'Mind Control', dis: !mindOk },
+      ],
+    });
+  }
 
   function attackHero(attacker, defender) {
-    const tile = tileAt(defender.c), defenderName = heroLabel(defender);
+    const tile = tileAt(defender.c);
+    const defenderName = heroLabel(defender);
+
     // barrier: a 2d6 total below the barrier level is blocked; equal or higher gets through
     if (tile.bar) {
       const r1 = rollD6(), r2 = rollD6(), total = r1 + r2;
       if (total < tile.bar) {
         spendAction(attacker, 'attack', true);
-        log(`${heroLabel(attacker)} ⚔ barrier 2d6 rolled ${r1}+${r2}=${total} vs L${tile.bar}: blocked`, attacker.p);
-        fx(`🛑 ${heroLabel(attacker)} barrier: ${dieHtml(r1, 0)} ${dieHtml(r2, .2)} = ${total} vs ${bonusHtml('🛑 L' + tile.bar, .5)} · <span style="color:#ff7b7b">BLOCKED</span>`);
+        addLog(`${heroLabel(attacker)} ⚔ barrier 2d6 rolled ${r1}+${r2}=${total} vs L${tile.bar}: blocked`, attacker.p);
+        showFloat(`🛑 ${heroLabel(attacker)} barrier: ${dieHtml(r1, 0)} ${dieHtml(r2, .2)} = ${total} vs ${bonusHtml('🛑 L' + tile.bar, .5)} · <span style="color:#ff7b7b">BLOCKED</span>`);
         return;
       }
-      log(`${heroLabel(attacker)} ⚔ barrier 2d6 rolled ${r1}+${r2}=${total} vs L${tile.bar}: gets through`, attacker.p);
-      fx(`🛑 ${heroLabel(attacker)} barrier: ${dieHtml(r1, 0)} ${dieHtml(r2, .2)} = ${total} vs ${bonusHtml('🛑 L' + tile.bar, .5)} · <span style="color:#66bb6a">GETS THROUGH</span>`);
+      addLog(`${heroLabel(attacker)} ⚔ barrier 2d6 rolled ${r1}+${r2}=${total} vs L${tile.bar}: gets through`, attacker.p);
+      showFloat(`🛑 ${heroLabel(attacker)} barrier: ${dieHtml(r1, 0)} ${dieHtml(r2, .2)} = ${total} vs ${bonusHtml('🛑 L' + tile.bar, .5)} · <span style="color:#66bb6a">GETS THROUGH</span>`);
     }
-    const attackObj = objectFor(attacker), defenderObj = objectFor(defender);
+
+    const attackObject = objectFor(attacker), defenderObject = objectFor(defender);
     const attackRoll = rollD20(), defenseRoll = rollD20();
-    const strength = attacker.s.str, attackGz = gzBonus(attacker), attackObjStr = attackObj ? attackObj.s.str : 0;
+    const strength = attacker.s.str, attackGz = gzBonus(attacker), attackObjStr = attackObject ? attackObject.s.str : 0;
     const attackTotal = attackRoll + strength + attackGz + attackObjStr;
-    const defense = defender.s.def, defenseGz = gzBonus(defender), defenderObjDef = defenderObj ? defenderObj.s.def : 0;
+    const defense = defender.s.def, defenseGz = gzBonus(defender), defenderObjDef = defenderObject ? defenderObject.s.def : 0;
     const defenseTotal = defenseRoll + defense + defenseGz + defenderObjDef;
     const hit = attackTotal > defenseTotal;
+
     spendAction(attacker, 'attack', !hit);
-    fx(`⚔ ${heroLabel(attacker)} ${dieHtml(attackRoll, 0)} ${bonusHtml('✊+' + strength, .35)}${attackGz ? bonusHtml('⬡+1', .5) : ''}${attackObjStr ? bonusHtml('🧱+' + attackObjStr, .65) : ''} = <b>${attackTotal}</b><br>vs ${defenderName} ${dieHtml(defenseRoll, .9)} ${bonusHtml('🛡️+' + defense, 1.25)}${defenseGz ? bonusHtml('⬡+1', 1.4) : ''}${defenderObjDef ? bonusHtml('🧱+' + defenderObjDef, 1.55) : ''} = <b>${defenseTotal}</b> · ${hit ? '<span style="color:#66bb6a">HIT</span>' : '<span style="color:#ff7b7b">MISS</span>'}`);
-    log(`${heroLabel(attacker)} ⚔ ${defenderName}: rolled ${attackRoll}+${strength}${attackGz ? '+1 GZ' : ''}${attackObjStr ? '+' + attackObjStr + ' obj' : ''} = ${attackTotal} vs ${defenseRoll}+${defense}${defenseGz ? '+1 GZ' : ''}${defenderObjDef ? '+' + defenderObjDef + ' obj' : ''} = ${defenseTotal}: ${hit ? 'hit' : 'miss'}`, attacker.p);
-    if (hit) applyCombatDamage(strength, defender, defenderObj);
+    showFloat(`⚔ ${heroLabel(attacker)} ${dieHtml(attackRoll, 0)} ${bonusHtml('✊+' + strength, .35)}${attackGz ? bonusHtml('⬡+1', .5) : ''}${attackObjStr ? bonusHtml('🧱+' + attackObjStr, .65) : ''} = <b>${attackTotal}</b><br>vs ${defenderName} ${dieHtml(defenseRoll, .9)} ${bonusHtml('🛡️+' + defense, 1.25)}${defenseGz ? bonusHtml('⬡+1', 1.4) : ''}${defenderObjDef ? bonusHtml('🧱+' + defenderObjDef, 1.55) : ''} = <b>${defenseTotal}</b> · ${hit ? '<span style="color:#66bb6a">HIT</span>' : '<span style="color:#ff7b7b">MISS</span>'}`);
+    addLog(`${heroLabel(attacker)} ⚔ ${defenderName}: rolled ${attackRoll}+${strength}${attackGz ? '+1 GZ' : ''}${attackObjStr ? '+' + attackObjStr + ' obj' : ''} = ${attackTotal} vs ${defenseRoll}+${defense}${defenseGz ? '+1 GZ' : ''}${defenderObjDef ? '+' + defenderObjDef + ' obj' : ''} = ${defenseTotal}: ${hit ? 'hit' : 'miss'}`, attacker.p);
+
+    if (hit) applyCombatDamage(strength, defender, defenderObject);
     if (attackRoll === 20) grantNaturalTwenty(attacker, 'attack', '⚔️', 'Attack');
     checkWinner();
   }
 
   // damage goes to the defender's object first, and any excess spills onto the hero
-  function applyCombatDamage(damage, defender, defenderObj) {
+  function applyCombatDamage(damage, defender, defenderObject) {
     let remaining = damage;
-    if (defenderObj) {
-      defenderObj.dmg += remaining;
+    if (defenderObject) {
+      defenderObject.dmg += remaining;
       remaining = 0;
-      if (defenderObj.dmg >= defenderObj.s.def) {
-        defenderObj.alive = 0;
-        remaining = defenderObj.dmg - defenderObj.s.def;
-        log('  Object destroyed, excess spills to hero', defender.p);
+      if (defenderObject.dmg >= defenderObject.s.def) {
+        defenderObject.alive = 0;
+        remaining = defenderObject.dmg - defenderObject.s.def;
+        addLog('  Object destroyed, excess spills to hero', defender.p);
       } else {
-        log('  Object absorbs the hit', defender.p);
+        addLog('  Object absorbs the hit', defender.p);
       }
     }
     defender.dmg += remaining;
     if (defender.dmg >= defender.s.def) killHero(defender, 'killed in combat');
   }
 
-  // each hit on the Nuke counts as one hit and always succeeds
+  // every hit on the Nuke counts once and always succeeds
   function attackNuke(attacker, nuke) {
     const roll = rollD20(), strength = attacker.s.str, gz = gzBonus(attacker), total = roll + strength + gz;
     spendAction(attacker, 'attack', false);
     nuke.dmg += 1;
-    fx(`☢ ${heroLabel(attacker)} ${dieHtml(roll, 0)} ${bonusHtml('✊+' + strength, .35)}${gz ? bonusHtml('⬡+1', .5) : ''} = <b>${total}</b><br>Nuke hit ${nuke.dmg} of ${nuke.s.def}`);
-    log(`${heroLabel(attacker)} ☢ hit the Nuke: rolled ${roll}+${strength}${gz ? '+1 GZ' : ''} = ${total}; Nuke hit ${nuke.dmg}/${nuke.s.def}`, attacker.p);
-    if (nuke.dmg >= nuke.s.def) { nuke.alive = 0; G.nd = 1; log('☢ The Nuke is destroyed!', attacker.p); }
+    showFloat(`☢ ${heroLabel(attacker)} ${dieHtml(roll, 0)} ${bonusHtml('✊+' + strength, .35)}${gz ? bonusHtml('⬡+1', .5) : ''} = <b>${total}</b><br>Nuke hit ${nuke.dmg} of ${nuke.s.def}`);
+    addLog(`${heroLabel(attacker)} ☢ hit the Nuke: rolled ${roll}+${strength}${gz ? '+1 GZ' : ''} = ${total}; Nuke hit ${nuke.dmg}/${nuke.s.def}`, attacker.p);
+    if (nuke.dmg >= nuke.s.def) { nuke.alive = 0; G.nd = 1; addLog('☢ The Nuke is destroyed!', attacker.p); }
     if (roll === 20) grantNaturalTwenty(attacker, 'attack', '⚔️', 'Attack');
     checkWinner();
   }
 
   function mindControlRoll(hero, target) {
-    const heroObj = objectFor(hero), targetObj = objectFor(target);
+    const heroObject = objectFor(hero), targetObject = objectFor(target);
     const roll1 = rollD20(), roll2 = rollD20();
-    const heroIntTotal = hero.s.int + gzBonus(hero) + (heroObj ? heroObj.s.int : 0);
-    const targetIntTotal = target.s.int + (tileAt(target.c).bar || 0) + (targetObj ? targetObj.s.int : 0);
-    const attack = roll1 + heroIntTotal, defense = roll2 + targetIntTotal, success = attack > defense;
+    const heroTotal = hero.s.int + gzBonus(hero) + (heroObject ? heroObject.s.int : 0);
+    const targetTotal = target.s.int + (tileAt(target.c).bar || 0) + (targetObject ? targetObject.s.int : 0);
+    const attack = roll1 + heroTotal, defense = roll2 + targetTotal, success = attack > defense;
+
     spendAction(hero, 'mind', !success);
-    fx(`🧠 ${heroLabel(hero)} ${dieHtml(roll1, 0)} ${bonusHtml('🧠+' + heroIntTotal, .35)} = <b>${attack}</b><br>vs ${heroLabel(target)} ${dieHtml(roll2, .9)} ${bonusHtml('🧠+' + targetIntTotal + ' / 🛑', 1.25)} = <b>${defense}</b> · ${success ? '<span style="color:#66bb6a">CONTROLLED</span>' : '<span style="color:#ff7b7b">RESISTED</span>'}`);
+    showFloat(`🧠 ${heroLabel(hero)} ${dieHtml(roll1, 0)} ${bonusHtml('🧠+' + heroTotal, .35)} = <b>${attack}</b><br>vs ${heroLabel(target)} ${dieHtml(roll2, .9)} ${bonusHtml('🧠+' + targetTotal + ' / 🛑', 1.25)} = <b>${defense}</b> · ${success ? '<span style="color:#66bb6a">CONTROLLED</span>' : '<span style="color:#ff7b7b">RESISTED</span>'}`);
+
     if (success) {
       target.mc = { by: hero.p, ceded: false, kept: true };
-      log(`${heroLabel(hero)} 🧠 Mind Controls ${heroLabel(target)} (${attack} vs ${defense})`, hero.p);
+      addLog(`${heroLabel(hero)} 🧠 Mind Controls ${heroLabel(target)} (${attack} vs ${defense})`, hero.p);
     } else {
-      log(`${heroLabel(hero)} 🧠 failed to control ${heroLabel(target)} (${attack} vs ${defense})`, hero.p);
+      addLog(`${heroLabel(hero)} 🧠 failed to control ${heroLabel(target)} (${attack} vs ${defense})`, hero.p);
       if (target.mc && target.mc.by === hero.p) {
         target.mc = null;
         target.mcCooldown = G.rd;
-        log(`  Control of ${heroLabel(target)} lost; it can't be controlled again until the next round ends`, hero.p);
+        addLog(`  Control of ${heroLabel(target)} lost; it can't be controlled again until the next round ends`, hero.p);
       }
     }
     checkWinner();
@@ -984,107 +1085,160 @@
   function grantNaturalTwenty(hero, type, icon, label) {
     hero.acts++;
     hero.ok[type] = 1;
-    fx(`<span>NATURAL 20!</span> ${icon} ${label} available again`, 'nat');
-    log(`  Natural 20: ${label} available again`, hero.p);
+    showFloat(`<span>NATURAL 20!</span> ${icon} ${label} available again`, 'nat');
+    addLog(`  Natural 20: ${label} available again`, hero.p);
   }
 
-  /* =================================================================
-     16. DEVELOP AND BUYING
-     ================================================================= */
+  /* =============================================================
+     16. DEVELOP AND PURCHASES
+     ============================================================= */
 
-  // Develop roll: 10+ succeeds, bonus 1 to 3 depends on the total
-  function developHero(hero, targetCube, targetHero) {
-    const heroObj = objectFor(hero), take = ui.take, roll = take ? 0 : rollD20();
-    const gz = gzBonus(hero), objInt = heroObj ? heroObj.s.int : 0;
-    const total = take ? 10 : roll + hero.s.int + gz + objInt;
-    const rollText = take ? bonusHtml('take 10', 0) : `${dieHtml(roll, 0)} ${bonusHtml('🧠+' + hero.s.int, .35)}${gz ? bonusHtml('⬡+1', .5) : ''}${objInt ? bonusHtml('🧱+' + objInt, .65) : ''}`;
+  // develop roll: 10 or more succeeds, and the total sets the bonus size
+  function developHero(hero, cube, unit) {
+    const take = ui.take;
+    const roll = take ? 0 : rollD20();
+    const gz = gzBonus(hero);
+    const object = objectFor(hero), objectInt = object ? object.s.int : 0;
+    const total = take ? 10 : roll + hero.s.int + gz + objectInt;
+    const rollText = take
+      ? bonusHtml('take 10', 0)
+      : `${dieHtml(roll, 0)} ${bonusHtml('🧠+' + hero.s.int, .35)}${gz ? bonusHtml('⬡+1', .5) : ''}${objectInt ? bonusHtml('🧱+' + objectInt, .65) : ''}`;
+    const rollLabel = take ? '10 (taken)' : `${roll} +${total - roll}`;
+
     if (total < 10) {
       spendAction(hero, 'develop', true);
-      fx(`🛠 ${heroLabel(hero)} ${rollText} = <b>${total}</b> · <span style="color:#ff7b7b">FAILED</span>`);
-      log(`${heroLabel(hero)} 🛠 rolled ${take ? '10 (taken)' : roll} +${total - (take ? 10 : roll)} = ${total}: failed`, hero.p);
-      return setMessage(`Develop rolled ${total}: needed 10 or more`);
+      showFloat(`🛠 ${heroLabel(hero)} ${rollText} = <b>${total}</b> · <span style="color:#ff7b7b">FAILED</span>`);
+      addLog(`${heroLabel(hero)} 🛠 rolled ${rollLabel} = ${total}: failed`, hero.p);
+      setMessage(`Develop rolled ${total}: needed 10 or more`);
+      ui.take = false;
+      return;
     }
+
     const bonus = total >= 19 ? 3 : total >= 16 ? 2 : 1;
     spendAction(hero, 'develop', false);
-    fx(`🛠 ${heroLabel(hero)} ${rollText} = <b>${total}</b> · <span style="color:#66bb6a">+${bonus} bonus</span>`);
-    log(`${heroLabel(hero)} 🛠 rolled ${take ? '10 (taken)' : roll} +${total - (take ? 10 : roll)} = ${total}: bonus ${bonus}`, hero.p);
-    applyDevelopEffect(hero, targetCube, targetHero, bonus);
+    showFloat(`🛠 ${heroLabel(hero)} ${rollText} = <b>${total}</b> · <span style="color:#66bb6a">+${bonus} bonus</span>`);
+    addLog(`${heroLabel(hero)} 🛠 rolled ${rollLabel} = ${total}: bonus ${bonus}`, hero.p);
+    applyDevelopEffect(hero, cube, unit, bonus);
+    setMessage(`Develop bonus ${bonus}`);
+    ui.take = false;
+    ui.buildDir = null;
+
     if (roll === 20) {
-      grantNaturalTwenty(hero, 'develop', '🛠️', 'Develop');
       // a Natural 20 reopens the full develop menu
+      grantNaturalTwenty(hero, 'develop', '🛠️', 'Develop');
       ui.mode = 'develop';
       ui.devType = null;
-      ui.wheelStack = [];
+      ui.selected = hero;
       openWheel({ cube: hero.c, kind: 'developType', items: developTypeItems() });
-    }
-    setMessage(`Develop rolled ${take ? 'taken (10)' : total}: bonus ${bonus}`);
-  }
-
-  function applyDevelopEffect(hero, targetCube, targetHero, bonus) {
-    if (ui.devType === 'barrier') {
-      const tile = tileAt(targetCube);
-      if (!tile.disc) return setMessage('Barriers can only go on discovered tiles');
-      if (ui.buildDir !== 'down') {
-        if (tile.bar) { tile.bar = Math.min(12, tile.bar + bonus); log(`  builds own barrier at (${targetCube}) up by ${bonus} to L${tile.bar}`, hero.p); }
-        else { tile.bar = Math.min(12, 3 + (bonus - 1)); tile.barOwn = actingPlayer(hero); log(`  creates barrier at (${targetCube}) at L${tile.bar}`, hero.p); }
-      } else {
-        const newLevel = tile.bar - bonus;
-        if (newLevel < 3) { tile.bar = 0; tile.barOwn = undefined; log(`  destroys barrier at (${targetCube}): it fell below L3`, hero.p); }
-        else { tile.bar = newLevel; log(`  lowers barrier at (${targetCube}) by ${bonus} to L${tile.bar}`, hero.p); }
-      }
-    } else if (ui.devType === 'object') {
-      newObject(G.cur, targetCube, bonus);
-      log(`  creates an object at (${targetCube}) with Defense ${bonus}`, hero.p);
     } else {
-      targetHero.s[ui.devSkill] = Math.min(5, targetHero.s[ui.devSkill] + bonus);
-      log(`  ${targetHero.k ? heroLabel(targetHero) : 'object'} ${ui.devSkill} +${bonus} → ${targetHero.s[ui.devSkill]}`, hero.p);
+      ui.mode = '';
+      ui.devType = null;
+      ui.selected = null;
     }
   }
 
-  function newObject(player, cube, defense) {
-    const obj = { p: player, c: cube, s: { str: 0, def: defense, rng: 1, int: 0 }, dmg: 0, alive: 1, sym: OBJECT_SYMBOLS[G.objs.length % OBJECT_SYMBOLS.length] };
-    G.objs.push(obj);
-    return obj;
+  function applyDevelopEffect(hero, cube, unit, bonus) {
+    if (ui.devType === 'barrier') return developBarrier(hero, cube, bonus);
+    if (ui.devType === 'object') {
+      newObject(G.cur, cube, bonus);
+      return addLog(`  creates an object at (${cube}) with Defense ${bonus}`, hero.p);
+    }
+    unit.s[ui.devSkill] = Math.min(RULES.maxSkill, unit.s[ui.devSkill] + bonus);
+    addLog(`  ${unit.k ? heroLabel(unit) : 'Object'} ${ui.devSkill} +${bonus} → ${unit.s[ui.devSkill]}`, hero.p);
+  }
+
+  function developBarrier(hero, cube, bonus) {
+    const tile = tileAt(cube);
+    if (!tile.disc) return setMessage('Barriers can only go on discovered tiles');
+    if (ui.buildDir !== 'down') {
+      if (tile.bar) {
+        tile.bar = Math.min(RULES.maxBarrier, tile.bar + bonus);
+        addLog(`  builds barrier at (${cube}) up by ${bonus} to L${tile.bar}`, hero.p);
+      } else {
+        tile.bar = Math.min(RULES.maxBarrier, RULES.minBarrier + bonus - 1);
+        tile.barOwn = actingPlayer(hero);
+        addLog(`  creates barrier at (${cube}) at L${tile.bar}`, hero.p);
+      }
+      return;
+    }
+    tile.bar -= bonus;
+    if (tile.bar < RULES.minBarrier) {
+      tile.bar = 0;
+      tile.barOwn = undefined;
+      addLog(`  destroys barrier at (${cube}): it fell below L3`, hero.p);
+    } else {
+      addLog(`  lowers barrier at (${cube}) by ${bonus} to L${tile.bar}`, hero.p);
+    }
+  }
+
+  // Up/Down options; only the legal direction is enabled
+  function buildDirItems(cube, buying) {
+    const tile = tileAt(cube), player = G.pl[G.cur];
+    if (buying) {
+      return [
+        { v: 'up', ic: '▲', t: 'Raise 5V', dis: !tile.disc || player.v < RULES.actionCost || G.apoc },
+        { v: 'down', ic: '▼', t: 'Lower 5V', dis: !tile.disc || !tile.bar || player.v < RULES.actionCost || G.apoc },
+      ];
+    }
+    const mine = !tile.bar || barrierIsMine(tile, ui.selected);
+    return [
+      { v: 'up', ic: '▲', t: 'Build up', dis: !tile.disc || !mine },
+      { v: 'down', ic: '▼', t: 'Lower', dis: !tile.disc || !tile.bar || mine },
+    ];
   }
 
   function buyBarrier(cube, direction) {
     const tile = tileAt(cube);
     if (!tile.disc) return setMessage('Barriers can only go on discovered tiles');
-    if (!spendVersa(5)) return;
+    if (!spendVersa(RULES.actionCost)) return;
     const name = G.pl[G.cur].name;
     if (direction === 'down') {
-      tile.bar = tile.bar - 1;
-      if (tile.bar < 3) { tile.bar = 0; tile.barOwn = undefined; log(`${name} lowered the barrier at (${cube}) below L3: it is destroyed (5V)`, G.cur); }
-      else log(`${name} lowered the barrier at (${cube}) to L${tile.bar} (5V)`, G.cur);
-    } else {
-      if (!tile.bar) tile.barOwn = G.cur;
-      tile.bar = tile.bar ? tile.bar + 1 : 3;
-      log(`${name} barrier at (${cube}) is now L${tile.bar} (5V)`, G.cur);
+      tile.bar -= 1;
+      if (tile.bar < RULES.minBarrier) {
+        tile.bar = 0;
+        tile.barOwn = undefined;
+        addLog(`${name} lowered the barrier at (${cube}) below L3: it is destroyed (5V)`, G.cur);
+      } else {
+        addLog(`${name} lowered the barrier at (${cube}) to L${tile.bar} (5V)`, G.cur);
+      }
+      return;
     }
+    if (!tile.bar) tile.barOwn = G.cur;
+    tile.bar = tile.bar ? tile.bar + 1 : RULES.minBarrier;
+    addLog(`${name} barrier at (${cube}) is now L${tile.bar} (5V)`, G.cur);
   }
 
   function buyHero(cube) {
-    if (G.heroes.filter(h => h.alive && h.p === G.cur).length >= MAX_HEROES) return setMessage('Max 3 heroes alive');
-    if (!spendVersa(30)) return;
+    if (G.heroes.filter(h => h.alive && h.p === G.cur).length >= RULES.maxHeroes) return setMessage('Max 3 heroes alive');
+    if (!spendVersa(RULES.heroCost)) return;
     addHero(G.cur, cube);
-    log(`${G.pl[G.cur].name} spawns a new hero at (${cube}) for 30V; it acts next turn`, G.cur);
+    addLog(`${G.pl[G.cur].name} spawns a new hero at (${cube}) for 30V; it acts next turn`, G.cur);
   }
 
   function buyObject(cube) {
-    if (objectCount(G.cur) >= MAX_OBJECTS) return setMessage('Max 3 objects');
-    if (!spendVersa(5)) return;
+    if (objectCount(G.cur) >= RULES.maxObjects) return setMessage('Max 3 objects');
+    if (!spendVersa(RULES.actionCost)) return;
     newObject(G.cur, cube, 1);
-    log(`${G.pl[G.cur].name} places an object at (${cube}) for 5V`, G.cur);
+    addLog(`${G.pl[G.cur].name} places an object at (${cube}) for 5V`, G.cur);
   }
 
-  function buySkill(target) {
-    if (target.s[ui.devSkill] >= 5) return setMessage('That skill is maxed');
-    if (!spendVersa(5)) return;
-    target.s[ui.devSkill]++;
-    log(`${target.k ? heroLabel(target) : 'Object'}: +1 ${ui.devSkill} (5V)`, G.cur);
+  function buySkill(unit) {
+    if (unit.s[ui.devSkill] >= RULES.maxSkill) return setMessage('That skill is maxed');
+    if (!spendVersa(RULES.actionCost)) return;
+    unit.s[ui.devSkill]++;
+    addLog(`${unit.k ? heroLabel(unit) : 'Object'}: +1 ${ui.devSkill} (5V)`, G.cur);
   }
 
-  // Apocalypse removes barrier and object development; skills stay available
+  function newObject(player, cube, defense) {
+    const obj = {
+      p: player, c: cube, s: { str: 0, def: defense, rng: 1, int: 0 },
+      dmg: 0, alive: 1, sym: OBJECT_SYMBOLS[G.objs.length % OBJECT_SYMBOLS.length],
+    };
+    G.objs.push(obj);
+    return obj;
+  }
+
+  // Apocalypse removes barrier and object development; skill development stays
   const developTypeItems = () => [
     { v: 'barrier', ic: '🛑', t: 'Barrier' },
     { v: 'object', ic: '🧿', t: 'Object' },
@@ -1093,71 +1247,62 @@
 
   const skillItems = () => SKILLS.map(k => ({ v: k, ic: SKILL_ICON[k], t: SKILL_NAME[k] }));
   const rollItems = () => [{ v: 'roll', ic: '🎲', t: 'Roll d20' }, { v: 'take', ic: '1️⃣', t: 'Take 1 pt' }];
-  const carryItems = () => {
-    const pick = ui.carryPick;
-    return [
-      ...carryable(pick.hero).map(o => ({
-        v: 'o' + G.objs.indexOf(o),
-        ic: o.nuke ? '☢' : (o.sym || '🧱'),
-        t: (pick.selected.includes(o) ? '✔ ' : '') + (o.nuke ? 'Nuke' : (o.p !== pick.hero.p ? G.pl[o.p].name + ' · ' : '') + 'DEF ' + o.s.def + ' · RNG ' + o.s.rng),
-      })),
-      { v: 'go', ic: '➜', t: 'Move' },
-    ];
-  };
 
-  const buyItems = () => {
-    const player = G.pl[G.cur], myHeroes = G.heroes.filter(h => h.alive && h.p === G.cur).length, ready = boardStepDone();
+  function buyOptions() {
+    const player = G.pl[G.cur];
+    const heroCount = G.heroes.filter(h => h.alive && h.p === G.cur).length;
+    const ready = boardStepDone();
     return [
-      { v: 'barrier', ic: '🛑', t: 'Barrier', c: '5V', dis: player.v < 5 || G.apoc || !ready },
-      { v: 'obj', ic: '🔮', t: 'Object', c: '5V', dis: player.v < 5 || G.apoc || !ready || objectCount(G.cur) >= MAX_OBJECTS },
-      { v: 'hero', ic: '👤', t: 'Hero', c: '30V', dis: player.v < 30 || myHeroes >= MAX_HEROES || !ready },
-      { v: 's:str', ic: '✊', t: 'STR', c: '5V', dis: player.v < 5 || !ready },
-      { v: 's:def', ic: '🛡️', t: 'DEF', c: '5V', dis: player.v < 5 || !ready },
-      { v: 's:rng', ic: '🏹', t: 'RNG', c: '5V', dis: player.v < 5 || !ready },
-      { v: 's:int', ic: '🧠', t: 'INT', c: '5V', dis: player.v < 5 || !ready },
+      { v: 'barrier', icon: '🛑', label: 'Barrier', cost: '5V', disabled: player.v < RULES.actionCost || G.apoc || !ready },
+      { v: 'obj', icon: '🔮', label: 'Object', cost: '5V', disabled: player.v < RULES.actionCost || G.apoc || !ready || objectCount(G.cur) >= RULES.maxObjects },
+      { v: 'hero', icon: '👤', label: 'Hero', cost: '30V', disabled: player.v < RULES.heroCost || heroCount >= RULES.maxHeroes || !ready },
+      { v: 's:str', icon: '✊', label: 'STR', cost: '5V', disabled: player.v < RULES.actionCost || !ready },
+      { v: 's:def', icon: '🛡️', label: 'DEF', cost: '5V', disabled: player.v < RULES.actionCost || !ready },
+      { v: 's:rng', icon: '🏹', label: 'RNG', cost: '5V', disabled: player.v < RULES.actionCost || !ready },
+      { v: 's:int', icon: '🧠', label: 'INT', cost: '5V', disabled: player.v < RULES.actionCost || !ready },
     ];
-  };
+  }
 
-  /* =================================================================
+  /* =============================================================
      17. TRAVERSAL CARDS
-     ================================================================= */
+     ============================================================= */
 
   function drawTraversalCard() {
     const player = G.pl[G.cur];
     if (!player.deck.length) player.deck.push(...makeTraversalDeck());
     const card = player.deck.pop();
     player.hand.push(card);
-    log(`  Drew a ${card === 'v' ? '5V' : SKILL_NAME[card]} traversal card`, G.cur);
+    addLog(`  Drew a ${card === 'v' ? '5V' : SKILL_NAME[card]} traversal card`, G.cur);
   }
 
   function playVersaCard(index) {
     const player = G.pl[G.cur];
-    if (player.hand[index] !== 'v') return setMessage('Drag a skill card onto the hero or object it should improve');
-    player.v += 5;
+    player.v += RULES.cardVersa;
     player.hand.splice(index, 1);
-    log('Played a 5V card: +5V', G.cur);
+    addLog('Played a 5V card: +5V', G.cur);
   }
 
   function sellCard(index) {
     const player = G.pl[G.cur];
     player.hand.splice(index, 1);
-    player.v += 2;
-    log('Discarded a card for 2V', G.cur);
+    player.v += RULES.sellValue;
+    addLog('Sold a card for 2V', G.cur);
   }
 
-  function applySkillCard(index, target) {
+  function applySkillCard(index, unit) {
     const player = G.pl[G.cur], card = player.hand[index];
-    if (card === 'v') { player.v += 5; player.hand.splice(index, 1); log('Played a 5V card: +5V', G.cur); return; }
-    if (!target || target.nuke || (actingPlayer(target) !== G.cur && target.p !== G.cur)) return setMessage('Drop a skill card on one of your heroes or objects');
-    if (target.s[card] >= 5) return setMessage('That skill is maxed');
-    target.s[card]++;
+    if (card === 'v') return playVersaCard(index);
+    const ownUnit = unit && !unit.nuke && actingPlayer(unit) === G.cur;
+    if (!ownUnit) return setMessage('Drop a skill card on one of your heroes or objects');
+    if (unit.s[card] >= RULES.maxSkill) return setMessage('That skill is maxed');
+    unit.s[card]++;
     player.hand.splice(index, 1);
-    log(`${target.k ? heroLabel(target) : 'Object'} +1 ${SKILL_NAME[card]} from a card`, G.cur);
+    addLog(`${unit.k ? heroLabel(unit) : 'Object'} +1 ${SKILL_NAME[card]} from a card`, G.cur);
   }
 
-  /* =================================================================
-     18. UI STATE HELPERS
-     ================================================================= */
+  /* =============================================================
+     18. UI STATE AND WHEELS
+     ============================================================= */
 
   function resetUi() {
     ui.mode = '';
@@ -1165,268 +1310,960 @@
     ui.devType = null;
     ui.buildDir = null;
     ui.take = false;
-    ui.carryPick = null;
+    ui.carry = null;
     ui.pendingDiscovery = null;
     ui.wheel = null;
-    ui.wheelStack = [];
     ui.message = '';
   }
 
   function openWheel(wheel) { ui.wheel = wheel; }
-  function closeWheel() { ui.wheel = null; ui.carryPick = null; }
+  function closeWheel() { ui.wheel = null; }
 
-  // closes the current mode: develop backs out to the previous step
+  // Cancel leaves develop and purchase modes; place and remove must be finished
   function cancelMode() {
-    if (ui.mode !== 'place' && ui.mode !== 'remove') { ui.mode = ''; ui.devType = null; }
+    if (ui.mode !== 'place' && ui.mode !== 'remove') ui.mode = '';
+    ui.devType = null;
+    ui.carry = null;
     closeWheel();
     ui.message = '';
     render();
   }
 
-  // clicking a hero or object's screen position (needed for the wheel menu)
-  function screenPosition(cube) {
+  // screen position (relative to the board) of a point in board coordinates
+  function screenPoint(x, y) {
     const svg = el('svg'), point = svg.createSVGPoint();
-    point.x = hexX(cube); point.y = hexY(cube);
+    point.x = x;
+    point.y = y;
     const m = point.matrixTransform(svg.getScreenCTM());
     const board = el('board').getBoundingClientRect();
     return [m.x - board.left, m.y - board.top];
   }
 
-  // screen point to board point, for drops and drags
-  const svgPoint = (x, y) => {
+  // board coordinates of a pointer position
+  function svgPoint(x, y) {
     const svg = el('svg'), point = svg.createSVGPoint();
-    point.x = x; point.y = y;
+    point.x = x;
+    point.y = y;
     return point.matrixTransform(svg.getScreenCTM().inverse());
-  };
-
-  function tileUnderPoint(point) {
-    for (const tile of Object.values(G.tiles)) {
-      if (Math.hypot(hexX(tile.c) - point.x, hexY(tile.c) - point.y) < HEX_RADIUS) return tile.c;
-    }
-    return null;
   }
 
-  /* =================================================================
-     19. ACTION HANDLERS
-     Each one runs when the player picks something from a menu or
-     clicks a valid target.
-     ================================================================= */
+  function tileUnderPoint(point) {
+    const hit = Object.values(G.tiles).find(t => Math.hypot(hexX(t.c) - point.x, hexY(t.c) - point.y) < HEX_RADIUS);
+    return hit ? hit.c : null;
+  }
 
-  function clickBoardTarget(cubeKeyValue, targetAttr) {
+  function setViewBox() {
+    const svg = el('svg'), rect = svg.getBoundingClientRect();
+    const aspect = rect.width ? rect.height / rect.width : 0.6;
+    const height = view.zoom * aspect;
+    svg.setAttribute('viewBox', `${view.cx - view.zoom / 2} ${view.cy - height / 2} ${view.zoom} ${height}`);
+  }
+
+  /* =============================================================
+     19. POINTER INPUT ON THE BOARD
+     A press on a hero starts a drag; a press elsewhere pans the board.
+     A press that does not move becomes a click (see onBoardClick).
+     ============================================================= */
+
+  function onBoardPointerDown(event) {
+    if (!G || G.over || event.button !== 0) return;
+    const heroNode = event.target.closest('[data-hero]');
+    const hero = heroNode ? G.heroes[+heroNode.dataset.hero] : null;
+    const canDrag = hero && canControlHero(hero) && !ui.mode && boardStepDone() && hero.acts > 0
+      && (canAct(hero, 'move') || canAct(hero, 'attack'));
+    if (canDrag) {
+      drag = { hero, startX: event.clientX, startY: event.clientY, moved: false, point: null, hoverHero: null };
+    } else {
+      pan = { startX: event.clientX, startY: event.clientY, startCx: view.cx, startCy: view.cy, moved: false };
+    }
+  }
+
+  function onPointerMove(event) {
+    if (handDrag) return onHandDragMove(event);
+    if (pan) {
+      const dx = event.clientX - pan.startX, dy = event.clientY - pan.startY;
+      if (!pan.moved && Math.hypot(dx, dy) < 5) return;
+      pan.moved = true;
+      const scale = el('svg').getBoundingClientRect().width / view.zoom;
+      view.cx = pan.startCx - dx / scale;
+      view.cy = pan.startCy - dy / scale;
+      drawBoard();
+      return;
+    }
+    if (drag) {
+      if (!drag.moved) {
+        if (Math.hypot(event.clientX - drag.startX, event.clientY - drag.startY) < 6) return;
+        drag.moved = true;
+        ui.mode = 'move';
+        ui.selected = drag.hero;
+      }
+      drag.point = svgPoint(event.clientX, event.clientY);
+      const cube = tileUnderPoint(drag.point);
+      drag.hoverHero = cube ? heroesAt(cube).find(h => actingPlayer(h) !== actingPlayer(drag.hero)) || null : null;
+      updateDragLabel(event);
+      drawBoard();
+    }
+  }
+
+  function onPointerUp(event) {
+    if (handDrag) return onHandDragEnd(event);
+    if (pan) {
+      pan = null;
+      return;
+    }
+    if (drag) {
+      const finished = drag;
+      drag = null;
+      el('carry').style.display = 'none';
+      if (!finished.moved) return;     // a plain press: the click handler takes over
+      suppressClicksBriefly();
+      ui.mode = '';
+      handleDrop(finished.hero, svgPoint(event.clientX, event.clientY));
+      ui.selected = null;
+      render();
+    }
+  }
+
+  function suppressClicksBriefly() {
+    suppressClick = true;
+    setTimeout(() => { suppressClick = false; }, 150);
+  }
+
+  function updateDragLabel(event) {
+    const label = el('carry'), hero = drag.hero, target = drag.hoverHero;
+    label.style.display = 'block';
+    label.style.left = (event.clientX + 18) + 'px';
+    label.style.top = (event.clientY + 18) + 'px';
+    if (target) {
+      label.innerHTML = `⚔ ${escapeHtml(heroLabel(hero))}: STR ${hero.s.str} · INT ${hero.s.int}<br>🛡 ${escapeHtml(heroLabel(target))}: STR ${target.s.str} · DEF ${target.s.def} · INT ${target.s.int}`;
+    } else {
+      label.textContent = carryable(hero).length
+        ? 'Objects here: choose which to take when you release'
+        : 'Drop on a tile to move, or on an enemy hero to attack';
+    }
+  }
+
+  // what a dropped hero does: attack the Nuke, attack an enemy, or move
+  function handleDrop(hero, point) {
+    const cube = tileUnderPoint(point);
+    if (!cube) return setMessage('Drop on a tile or an enemy hero to act');
+
+    // dropping near the Nuke's centre attacks it, even with heroes on the same tile
+    const nuke = nukeAt(cube);
+    if (nuke && Math.hypot(hexX(cube) - point.x, hexY(cube) - point.y) < 14) {
+      if (canHitNuke(hero) && cubeDistance(hero.c, cube) <= reach(hero)) attackNuke(hero, nuke);
+      else setMessage('Nuke attack needs range and an attack action left');
+      return;
+    }
+
+    const enemy = heroesAt(cube).find(h => actingPlayer(h) !== actingPlayer(hero));
+    if (enemy) return openAttackChoice(hero, enemy);
+    moveTo(hero, cube);
+  }
+
+  // hover: show the tooltip for whatever is under the pointer
+  function onBoardHover(event) {
+    const node = event.target.closest('[data-tip]');
+    const info = node && tooltips[node.dataset.tip];
+    const tip = el('tip');
+    if (!info) { tip.style.display = 'none'; return; }
+    tip.className = 'kind-' + info.kind;
+    tip.style.setProperty('--pc', info.color);
+    tip.innerHTML = info.html;
+    tip.style.display = 'block';
+    tip.style.left = Math.min(event.clientX + 16, innerWidth - 300) + 'px';
+    tip.style.top = (event.clientY + 16) + 'px';
+  }
+
+  // a click on the board: opens menus or chooses a target
+  function onBoardClick(event) {
+    if (suppressClick || !G || G.over) return;
+    const node = event.target.closest('[data-k]');
+    if (!node) return;
+    handleBoardClick(node.dataset.k, node.dataset.hero, node.dataset.obj);
+  }
+
+  function handleBoardClick(keyText, heroIndex, objectIndex) {
     setMessage('');
-    if (ui.wheel) { ui.wheel = ui.wheelStack.pop() || null; if (ui.mode === 'develop' && !ui.devType) ui.mode = ''; return render(); }
+    if (ui.wheel) {
+      if (ui.wheel.kind !== 'discovery') closeWheel();
+      return render();
+    }
+
+    const cube = keyToCube(keyText);
+    const hero = heroIndex !== undefined ? G.heroes[+heroIndex] : null;
+    const object = objectIndex !== undefined ? G.objs[+objectIndex] : null;
+    const unit = hero || object;
 
     // off your turn, clicking your own hero sends an emoji
     if (!isMyTurn() && !isControllingOpponent()) {
-      const hero = targetAttr && targetAttr[0] === 'h' ? G.heroes[+targetAttr.slice(1)] : null;
-      if (hero && hero.p === myIndex()) openWheel({ cube: hero.c, kind: 'emoji', hero, items: EMOJIS.map(x => ({ v: x, ic: x, t: '' })) });
-      return render();
-    }
-
-    const cube = keyToCube(cubeKeyValue), mode = ui.mode;
-    const hero = targetAttr && targetAttr[0] === 'h' ? G.heroes[+targetAttr.slice(1)] : null;
-    const obj = targetAttr && targetAttr[0] === 'o' ? G.objs[+targetAttr.slice(1)] : null;
-
-    // the Nuke is attacked by clicking it, as long as the selected hero can still act
-    const nuke = nukeAt(cube);
-    if (nuke && !mode && ui.selected && canControlHero(ui.selected) && canHitNuke(ui.selected) && cubeDistance(ui.selected.c, cube) <= reach(ui.selected)) {
-      attackNuke(ui.selected, nuke);
-      return render();
-    }
-
-    if (mode === 'mind') {
-      const selectedPlayer = actingPlayer(ui.selected);
-      const target = hero && actingPlayer(hero) !== selectedPlayer ? hero : heroesAt(cube).find(h => actingPlayer(h) !== selectedPlayer);
-      if (!target) return render();
-      if (!canBeMindControlled(target, selectedPlayer) || cubeDistance(ui.selected.c, target.c) > reach(ui.selected)) {
-        setMessage('Out of range, or that hero can\'t be controlled right now');
-        return render();
-      }
-      mindControlRoll(ui.selected, target);
-      ui.mode = '';
-      return render();
-    }
-
-    if (mode === 'buyskill' || (mode === 'develop' && ui.devType === 'skill')) {
-      if (!boardStepDone()) return render();
-      const target = hero || obj;
-      if (!target) { setMessage('Click one of the highlighted heroes or objects'); return render(); }
-      if (mode === 'buyskill') {
-        if (target.p !== G.cur) { setMessage('Pick one of your own heroes or objects'); return render(); }
-        buySkill(target);
-        ui.mode = '';
-      } else {
-        const selected = ui.selected;
-        if (!selected || !canControlHero(selected) || selected.acts < 1 || !canRepeat(selected, 'develop')) { setMessage('Select a hero with a Develop action left'); return render(); }
-        if (actingPlayer(target) !== actingPlayer(selected)) { setMessage('Pick one of your own heroes or objects'); return render(); }
-        if (cubeDistance(selected.c, target.c) > 1) { setMessage('Target must be within 1 tile of the developing hero'); return render(); }
-        openWheel({ cube: target.c, kind: 'developSkill', target, items: skillItems() });
+      if (hero && hero.p === myIndex()) {
+        openWheel({ cube: hero.c, kind: 'emoji', hero, items: EMOJIS.map(e => ({ v: e, ic: e, t: '' })) });
       }
       return render();
     }
 
+    // a ceded hero I control: clicking it offers to skip its remaining actions
+    if (hero && hero.p !== myIndex() && canControlHero(hero)) {
+      openWheel({ cube: hero.c, kind: 'skip', hero, items: [{ v: 'skip', ic: '⏭', t: 'Skip rest' }] });
+      return render();
+    }
+
+    // my hero under Mind Control: I may cede it on my turn
+    if (hero && hero.p === myIndex() && hero.mc && !hero.mc.ceded && isMyTurn() && !ui.mode) {
+      openWheel({ cube: hero.c, kind: 'cede', hero, items: [{ v: 'cede', ic: '🤝', t: 'Cede to ' + G.pl[hero.mc.by].name }] });
+      return render();
+    }
+
+    const mode = ui.mode;
+    if (mode === 'buyskill') {
+      if (!unit || !isSkillTarget(unit)) setMessage('Pick one of your own heroes or objects');
+      else { buySkill(unit); ui.mode = ''; }
+      return render();
+    }
+    if (mode === 'develop' && ui.devType === 'skill') {
+      if (!unit || !isSkillTarget(unit)) setMessage('Click one of the highlighted heroes or objects');
+      else openWheel({ cube: unit.c, kind: 'developSkill', unit, items: skillItems() });
+      return render();
+    }
     if (mode === 'place') {
-      if (isValidTarget(cube)) openWheel({ cube, kind: 'place', items: G.pl[G.cur].pool.map(t => ({ v: t, ic: SKILL_ICON[t], t: SKILL_NAME[t] })) });
+      if (isValidTarget(cube)) {
+        openWheel({ cube, kind: 'place', items: G.pl[G.cur].pool.map(s => ({ v: s, ic: SKILL_ICON[s], t: SKILL_NAME[s] })) });
+      }
       return render();
     }
-
     if (mode === 'remove') {
-      if (isValidTarget(cube)) removeTile(cubeKeyValue);
+      if (isValidTarget(cube)) removeTile(cubeKey(cube));
       return render();
     }
-
-    if (!isValidTarget(cube)) {
-      // clicking anywhere that is not a target leaves the current develop step
-      if (mode === 'develop') { ui.mode = ''; ui.devType = null; }
-      else if (mode && mode !== 'place' && mode !== 'remove') { ui.mode = ''; ui.devType = null; }
-      return render();
-    }
-
     if (mode === 'develop') {
-      if (ui.devType === 'barrier') openWheel({ cube, kind: 'buildDir', target: cube, items: buildDirItems(cube, false) });
-      else openWheel({ cube, kind: 'roll', target: cube, items: rollItems() });
-    } else if (mode === 'barrier') {
-      openWheel({ cube, kind: 'buildDir', target: cube, buy: true, items: buildDirItems(cube, true) });
-    } else if (mode === 'hero') {
-      buyHero(cube);
-      ui.mode = '';
-    } else if (mode === 'obj') {
-      buyObject(cube);
-      ui.mode = '';
+      if (!isValidTarget(cube)) { ui.mode = ''; ui.devType = null; return render(); }
+      openWheel(ui.devType === 'barrier'
+        ? { cube, kind: 'buildDir', items: buildDirItems(cube, false) }
+        : { cube, kind: 'roll', items: rollItems() });
+      return render();
+    }
+    if (mode === 'barrier') {
+      if (isValidTarget(cube)) openWheel({ cube, kind: 'buildDir', buy: true, items: buildDirItems(cube, true) });
+      else setMessage('Click a discovered tile next to one of your heroes');
+      return render();
+    }
+    if (mode === 'hero') {
+      if (isValidTarget(cube)) { buyHero(cube); ui.mode = ''; }
+      else setMessage('Click a tile with one of your heroes');
+      return render();
+    }
+    if (mode === 'obj') {
+      if (isValidTarget(cube)) { buyObject(cube); ui.mode = ''; }
+      else setMessage('Click a tile with one of your heroes');
+      return render();
+    }
+
+    // no mode: clicking my own hero opens its develop menu
+    if (hero && hero.p === myIndex() && isMyTurn()) {
+      if (!canAct(hero, 'develop')) {
+        setMessage(hero.acts < 1 ? 'No actions left for this hero this turn' : 'This hero already used Develop this turn');
+      } else {
+        ui.mode = 'develop';
+        ui.devType = null;
+        ui.selected = hero;
+        openWheel({ cube: hero.c, kind: 'developType', items: developTypeItems() });
+      }
     }
     render();
   }
 
-  // Up / Down options for a barrier; only legal directions are enabled
-  function buildDirItems(cube, buying) {
-    const tile = tileAt(cube), player = G.pl[G.cur];
-    let upDisabled, downDisabled;
-    if (buying) {
-      upDisabled = !tile.disc || player.v < 5 || G.apoc;
-      downDisabled = !tile.disc || !tile.bar || player.v < 5 || G.apoc;
+  // opens the attack/move choices for a card dragged onto this unit's wheel
+  function pickBuy(value) {
+    ui.wheel = null;
+    ui.message = '';
+    const isSkillBuy = value.startsWith('s:');
+    const nextMode = isSkillBuy ? 'buyskill' : value;
+    if (ui.mode === nextMode && (!isSkillBuy || ui.devSkill === value.slice(2))) {
+      ui.mode = '';
     } else {
-      const mine = !tile.bar || barrierIsMine(tile, ui.selected);
-      upDisabled = !tile.disc || !mine;
-      downDisabled = !tile.disc || !tile.bar || mine;
+      if (isSkillBuy) ui.devSkill = value.slice(2);
+      ui.mode = nextMode;
     }
-    return [
-      { v: 'up', ic: '▲', t: buying ? 'Raise 5V' : 'Build up', dis: upDisabled },
-      { v: 'down', ic: '▼', t: buying ? 'Lower 5V' : 'Lower', dis: downDisabled },
-    ];
+    ui.devType = null;
+    render();
   }
 
-  // handles a choice in the open wheel menu
+  /* =============================================================
+     20. WHEEL MENU CHOICES
+     ============================================================= */
+
   function pickWheelItem(value) {
     const wheel = ui.wheel;
-    if (!wheel || value === 'x') {
-      if (wheel && wheel.kind === 'discovery') return render();   // must choose
-      closeWheel();
+    if (!wheel) return render();
+    if (value === 'x') {
+      if (wheel.kind !== 'discovery') closeWheel();
       return render();
     }
+
     const handlers = {
-      emoji: () => { closeWheel(); sendEmoji(wheel.hero, value); },
-      place: () => { closeWheel(); placeTile(wheel.cube, value); },
+      emoji: () => sendEmoji(wheel.hero, value),
+      place: () => placeTile(wheel.cube, value),
       buildDir: () => {
-        if (wheel.buy) { closeWheel(); ui.mode = ''; buyBarrier(wheel.target, value); return; }
+        if (wheel.buy) { ui.mode = ''; buyBarrier(wheel.cube, value); return; }
         ui.buildDir = value;
-        openWheel({ cube: wheel.target, kind: 'roll', target: wheel.target, items: rollItems() });
+        openWheel({ cube: wheel.cube, kind: 'roll', items: rollItems() });
       },
-      carry: () => pickCarryOption(value),
+      carry: () => (value === 'go' ? confirmCarry() : toggleCarry(value)),
       attackChoice: () => {
-        closeWheel();
         ui.mode = '';
-        if (value === 'atk') {
-          if (canAct(wheel.attacker, 'attack') && cubeDistance(wheel.attacker.c, wheel.defender.c) <= reach(wheel.attacker)) attackHero(wheel.attacker, wheel.defender);
-          else setMessage('Combat not available');
-        } else if (value === 'mind') {
-          if (canBeMindControlled(wheel.defender, actingPlayer(wheel.attacker)) && canRepeat(wheel.attacker, 'mind') && wheel.attacker.acts > 0 && cubeDistance(wheel.attacker.c, wheel.defender.c) <= reach(wheel.attacker)) mindControlRoll(wheel.attacker, wheel.defender);
-          else setMessage('Mind Control not available');
-        }
+        ui.selected = null;
+        if (value === 'atk') attackHero(wheel.attacker, wheel.defender);
+        else mindControlRoll(wheel.attacker, wheel.defender);
       },
       cede: () => {
-        closeWheel();
         wheel.hero.mc.ceded = true;
-        log(`${G.pl[G.cur].name} cedes ${heroLabel(wheel.hero)} to ${G.pl[wheel.hero.mc.by].name}`, G.cur);
+        addLog(`${G.pl[G.cur].name} cedes ${heroLabel(wheel.hero)} to ${G.pl[wheel.hero.mc.by].name}`, G.cur);
       },
       skip: () => {
-        closeWheel();
         wheel.hero.acts = 0;
-        log(`${G.pl[wheel.hero.p].name}'s ${heroLabel(wheel.hero)} skips its remaining actions (controlled by ${G.pl[myIndex()].name})`, myIndex());
+        addLog(`${G.pl[wheel.hero.p].name}'s ${heroLabel(wheel.hero)} skips its remaining actions (controlled by ${G.pl[myIndex()].name})`, myIndex());
       },
       developType: () => {
-        closeWheel();
-        if (value === 'skill') { ui.devType = 'skill'; setMessage('Click one of the highlighted heroes or objects to raise the chosen skill.'); }
-        else { ui.devType = value; setMessage(''); }
+        ui.devType = value;
+        if (value === 'skill') setMessage('Click one of the highlighted heroes or objects to raise the chosen skill.');
       },
       developSkill: () => {
-        if (wheel.target.s[value] >= 5) return setMessage('That skill is maxed');
+        if (wheel.unit.s[value] >= RULES.maxSkill) return setMessage('That skill is maxed');
         ui.devSkill = value;
-        openWheel({ cube: wheel.target.c, kind: 'roll', target: wheel.target, items: rollItems() });
+        openWheel({ cube: wheel.unit.c, kind: 'roll', unit: wheel.unit, items: rollItems() });
       },
       roll: () => {
-        closeWheel();
         ui.take = value === 'take';
-        if (wheel.target && wheel.target.k !== undefined) developHero(ui.selected, null, wheel.target);
-        else developHero(ui.selected, wheel.target);
-        ui.buildDir = null;
-        if (!ui.wheel) { ui.mode = ''; ui.devType = null; }
+        developHero(ui.selected, wheel.cube, wheel.unit || null);
       },
-      discovery: () => {
-        closeWheel();
-        const pending = ui.pendingDiscovery;
-        ui.pendingDiscovery = null;
-        if (!pending) return;
-        pending.tile.disc = 1;
-        const target = value === 'obj' ? G.objs.find(o => o.alive && !o.nuke && o.p === pending.hero.p && sameTile(o.c, pending.hero.c)) : pending.hero;
-        if (!target) setMessage('No object here to receive the bonus');
-        else {
-          target.s[pending.skill] = Math.min(5, target.s[pending.skill] + 1);
-          log(`  ${target.k ? heroLabel(target) : 'Object'} +1 ${pending.skill} from discovery`, pending.hero.p);
-        }
-      },
+      discovery: () => finishDiscovery(value),
     };
-    const handle = handlers[wheel.kind];
-    if (handle) handle();
+
+    closeWheel();
+    const handler = handlers[wheel.kind];
+    if (handler) handler();
     render();
   }
 
-  // choosing which objects to take on a move
-  function pickCarryOption(value) {
-    const pick = ui.carryPick;
-    if (value === 'go') {
-      // reaching beyond the hero's own range needs a range object taken along
-      if (cubeDistance(pick.hero.c, pick.cube) > pick.hero.s.rng && !pick.selected.some(o => (o.s.rng || 0) > 0)) {
-        setMessage('Too far for its own range: take an object with range along');
-        return render();
-      }
-      closeWheel();
-      moveHero_fromCarry(pick);
-      return render();
+  /* =============================================================
+     21. HAND (traversal cards)
+     ============================================================= */
+
+  function onHandPointerDown(event) {
+    if (!G || !isMyTurn()) return;
+    const card = event.target.closest('[data-card]');
+    if (!card) return;
+    handDrag = { index: +card.dataset.card, startX: event.clientX, startY: event.clientY, moved: false, ghost: null };
+  }
+
+  function onHandDragMove(event) {
+    if (!handDrag.moved) {
+      if (Math.hypot(event.clientX - handDrag.startX, event.clientY - handDrag.startY) < 6) return;
+      handDrag.moved = true;
+      handDrag.ghost = document.createElement('div');
+      handDrag.ghost.className = 'ghostc';
+      const card = G.pl[G.cur].hand[handDrag.index];
+      handDrag.ghost.textContent = card === 'v' ? '💰 +5V' : `${SKILL_ICON[card]} +1 ${SKILL_NAME[card]}`;
+      document.body.appendChild(handDrag.ghost);
     }
-    const obj = G.objs[+value.slice(1)];
-    const index = pick.selected.indexOf(obj);
-    if (index >= 0) pick.selected.splice(index, 1);
-    else pick.selected.push(obj);
-    openWheel({ cube: pick.hero.c, kind: 'carry', items: carryItems() });
+    handDrag.ghost.style.left = event.clientX + 'px';
+    handDrag.ghost.style.top = event.clientY + 'px';
+  }
+
+  function onHandDragEnd(event) {
+    const finished = handDrag;
+    handDrag = null;
+    if (finished.ghost) finished.ghost.remove();
+    if (!finished.moved) return;
+    suppressHandClick = true;
+    setTimeout(() => { suppressHandClick = false; }, 150);
+
+    const card = G.pl[G.cur].hand[finished.index];
+    if (card === undefined) return render();
+    const target = document.elementFromPoint(event.clientX, event.clientY)?.closest('[data-hero],[data-obj]');
+    if (card === 'v' && !target) playVersaCard(finished.index);
+    else if (!target) setMessage('Drop a skill card on one of your heroes or objects');
+    else {
+      const unit = target.dataset.hero !== undefined ? G.heroes[+target.dataset.hero] : G.objs[+target.dataset.obj];
+      applySkillCard(finished.index, unit);
+    }
     render();
-    return undefined;
   }
 
-  function moveHero_fromCarry(pick) {
-    ui.carryPick = null;
-    requestMove(pick.hero, pick.cube, pick.selected);
+  function onHandClick(event) {
+    if (suppressHandClick || !G || !isMyTurn()) return;
+    const sell = event.target.closest('[data-sell]');
+    const card = event.target.closest('[data-card]');
+    if (sell) sellCard(+sell.dataset.sell);
+    else if (card) {
+      const index = +card.dataset.card;
+      if (G.pl[G.cur].hand[index] === 'v') playVersaCard(index);
+      else setMessage('Drag a skill card onto a hero or object');
+    }
+    render();
   }
 
-  function sendEmoji(hero, emoji) {
-    const payload = { uid: ME, k: hero.k, e: emoji };
-    if (channel) channel.send({ type: 'broadcast', event: 'emoji', payload });
-    showEmoji(payload);
+  /* =============================================================
+     22. FLOATING FEEDBACK
+     ============================================================= */
+
+  function showFloat(html, extraClass = '') {
+    let content = html;
+    if (lastActionWasRetry && !extraClass) content += ' <span class="retry">(try again)</span>';
+    lastActionWasRetry = false;
+    const node = document.createElement('div');
+    node.className = 'fx ' + extraClass;
+    node.innerHTML = content;
+    el('fx').appendChild(node);
+    setTimeout(() => node.remove(), 3000);
   }
 
-  function mindControlRollPlaceholder() {}
+  /* =============================================================
+     23. TOOLTIP CONTENT
+     One layout per entity kind.
+     ============================================================= */
 
-  /* Route for the attack choice wheel and mind control */
-  function mindControlRollWrapper(hero, target) { mindControlRoll(hero, target); }
+  const statGrid = stats => `<div class="tstats">${[
+    ['✊', 'STR', stats.str], ['🛡️', 'DEF', stats.def], ['🏹', 'RNG', stats.rng], ['🧠', 'INT', stats.int],
+  ].map(([icon, name, value]) => `<div class="tstat">${icon}<b>${value}</b><small>${name}</small></div>`).join('')}</div>`;
+
+  const damageBar = (damage, limit) => `<div class="tbar"><i style="width:${Math.min(100, damage / limit * 100)}%"></i></div>`;
+
+  function heroTooltip(hero, index) {
+    const actions = canControlHero(hero) ? `<div class="tsub">Actions: ${'●'.repeat(hero.acts)}${'✕'.repeat(Math.max(0, 2 - hero.acts))}</div>` : '';
+    const control = hero.mc ? `<div class="tsub">🧠 Controlled by ${escapeHtml(G.pl[hero.mc.by].name)}${hero.mc.ceded ? ' · ceded' : ''}</div>` : '';
+    return {
+      kind: 'hero', color: PLAYER_COLORS[hero.p],
+      html: `<div class="th">🧍 ${escapeHtml(heroLabel(hero))}</div>${statGrid(hero.s)}${damageBar(hero.dmg, hero.s.def)}
+        <div class="tsub">Damage ${hero.dmg} of ${hero.s.def}</div>${actions}${control}`,
+    };
+  }
+
+  function objectTooltip(obj) {
+    const mine = obj.p === myIndex();
+    const ownerNote = mine ? '' : ' · owned by another player; taking it makes it yours';
+    const rangeNote = obj.s.rng > 0 ? `Adds ${obj.s.rng} range: the hero must take it along to move that far` : '';
+    return {
+      kind: 'object', color: PLAYER_COLORS[obj.p],
+      html: `<div class="th">${obj.sym || '🧱'} ${escapeHtml(G.pl[obj.p].name)}'s object</div>${statGrid(obj.s)}${damageBar(obj.dmg, obj.s.def)}
+        <div class="tsub">Damage ${obj.dmg} of ${obj.s.def}</div><div class="tsub">${rangeNote}${ownerNote}</div>`,
+    };
+  }
+
+  function nukeTooltip(nuke) {
+    return {
+      kind: 'nuke', color: '#ff3d3d',
+      html: `<div class="th">☢ Nuke</div>${damageBar(nuke.dmg, nuke.s.def)}
+        <div class="tsub">Hits ${nuke.dmg} of ${nuke.s.def}. Each attack is one hit.</div>
+        <div class="tsub">Destroying it triggers the Apocalypse.</div>`,
+    };
+  }
+
+  function tileTooltip(tile) {
+    const seen = tile.disc || tile.own === myIndex();
+    const title = tile.gz ? '⬡ Ground Zero'
+      : !seen ? '? Hidden HexTile'
+      : tile.sk === 'bar' ? '🛑 Barrier HexTile'
+      : `${SKILL_ICON[tile.sk]} ${SKILL_NAME[tile.sk]} HexTile`;
+    const owner = tile.own >= 0 ? G.pl[tile.own].name : 'Neutral';
+    const barrierLine = tile.bar
+      ? `<div class="tsub">🛑 Barrier L${tile.bar}${tile.barOwn != null && G.pl[tile.barOwn] ? ' · held by ' + escapeHtml(G.pl[tile.barOwn].name) : ''}</div>`
+      : '';
+    const status = tile.gz ? 'Ground Zero: +1 to d20 rolls for heroes on it'
+      : seen ? 'Discovered'
+      : 'Undiscovered: its type is hidden until its owner reveals it';
+    return {
+      html: `<div class="th">${title}</div><div class="tsub">Owner: ${escapeHtml(owner)}</div><div class="tsub">${status}</div>${barrierLine}`,
+    };
+
+  /* =============================================================
+     24. BOARD DRAWING
+     ============================================================= */
+
+  function heroPosition(hero) {
+    const here = heroesAt(hero.c);
+    const index = here.indexOf(hero), count = here.length;
+    return [hexX(hero.c) + (index - (count - 1) / 2) * 13, hexY(hero.c) + 10];
+  }
+
+  function placementCandidates() {
+    const keys = new Set();
+    Object.values(G.tiles).forEach(t => neighbours(t.c).forEach(n => { if (!tileAt(n)) keys.add(cubeKey(n)); }));
+    return [...keys].map(keyToCube).filter(isValidTarget);
+  }
+
+  function tileSvg(tile, mine) {
+    const cube = tile.c, key = cubeKey(cube);
+    const seen = tile.disc || tile.own === mine;
+    const valid = isValidTarget(cube);
+    const barrierTarget = valid && (ui.mode === 'barrier' || (ui.mode === 'develop' && ui.devType === 'barrier'));
+    const removable = valid && ui.mode === 'remove';
+    const fill = tile.gz ? GROUND_ZERO_FILL : tile.disc ? TILE_COLORS[tile.sk] : NEUTRAL_FILL;
+    const stroke = tile.own >= 0 ? PLAYER_COLORS[tile.own] : UNOWNED_STROKE;
+    const symbol = tile.gz ? '⬡' : !seen ? '?' : tile.sk === 'bar' ? '🛑' : SKILL_ICON[tile.sk];
+    const cls = [barrierTarget ? 'ok' : '', removable ? 'rm' : ''].join(' ');
+    tooltips['t' + key] = tileTooltip(tile);
+
+    const glow = tile.bar > 0
+      ? `<polygon class="barglow" points="${hexPoints(cube, HEX_RADIUS - 9)}" stroke="${barrierColor(cube)}" style="filter:drop-shadow(0 0 1.5px ${barrierColor(cube)})"/>`
+      : '';
+    const barrierTag = tile.bar && !(seen && tile.sk === 'bar')
+      ? `<text x="${hexX(cube) + HEX_RADIUS * 0.5}" y="${hexY(cube) + HEX_RADIUS * 0.6}" font-size="8" font-weight="bold" fill="#ffd54f" stroke="#000" stroke-width="1" paint-order="stroke">🛑${tile.bar}</text>`
+      : '';
+    const label = tile.bar && seen && tile.sk === 'bar' ? '🛑' + tile.bar : symbol;
+    return `<polygon data-k="${key}" data-tip="t${key}" class="${cls}" fill="${fill}" stroke="${stroke}" stroke-width="1.5" points="${hexPoints(cube)}"/>`
+      + glow
+      + `<text x="${hexX(cube)}" y="${hexY(cube)}" font-size="${label.length > 2 ? 22 : 34}" fill="#fff">${label}</text>`
+      + barrierTag;
+  }
+
+  function isEnemyInDragReach(hero) {
+    return !!drag && drag.moved && actingPlayer(hero) !== actingPlayer(drag.hero)
+      && cubeDistance(drag.hero.c, hero.c) <= reach(drag.hero);
+  }
+
+  function heroSvg(hero, index) {
+    const [x, y] = heroPosition(hero);
+    const mc = hero.mc ? `<circle class="ring-mc" cx="${x}" cy="${y}" r="9"/>` : '';
+    const march = canControlHero(hero) && hero.acts > 0 && !ui.mode ? `<circle class="ring-march" cx="${x}" cy="${y}" r="8"/>` : '';
+    const attackRing = isEnemyInDragReach(hero) ? `<circle class="ring-atk" cx="${x}" cy="${y}" r="10"/>` : '';
+    const skillRing = isSkillTarget(hero) ? `<circle class="ring-selh" cx="${x}" cy="${y}" r="10"/>` : '';
+    const dots = canControlHero(hero)
+      ? `<text x="${x}" y="${y - 9}" font-size="6" fill="#ffe8a3" stroke="#000" stroke-width="1" paint-order="stroke">${'●'.repeat(hero.acts)}${'✕'.repeat(Math.max(0, 2 - hero.acts))}</text>`
+      : '';
+    const damage = hero.dmg ? `<text x="${x + 8}" y="${y - 6}" font-size="7" font-weight="bold" fill="#ff5252">-${hero.dmg}</text>` : '';
+    const muted = (ui.mode === 'buyskill' || ui.mode === 'develop') && !isSkillTarget(hero) ? 'mute' : '';
+    tooltips['h' + index] = heroTooltip(hero, index);
+    return `<g class="${muted}" data-hero="${index}" data-k="${cubeKey(hero.c)}" data-tip="h${index}">`
+      + `<circle cx="${x}" cy="${y}" r="6" fill="${HERO_COLORS[index % HERO_COLORS.length]}" stroke="${PLAYER_COLORS[hero.p]}" stroke-width="1.5"/>`
+      + mc + march + attackRing + skillRing + dots + damage + `</g>`;
+  }
+
+  function objectSvg(obj, index) {
+    const row = objectsAt(obj.c).filter(o => !o.nuke);
+    const position = row.indexOf(obj);
+    const x = hexX(obj.c) + (position - (row.length - 1) / 2) * 15;
+    const y = hexY(obj.c) - 20;
+    const ring = isSkillTarget(obj) ? `<rect class="ring-o" x="${x - 10}" y="${y - 10}" width="20" height="20" rx="4"/>` : '';
+    const muted = (ui.mode === 'buyskill' || ui.mode === 'develop') && !isSkillTarget(obj) ? 'mute' : '';
+    tooltips['o' + index] = objectTooltip(obj);
+    return `<g class="${muted}" data-obj="${index}" data-k="${cubeKey(obj.c)}" data-tip="o${index}">`
+      + `<rect x="${x - 7}" y="${y - 7}" width="14" height="14" rx="3" fill="${PLAYER_COLORS[obj.p]}" stroke="#0e0e12" stroke-width="1"/>`
+      + ring
+      + `<text x="${x}" y="${y - 1}" font-size="9">${obj.sym || '🧱'}</text>`
+      + `<text x="${x + 5}" y="${y + 5}" font-size="5" font-weight="bold" fill="#fff" stroke="#000" stroke-width=".8" paint-order="stroke">${obj.s.def}</text>`
+      + `</g>`;
+  }
+
+  // drawn last, so a drop near its centre always reaches it
+  function nukeSvg(nuke) {
+    const x = hexX(nuke.c), y = hexY(nuke.c);
+    tooltips.nuke = nukeTooltip(nuke);
+    const ring = drag && drag.moved ? `<circle class="ring-nk" cx="${x}" cy="${y}" r="13"/>` : '';
+    return `<g data-k="${cubeKey(nuke.c)}" data-tip="nuke">`
+      + `<circle cx="${x}" cy="${y}" r="16" fill="transparent"/>`
+      + `<circle cx="${x}" cy="${y}" r="10" fill="#2a0a0a" stroke="#ff3d3d" stroke-width="1.6"/>`
+      + `<text x="${x}" y="${y}" font-size="13" fill="#ff3d3d">☢</text>`
+      + ring + `</g>`;
+  }
+
+  function drawBoard() {
+    const svg = el('svg');
+    tooltips = {};
+    if (!G) { svg.innerHTML = ''; return; }
+    setViewBox();
+    const mine = myIndex();
+    let out = '<defs><marker id="arrow" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 z" fill="#ffe066"/></marker></defs>';
+
+    if (ui.mode === 'place') {
+      placementCandidates().forEach(c => { out += `<polygon class="cand" data-k="${cubeKey(c)}" points="${hexPoints(c)}"/>`; });
+    }
+    Object.values(G.tiles).forEach(tile => { out += tileSvg(tile, mine); });
+    G.heroes.forEach((hero, i) => { if (hero.alive) out += heroSvg(hero, i); });
+    G.objs.forEach((obj, i) => { if (obj.alive && !obj.nuke) out += objectSvg(obj, i); });
+    const nuke = G.objs.find(o => o.alive && o.nuke);
+    if (nuke) out += nukeSvg(nuke);
+    if (drag && drag.moved && drag.point) {
+      const [hx, hy] = heroPosition(drag.hero);
+      out += `<line x1="${hx}" y1="${hy}" x2="${drag.point.x}" y2="${drag.point.y}" stroke="#ffe066" stroke-width="2" stroke-dasharray="6 4" marker-end="url(#arrow)"/>`;
+    }
+    svg.innerHTML = out;
+  }
+
+  /* =============================================================
+     25. PANEL DRAWING
+     ============================================================= */
+
+  function drawTop() {
+    const player = G.pl[G.cur];
+    const chips = G.pl.map((p, i) => {
+      const heroCount = G.heroes.filter(h => h.alive && h.p === i).length;
+      const status = isAlive(i) ? `${heroCount} heroes` : 'out';
+      return `<span class="pchip ${i === G.cur ? 'cur' : ''} ${isAlive(i) ? '' : 'out'}" style="--c:${PLAYER_COLORS[i]}">${escapeHtml(p.name)} · ${p.v} V · ${status}</span>`;
+    }).join('');
+    const endButton = isMyTurn()
+      ? `<button class="endb" data-action="end-turn" ${boardStepDone() && !endTurnBlocked() ? '' : 'disabled'}>➜ End Turn</button>`
+      : '';
+    el('top').innerHTML = `
+      <span class="badge" style="background:${PLAYER_COLORS[G.cur]}">${escapeHtml(player.name)}'s turn</span>
+      <span class="chip">Round ${G.rd} · ${phaseName()}</span>
+      ${G.apoc ? '<span class="alert">☢ Apocalypse</span>' : ''}
+      ${G.over ? `<span class="alert">🏆 ${escapeHtml(G.over)}</span>` : ''}
+      ${offlineBadges()}
+      <span style="flex:1"></span>
+      ${endButton}
+      <button class="ghost" data-action="leave">Leave</button>
+      ${chips}`;
+  }
+
+  function drawLog() {
+    el('log').innerHTML = G.log.slice(0, 60)
+      .map(line => `<div style="color:${line.p >= 0 ? PLAYER_COLORS[line.p] : '#9a9ab0'}">${escapeHtml(line.t)}</div>`)
+      .join('');
+  }
+
+  function drawHand() {
+    const hand = el('hand'), mine = myIndex();
+    if (mine < 0) { hand.innerHTML = '<span class="muted">Spectating</span>'; return; }
+    const cards = G.pl[mine].hand;
+    const cardHtml = cards.map((card, i) => {
+      const icon = card === 'v' ? '💰' : SKILL_ICON[card];
+      const full = card === 'v' ? '+5V' : '+1 ' + SKILL_NAME[card];
+      const short = card === 'v' ? '+5V' : '+1 ' + SKILL_SHORT[card];
+      return `<div class="card-t">
+        <button class="cbtn" data-card="${i}"><span class="cicon">${icon}</span><small class="fit" data-full="${full}" data-short="${short}" data-symbol="${icon}">${full}</small></button>
+        <button class="dc" data-sell="${i}">Sell 2V</button>
+      </div>`;
+    }).join('');
+    hand.innerHTML = `<div class="sec">Traversal hand · ${cards.length} card${cards.length === 1 ? '' : 's'}</div>`
+      + (cardHtml || '<span class="muted small">No cards. Move a hero to draw one.</span>');
+    fitCardLabels();
+  }
+
+  // full name first, then the 3-letter form, then the symbol, whichever fits
+  function fitCardLabels() {
+    document.querySelectorAll('#hand small.fit').forEach(label => {
+      label.textContent = label.dataset.full;
+      if (label.scrollWidth <= label.clientWidth) return;
+      label.textContent = label.dataset.short;
+      if (label.scrollWidth > label.clientWidth) label.textContent = label.dataset.symbol;
+    });
+  }
+
+  function buyIsActive(value) {
+    return value.startsWith('s:') ? ui.mode === 'buyskill' && ui.devSkill === value.slice(2) : ui.mode === value;
+  }
+
+  function drawBuySide() {
+    const side = el('buyside');
+    const viewer = G.pl[myIndex() >= 0 ? myIndex() : G.cur];
+    const items = buyOptions();
+    const button = item => `<button class="opt2 ${buyIsActive(item.v) ? 'on' : ''}" data-bi="${item.v}" ${item.disabled ? 'disabled' : ''}>${item.icon} ${item.label}<small>${item.cost}</small></button>`;
+    const body = isMyTurn()
+      ? `<div class="sec">Buy</div>
+         <div class="bcol">
+           <div class="brow" style="grid-template-columns:repeat(3,1fr)">${items.slice(0, 3).map(button).join('')}</div>
+           <div class="brow" style="grid-template-columns:repeat(2,1fr)">${items.slice(3, 5).map(button).join('')}</div>
+           <div class="brow" style="grid-template-columns:repeat(2,1fr)">${items.slice(5).map(button).join('')}</div>
+         </div>`
+      : '<span class="muted small">Buying is available on your turn.</span>';
+    side.innerHTML = `<div class="vside">${viewer.v} V</div>${body}`;
+  }
+
+  function drawBottomBar() {
+    el('bottom').classList.toggle('minimized', botMinimized);
+    const handSize = myIndex() >= 0 ? G.pl[myIndex()].hand.length : 0;
+    el('bar').innerHTML = `
+      <button class="sbtn" data-action="expand">📜 Log</button>
+      <button class="sbtn" data-action="expand">🃏 Hand (${handSize})</button>
+      <button class="sbtn" data-action="expand">🛒 Buy</button>
+      <span class="msg">${escapeHtml(ui.message)}</span>
+      <span style="flex:1"></span>
+      <button class="sbtn" data-action="minimize">${botMinimized ? '▴ Expand' : '▾ Minimize'}</button>`;
+  }
+
+  function drawWheel() {
+    const wheelEl = el('wheel'), wheel = ui.wheel;
+    if (!wheel) { wheelEl.style.display = 'none'; wheelEl.innerHTML = ''; return; }
+    const [x, y] = screenPoint(hexX(wheel.cube), hexY(wheel.cube));
+    wheelEl.style.left = x + 'px';
+    wheelEl.style.top = y + 'px';
+    wheelEl.style.display = 'block';
+    const count = wheel.items.length;
+    const buttons = wheel.items.map((item, i) => {
+      const angle = -Math.PI / 2 + i * 2 * Math.PI / count;
+      const emojiClass = wheel.kind === 'emoji' ? 'emoji-btn' : '';
+      return `<button class="wbtn ${emojiClass} ${item.on ? 'on' : ''}" data-w="${item.v}" ${item.dis ? 'disabled' : ''}
+        style="left:calc(${Math.cos(angle).toFixed(3)} * var(--r));top:calc(${Math.sin(angle).toFixed(3)} * var(--r))">
+        <span class="wi">${item.ic}</span>${item.t ? `<small>${item.t}</small>` : ''}</button>`;
+    }).join('');
+    const closeButton = wheel.kind === 'discovery' ? '' : '<button class="wbtn wx" data-w="x">✕</button>';
+    wheelEl.innerHTML = buttons + closeButton;
+  }
+
+  function drawCancel() {
+    const cancel = el('cx');
+    const show = !!ui.mode && ui.mode !== 'place' && ui.mode !== 'remove' && ui.mode !== 'move' && !ui.wheel;
+    cancel.style.display = show ? 'block' : 'none';
+    cancel.innerHTML = show ? '<button class="xbtn" data-action="cancel">✕</button>' : '';
+  }
+
+  /* =============================================================
+     26. TO-DO LIST
+     Phases, then one sub-list per hero. Finished steps are struck through.
+     ============================================================= */
+
+  function todoItems() {
+    if (G.over) return [{ text: G.over }];
+    if (!isMyTurn()) return [{ text: `Waiting for ${G.pl[G.cur].name}…` }];
+    const items = [];
+
+    if (G.rd <= ROUND.placementEnds) {
+      items.push({ text: 'Place a tile', done: boardStepDone() });
+    }
+
+    if (G.rd >= ROUND.declineFrom && G.remPlan.length) {
+      items.push({
+        text: 'Remove one tile per player',
+        head: true,
+        done: boardStepDone(),
+        children: G.remPlan.map(owner => ({
+          text: owner === G.cur ? 'One of your tiles' : `${G.pl[owner].name} (eliminated)`,
+          done: !G.remOrder.includes(owner),
+        })),
+      });
+    }
+
+    if (boardStepDone()) {
+      const heroes = G.heroes.filter(h => h.alive && h.p === G.cur && !h.mc);
+      const heroItems = heroes.map(hero => {
+        const used = type => hero.t.some(x => x.type === type && !x.fail);
+        return {
+          text: `H${hero.k}: ${hero.acts} action${hero.acts === 1 ? '' : 's'} left`,
+          done: hero.acts < 1,
+          children: [
+            { text: 'Move', done: used('move'), dim: !used('move') && !canAct(hero, 'move') },
+            { text: G.rd < ROUND.attacksFrom ? 'Attack (from round 4)' : 'Attack', done: used('attack'), dim: !used('attack') && !canAct(hero, 'attack') },
+            { text: 'Develop', done: used('develop'), dim: !used('develop') && !canAct(hero, 'develop') },
+          ],
+        };
+      });
+      if (heroItems.length) items.push({ text: 'Hero actions', head: true, done: heroItems.every(x => x.done), children: heroItems });
+      else items.push({ text: 'Hero actions: none left', done: true });
+    }
+
+    if (hasControlledHeroWithActions()) items.push({ text: 'Use or cede your Mind Controlled hero' });
+    if (G.pl[G.cur].hand.length) items.push({ text: 'Traversal cards: drag skill cards onto heroes, or play 5V' });
+    if (G.pl[G.cur].v >= RULES.actionCost) items.push({ text: `${G.pl[G.cur].v} V: buy options on the right` });
+    if (boardStepDone() && !endTurnBlocked() && !G.heroes.some(h => h.alive && h.p === G.cur && h.acts > 0)) {
+      items.push({ text: 'Nothing left: end your turn', head: true });
+    }
+
+    if (ui.wheel) {
+      items.unshift({ text: `Choose: ${ui.wheel.items.map(i => i.t || i.ic).join(' · ')}`, temp: true });
+    }
+    return items;
+  }
+
+  function todoLineHtml(item, depth) {
+    const key = `${G.rd}|${G.cur}|${item.text}`;
+    const animate = item.done && !seenTodo.has(key);
+    if (item.done) seenTodo.add(key);
+    const classes = ['td', depth ? 'sub' : '', item.head ? 'head' : '', item.temp ? 'temp' : '',
+      item.dim ? 'dim' : '', item.done ? 'done' : '', animate ? 'strike' : ''].join(' ');
+    const mark = item.done ? '☑' : item.head ? '▸' : '☐';
+    const children = (item.children || []).map(child => todoLineHtml(child, depth + 1)).join('');
+    return `<div class="${classes}">${mark} ${escapeHtml(item.text)}</div>${children}`;
+  }
+
+  function drawTodo() {
+    el('todo').innerHTML = '<b>To do</b>' + todoItems().map(item => todoLineHtml(item, 0)).join('');
+  }
+
+  /* =============================================================
+     27. MODAL (name, lobby, waiting, game over)
+     ============================================================= */
+
+  const noActionsLeft = () => !G.over && boardStepDone() && !endTurnBlocked()
+    && !G.heroes.some(h => h.alive && h.p === G.cur && h.acts > 0 && (canAct(h, 'move') || canAct(h, 'attack') || canAct(h, 'develop')))
+    && G.pl[G.cur].v < RULES.actionCost && G.pl[G.cur].hand.length === 0;
+
+  function drawModal() {
+    const modal = el('modal');
+    let html = '';
+    if (!username || !isValidName(username)) {
+      html = `<div class="card"><h2 style="margin:0">VERSA</h2>
+        <div class="muted">Choose a username (2 to 16 letters or numbers)</div>
+        <input id="nameIn" maxlength="16">
+        <div class="row"><button class="endb" data-action="save-name">Continue</button></div></div>`;
+    } else if (!ROOM) {
+      html = `<div class="card"><h2 style="margin:0">Play VERSA</h2>
+        <div class="muted">Playing as <b>${escapeHtml(username)}</b></div>
+        <div class="row"><button class="endb" data-action="create-room">Create room</button></div>
+        <div class="row"><input id="codeIn" maxlength="6" placeholder="Room code"><button data-action="join-room">Join room</button></div>
+        <div class="row"><button class="ghost" data-action="rename">Change username</button></div></div>`;
+    } else if (roomLoading || (!G && !ROOM_ROW)) {
+      html = `<div class="card"><h2 style="margin:0">Loading room ${escapeHtml(ROOM)}…</h2>
+        <div class="row"><button class="ghost" data-action="leave">Back to lobby</button></div></div>`;
+    } else if (!G && ROOM_ROW) {
+      const players = ROOM_ROW.players || [];
+      const startButton = ROOM_ROW.host === ME
+        ? `<div class="row"><button class="endb" data-action="start-game" ${players.length < 2 ? 'disabled' : ''}>Start game</button></div>`
+        : '<div class="muted">Waiting for the host to start…</div>';
+      html = `<div class="card"><h2 style="margin:0">Room ${ROOM}</h2>
+        <div class="muted">Share this code with your opponent. Up to 6 players.</div>
+        <div>${players.map((p, i) => `<div style="color:${PLAYER_COLORS[i]}">${i + 1}. ${escapeHtml(p.name)}${p.uid === ME ? ' (you)' : ''}</div>`).join('')}</div>
+        ${startButton}
+        <div class="row"><button class="ghost" data-action="leave">Leave room</button></div></div>`;
+    } else if (G && G.over) {
+      html = `<div class="card"><h2 style="margin:0">🏆 ${escapeHtml(G.over)}</h2>
+        <div class="row"><button class="endb" data-action="leave">Back to lobby</button></div></div>`;
+    } else if (G && isMyTurn() && noActionsLeft()) {
+      html = `<div class="card"><h2 style="margin:0">Out of Actions and Versa</h2>
+        <div class="muted">${escapeHtml(username)} has no actions, no Versa, and no Traversal cards to play.</div>
+        <div class="row"><button class="endb" data-action="end-turn">End turn ➜</button></div></div>`;
+    }
+    modal.innerHTML = html;
+    modal.style.display = html ? 'flex' : 'none';
+    const nameInput = el('nameIn');
+    if (nameInput) nameInput.value = username;
+  }
+
+  /* =============================================================
+     28. RENDER
+     Redraws everything from the current state, then publishes changes.
+     ============================================================= */
+
+  function render() {
+    if (G) {
+      checkWinner();
+      syncModeWithRules();
+    }
+    drawBoard();
+    if (G) {
+      drawTop();
+      drawLog();
+      drawHand();
+      drawBuySide();
+      drawBottomBar();
+      drawWheel();
+      drawCancel();
+      drawTodo();
+      document.documentElement.style.setProperty('--top-h', el('top').offsetHeight + 'px');
+      document.documentElement.style.setProperty('--bottom-h', el('bottom').offsetHeight + 'px');
+    } else {
+      el('wheel').style.display = 'none';
+      el('cx').style.display = 'none';
+      el('top').innerHTML = '';
+      el('log').innerHTML = '';
+      el('hand').innerHTML = '';
+      el('buyside').innerHTML = '';
+      el('bar').innerHTML = '';
+      el('todo').innerHTML = '';
+    }
+    drawModal();
+    document.body.classList.toggle('wait', !!G && !isMyTurn() && !isControllingOpponent());
+    publishChanges();
+  }
+
+  /* =============================================================
+     29. BUTTON ACTIONS
+     Every button that carries data-action comes through here.
+     ============================================================= */
+
+  function saveUsername() {
+    const name = (el('nameIn')?.value || '').trim();
+    if (!isValidName(name)) return toast('Use 2 to 16 letters or numbers');
+    username = name;
+    localStorage.setItem('versa-name', name);
+    render();
+  }
+
+  function runAction(action) {
+    switch (action) {
+      case 'save-name': return saveUsername();
+      case 'rename': username = ''; localStorage.removeItem('versa-name'); return render();
+      case 'create-room': return createRoom();
+      case 'join-room': {
+        const code = (el('codeIn')?.value || '').trim().toUpperCase();
+        if (code) joinRoom(code);
+        return;
+      }
+      case 'start-game': return startGame();
+      case 'leave': return leaveRoom();
+      case 'end-turn': return endTurnClick();
+      case 'cancel': return cancelMode();
+      case 'minimize': botMinimized = !botMinimized; return render();
+      case 'expand': botMinimized = false; return render();
+    }
+  }
+
+  /* =============================================================
+     30. EVENT WIRING
+     ============================================================= */
+
+  function wireEvents() {
+    const svg = el('svg');
+    svg.addEventListener('pointerdown', onBoardPointerDown);
+    svg.addEventListener('click', onBoardClick);
+    svg.addEventListener('pointermove', onBoardHover);
+    svg.addEventListener('pointerleave', () => { el('tip').style.display = 'none'; });
+    svg.addEventListener('wheel', event => {
+      event.preventDefault();
+      view.zoom = Math.max(380, Math.min(1800, view.zoom * (event.deltaY > 0 ? 1.1 : 0.9)));
+      drawBoard();
+    }, { passive: false });
+
+    window.addEventListener('pointermove', onPointerMove);
+    window.addEventListener('pointerup', onPointerUp);
+    window.addEventListener('keydown', event => { if (event.key === 'Escape' && G) cancelMode(); });
+    window.addEventListener('resize', () => { if (G || ROOM || username) render(); });
+
+    el('wheel').addEventListener('click', event => {
+      const button = event.target.closest('[data-w]');
+      if (button && !button.disabled) pickWheelItem(button.dataset.w);
+    });
+    el('buyside').addEventListener('click', event => {
+      const button = event.target.closest('[data-bi]');
+      if (button && !button.disabled) pickBuy(button.dataset.bi);
+    });
+    el('hand').addEventListener('pointerdown', onHandPointerDown);
+    el('hand').addEventListener('click', onHandClick);
+    document.addEventListener('click', event => {
+      const button = event.target.closest('[data-action]');
+      if (button && !button.disabled) runAction(button.dataset.action);
+    });
+  }
+
+  /* =============================================================
+     31. STARTUP
+     ============================================================= */
+
+  wireEvents();
+
+  // presence refresh: the disconnect timer and the offline countdown
+  setInterval(() => {
+    if (!G || !G.started) return;
+    checkDisconnects();
+    if (Object.keys(offlineSince).length) drawTop();
+  }, 1000);
+
+  (async function boot() {
+    const { data: { session } } = await db.auth.getSession();
+    if (session) {
+      ME = session.user.id;
+    } else {
+      const { data, error } = await db.auth.signInAnonymously();
+      if (error) { toast('Sign-in failed: ' + error.message); return; }
+      ME = data.user.id;
+    }
+    const savedRoom = localStorage.getItem('versa-room');
+    if (savedRoom && isValidName(username)) enterRoom(savedRoom);
+    render();
+  })();
+
+  render();
   </script>
 </body>
 </html>
