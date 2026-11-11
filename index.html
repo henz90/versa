@@ -3,7 +3,8 @@
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cpolygon points='16,2 28,9 28,23 16,30 4,23 4,9' fill='%2324243a' stroke='%23ffe066' stroke-width='3'/%3E%3C/svg%3E">
 <style>
 :root{color-scheme:dark;--r:clamp(70px,9vmin,130px);--tt:60px;--bh:240px}
-*{box-sizing:border-box}
+*{box-sizing:border-box;-webkit-user-select:none;user-select:none}
+input{-webkit-user-select:text;user-select:text}
 html,body{height:100%;overflow:hidden;max-width:100vw}
 body{margin:0;font-size:clamp(12px,1.05vw,17px);font-family:system-ui,sans-serif;background:#0e0e12;color:#e8e8ee}
 #board{position:absolute;inset:0;display:flex;flex-direction:column;min-width:0;max-width:100vw;overflow:hidden}
@@ -24,6 +25,8 @@ body{margin:0;font-size:clamp(12px,1.05vw,17px);font-family:system-ui,sans-serif
 #buyside .sec{font-size:.8em}
 .brow3{display:grid;grid-template-columns:repeat(3,1fr);gap:.3em}
 .brow4{display:grid;grid-template-columns:repeat(4,1fr);gap:.3em}
+.bcol{flex:1;display:flex;flex-direction:column;gap:.3em;min-height:0}
+.brow{display:grid;gap:.3em;flex:1;min-height:0}
 .opt2{display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:.35em .2em;background:#24243a;font-size:clamp(10px,.9vw,14px);line-height:1.2}
 .opt2 small{font-size:.85em;color:#9a9ab0}
 .opt2.on{background:#4a6cf7;border-color:#4a6cf7}
@@ -35,6 +38,7 @@ body{margin:0;font-size:clamp(12px,1.05vw,17px);font-family:system-ui,sans-serif
 #todo>b{display:block;margin-bottom:.2em;color:#ffe8a3}
 .td{padding:.15em 0}
 .td.head{color:#ffe8a3;font-weight:700;margin-top:.3em}
+.td.sub{padding-left:1.1em;font-size:.92em}
 .td.dis{opacity:.35}
 .td.temp{color:#8ab4ff;font-style:italic}
 .td.done{opacity:.6;background:linear-gradient(currentColor,currentColor) no-repeat left center/100% 2px}
@@ -69,8 +73,6 @@ text{pointer-events:none;text-anchor:middle;dominant-baseline:central;font-famil
 .pchip.cur{background:var(--c);color:#000;font-weight:700}
 .pchip.out{opacity:.35;text-decoration:line-through}
 .alert{background:#4a1d1d;color:#ffb3b3;border-radius:.4em;padding:.2em .5em;font-size:.85em}
-.hint{font-size:1.05em;font-weight:600;color:#ffe8a3;animation:hin .45s ease-out}
-@keyframes hin{from{opacity:0;transform:translateX(-12px)}to{opacity:1;transform:none}}
 .vs{position:relative;display:inline-block;font-weight:800;margin-left:.05em}
 .vs::before,.vs::after{content:'';position:absolute;left:-.15em;right:-.15em;height:.09em;background:currentColor;top:40%}
 .vs::after{top:54%}
@@ -86,8 +88,8 @@ text{pointer-events:none;text-anchor:middle;dominant-baseline:central;font-famil
 .wbtn .wi{font-size:1.6em}
 .wbtn small{font-size:.8em;font-weight:700}
 .wbtn.wx{left:0;top:0;width:clamp(34px,4vmin,44px);height:clamp(34px,4vmin,44px);background:#3a2a2a}
-.wbtn.emo{width:clamp(44px,6vmin,64px);height:clamp(44px,6vmin,64px)}
-.wbtn.emo .wi{font-size:1.9em}
+.wbtn.ewb{width:clamp(44px,6vmin,64px);height:clamp(44px,6vmin,64px)}
+.wbtn.ewb .wi{font-size:1.9em}
 #fx{position:absolute;left:50%;top:38%;transform:translate(-50%,-50%);display:flex;flex-direction:column;align-items:center;gap:.5em;pointer-events:none;z-index:6;max-width:90%}
 .fx{background:#000d;border:1px solid #8a8aff;border-radius:.7em;padding:.5em .9em;font-size:1.15em;font-weight:700;line-height:1.7;text-align:center;animation:fxin .3s ease-out,fxout .4s ease-in 2.6s forwards}
 .fx span{display:inline-block;animation:pop .35s both;animation-delay:var(--d,0s)}
@@ -175,7 +177,7 @@ const objsAt=c=>G.objs.filter(o=>o.alive&&K(o.c)==K(c));
 const objFor=h=>G.objs.find(o=>o.alive&&!o.nuke&&o.p==h.p&&K(o.c)==K(h.c));
 // anything left on the hero's tile can be taken along: own or opponent objects, and the Nuke
 const carryable=h=>objsAt(h.c);
-// objects extend a hero's reach, but the hero must take them along to use that reach
+// objects extend a hero's reach for both movement and attack; the hero must take them along to move that far
 const reach=h=>h.s.rng+Math.max(0,...carryable(h).map(o=>o.s.rng||0));
 const nukeAt=c=>G.objs.find(o=>o.alive&&o.nuke&&K(o.c)==K(c));
 const objCount=p=>G.objs.filter(o=>o.alive&&!o.nuke&&o.p==p).length;
@@ -196,9 +198,9 @@ const mindOK=(h,A)=>h.alive&&(!h.mc||h.mc.by==A)&&!(h.mcCool!==undefined&&(G.rd=
 const mcBlock=()=>!!G&&G.heroes.some(h=>h.alive&&h.p==G.cur&&h.mc&&h.acts>0);
 const who=h=>`${G.pl[h.p].name} H${h.k}`;
 const phase=()=>G.rd<=3?'Peace · Growth':G.rd<=5?'War · Growth':G.rd==6?'Stagnation':'Decline';
-const removable=()=>Object.values(G.tiles).some(t=>!t.gz&&t.own==G.cur&&!heroesAt(t.c).length);
-// Decline: removal is decided once at the start of the turn, and ends if no tile can still be removed
-const needsBoard=()=>G.rd<=5?G.pl[G.cur].pool.length>0:(G.rd>=7&&!!G.remNeeded&&!G.done&&removable());
+// Decline: whose tile is removed next (own tile first, then each eliminated player's), decided at turn start
+const remOwner=()=>(G.remOrder||[]).find(o=>Object.values(G.tiles).some(t=>!t.gz&&t.own==o&&!heroesAt(t.c).length));
+const needsBoard=()=>G.rd<=5?G.pl[G.cur].pool.length>0:(G.rd>=7&&remOwner()!==undefined);
 const boardOK=()=>G.done||!needsBoard();
 // an action type can be retried only if it has never succeeded this turn (a failed action may be repeated)
 const canRep=(h,m)=>!h.t.some(x=>x.type==m&&!x.fail)||h.ok[m];
@@ -216,7 +218,7 @@ function newObj(p,c,def){const o={p,c,s:{str:0,def,rng:1,int:0},dmg:0,alive:1,sy
 
 // ---------- room, lobby and sync ----------
 function makeState(players){
-  const n=players.length,S={n,rd:1,cur:0,started:true,apoc:0,nd:0,over:'',done:false,first:true,remNeeded:false,
+  const n=players.length,S={n,rd:1,cur:0,started:true,apoc:0,nd:0,over:'',done:false,first:true,remOrder:[],
     pl:players.map(p=>({uid:p.uid,name:p.name,v:0,poolN:5,handN:0})),
     tiles:{'0,0,0':{c:[0,0,0],gz:1,disc:1,bar:0,own:-1,sk:null}},
     heroes:players.map((p,i)=>({p:i,k:1,c:[0,0,0],s:{str:1,def:1,rng:1,int:1},dmg:0,acts:i==0?2:0,t:[],ok:{},alive:1})),
@@ -225,7 +227,7 @@ function makeState(players){
   S.pl[0].v=n==2?0:5;
   return S;
 }
-function pubOf(){return JSON.stringify({n:G.n,rd:G.rd,cur:G.cur,started:G.started,apoc:G.apoc,nd:G.nd||0,over:G.over,done:G.done,first:G.first,remNeeded:!!G.remNeeded,
+function pubOf(){return JSON.stringify({n:G.n,rd:G.rd,cur:G.cur,started:G.started,apoc:G.apoc,nd:G.nd||0,over:G.over,done:G.done,first:G.first,remOrder:G.remOrder||[],
   pl:G.pl.map(p=>({uid:p.uid,name:p.name,v:p.v,poolN:p.pool.length,handN:p.hand.length})),
   tiles:Object.fromEntries(Object.entries(G.tiles).map(([k,t])=>[k,{...t,sk:t.disc?t.sk:null}])),
   heroes:G.heroes,objs:G.objs,log:G.log})}
@@ -363,8 +365,8 @@ function beginEffects(){
   G.heroes.forEach(h=>{if(h.mc&&h.mc.by==G.cur)h.mc.kept=false});
   G.objs.forEach(o=>{if(o.p==G.cur)o.dmg=0});
   G.pl[G.cur].v+=5;G.done=false;G.first=true;
-  // Decline: the removal step is decided here, once, at the start of the turn
-  G.remNeeded=G.rd>=7&&removable();
+  // Decline: removal order is fixed at turn start: your tile first, then each eliminated player's tiles
+  G.remOrder=G.rd>=7?[G.cur,...G.pl.map((_,i)=>i).filter(i=>i!=G.cur&&!alivePl(i)&&Object.values(G.tiles).some(t=>!t.gz&&t.own==i))]:[];
   log(`— ${G.pl[G.cur].name} · Round ${G.rd} (${phase()}) · +5V`,G.cur);
 }
 function endTurn(){
@@ -395,9 +397,9 @@ function valid(c){
   if(['attack','develop'].includes(m)&&(!s||!canRep(s,m)))return false;
   switch(m){
     case 'place':return G.rd<=5&&!G.done&&p.pool.length>0&&!t&&adj(c).some(a=>{const u=tile(a);return u&&(u.gz||u.own==G.cur)});
-    case 'remove':return G.rd>=7&&!G.done&&!!t&&!t.gz&&t.own==G.cur&&!heroesAt(c).length;
+    case 'remove':return G.rd>=7&&!!t&&!t.gz&&t.own==remOwner()&&!heroesAt(c).length;
     case 'move':return !!t&&!!s&&dist(s.c,c)>0&&dist(s.c,c)<=reach(s);
-    case 'attack':return G.rd>=4&&!!s&&dist(s.c,c)<=s.s.rng&&heroesAt(c).some(h=>ac(h)!=A);
+    case 'attack':return G.rd>=4&&!!s&&dist(s.c,c)<=reach(s)&&heroesAt(c).some(h=>ac(h)!=A);
     case 'develop':{
       if(!t||!G.dev||!s||dist(s.c,c)>1)return false;
       if(G.dev=='barrier')return !G.apoc&&t.disc;
@@ -417,7 +419,13 @@ function place(c,sk){
   G.tiles[K(c)]={c,own:G.cur,sk,disc:0,bar:0};
   G.done=true;G.mode='';G.wheel=null;log(`${G.pl[G.cur].name} places a face-down HexTile at (${c})`,G.cur);
 }
-function removeTile(k){delete G.tiles[k];G.done=true;G.mode='';log(`${G.pl[G.cur].name} removes a HexTile at (${P(k)})`,G.cur);cleanup()}
+function removeTile(k){
+  delete G.tiles[k];
+  log(`${G.pl[G.cur].name} removes a HexTile at (${P(k)})`,G.cur);
+  cleanup();
+  // the removal step continues until every owner in the order has been handled
+  G.mode=needsBoard()?'remove':'';
+}
 function cleanup(){
   for(const k in G.tiles){const t=G.tiles[k];if(!t.gz&&t.own>=0&&!alivePl(t.own)&&!heroesAt(t.c).length)delete G.tiles[k]}
   const seen=new Set(['0,0,0']),q=[[0,0,0]];
@@ -588,7 +596,7 @@ const natFx=(ic,name)=>fx(`<span>NATURAL 20!</span> ${ic} ${name} available agai
 // ---------- input helpers ----------
 const s2v=(x,y)=>{const svg=$('svg'),pt=svg.createSVGPoint();pt.x=x;pt.y=y;return pt.matrixTransform(svg.getScreenCTM().inverse())};
 const uSel=u=>{if(!G||G.over||!G.started)return false;const s=G.sel;if(G.mode=='buyskill')return myTurn()&&u.p==G.cur&&u.s[G.devSkill]<5;if(G.mode=='develop'&&G.dev=='skill')return !!s&&canHero(s)&&s.acts>0&&canRep(s,'develop')&&dist(s.c,u.c)<=1&&boardOK()&&ac(u)==ac(s);return false};
-const ringH=(h,x,y)=>{let c=null;const d=G.drag;if(d&&d.moved&&ac(h)!=ac(d.h)&&canAct(d.h,'attack')&&dist(d.h.c,h.c)<=d.h.s.rng)c='atk';else if(uSel(h))c='selh';return c?`<circle class='ring-${c}' cx='${x}' cy='${y}' r='10'/>`:''};
+const ringH=(h,x,y)=>{let c=null;const d=G.drag;if(d&&d.moved&&ac(h)!=ac(d.h)&&canAct(d.h,'attack')&&dist(d.h.c,h.c)<=reach(d.h))c='atk';else if(uSel(h))c='selh';return c?`<circle class='ring-${c}' cx='${x}' cy='${y}' r='10'/>`:''};
 function hexPts(c,r=R-4){return [0,1,2,3,4,5].map(i=>{const a=Math.PI/3*i+Math.PI/6;return (px(c)+r*Math.cos(a)).toFixed(1)+','+(py(c)+r*Math.sin(a)).toFixed(1)}).join(' ')}
 // barrier glow: grey when unoccupied, the occupying player's colour when occupied
 const barCol=c=>{const h=heroesAt(c)[0];return h?COL[h.p]:'#9a9a9a'};
@@ -609,7 +617,7 @@ function tipObj(o){
     <div class="tstats">${[['✊','STR',o.s.str],['🛡️','DEF',o.s.def],['🏹','RNG',o.s.rng],['🧠','INT',o.s.int]].map(([i,n,v])=>`<div class="tstat">${i}<b>${v}</b><small>${n}</small></div>`).join('')}</div>
     <div class="tbar"><i style="width:${Math.min(100,o.dmg/o.s.def*100)}%"></i></div>
     <div class="tsub">Damage ${o.dmg} of ${o.s.def}</div>
-    <div class="tsub">${o.s.rng>0?'Range '+o.s.rng+': the hero must take it along to use this':''}${mine?'':' · owned by another player; taking it makes it yours'}</div>`};
+    <div class="tsub">${o.s.rng>0?'Adds '+o.s.rng+' range: the hero must take it along to move that far':''}${mine?'':' · owned by another player; taking it makes it yours'}</div>`};
 }
 function tipNuke(o){
   return {k:'nuke',c:'#ff3d3d',html:`<div class="th">☢ Nuke</div>
@@ -636,22 +644,20 @@ function setViewBox(){
 const buyOn=v=>v.startsWith('s:')?G.mode=='buyskill'&&G.devSkill==v.slice(2):G.mode==v;
 // Traversal card labels: full name, then the 3-letter form, then the symbol, whichever fits
 function fitCards(){document.querySelectorAll('#hand small.cl').forEach(el=>{const f=el.dataset.full,s=el.dataset.short,y=el.dataset.sym;el.textContent=f;if(el.scrollWidth>el.clientWidth){el.textContent=s;if(el.scrollWidth>el.clientWidth)el.textContent=y}})}
-// the to-do list follows the phases and marks finished steps
+// the to-do list: phases, then a sub-list for each hero's remaining actions
 function todoItems(){
   if(G.over)return [{t:G.over}];
   if(!myTurn())return [{t:`Waiting for ${G.pl[G.cur].name}…`}];
   const items=[],p=G.pl[G.cur];
   if(G.rd<=5)items.push({t:'Place a tile',done:G.done||!needsBoard()});
-  else if(G.rd>=7&&G.remNeeded)items.push({t:'Remove one of your tiles with no hero on it',done:G.done||!needsBoard()});
+  else if(G.rd>=7&&G.remOrder&&G.remOrder.length)items.push({t:'Remove tiles',head:1,sub:G.remOrder.map(o=>({t:o==G.cur?'One of yours':G.pl[o].name+' (eliminated)',done:!Object.values(G.tiles).some(t=>!t.gz&&t.own==o)}))});
   if(boardOK()){
-    const used=ty=>G.heroes.some(h=>h.alive&&h.p==G.cur&&h.t.some(x=>x.type==ty&&!x.fail));
-    items.push({t:'Pick two actions:',head:1});
-    items.push({t:G.rd<4?'Attack (unlocks in round 4)':'Attack',done:used('attack'),dis:G.rd<4});
-    items.push({t:'Move',done:used('move')});
-    items.push({t:'Develop',done:used('develop')});
-    // hero actions category: lists what each hero can still do, and completes when none is left
-    const avail=G.heroes.filter(h=>h.alive&&h.p==G.cur&&!h.mc&&h.acts>0).map(h=>{const a=[];if(canAct(h,'move'))a.push('Move');if(canAct(h,'attack'))a.push('Attack');if(canAct(h,'develop'))a.push('Develop');return {h,a}}).filter(x=>x.a.length);
-    if(avail.length)items.push({t:'Hero actions: '+avail.map(x=>`H${x.h.k}: ${x.a.join('/')}`).join(' · ')});
+    const sub=G.heroes.filter(h=>h.alive&&h.p==G.cur&&!h.mc).map(h=>{
+      const used=a=>h.t.some(x=>x.type==a&&!x.fail);
+      const kids=[{t:'Move',done:used('move'),dis:!canAct(h,'move')},{t:G.rd<4?'Attack (round 4)':'Attack',done:used('attack'),dis:!canAct(h,'attack')},{t:'Develop',done:used('develop'),dis:!canAct(h,'develop')}];
+      return {t:`H${h.k}: ${h.acts} action${h.acts==1?'':'s'} left`,done:h.acts<1,sub:kids};
+    });
+    if(sub.length)items.push({t:'Hero actions',head:1,sub,done:sub.every(x=>x.done)});
     else items.push({t:'Hero actions: none left',done:true});
   }
   if(mcBlock())items.push({t:'Use or cede your Mind Controlled hero'});
@@ -666,11 +672,8 @@ function drawTodo(){
   const td=$('todo');
   document.documentElement.style.setProperty('--tt',$('top').offsetHeight+'px');
   document.documentElement.style.setProperty('--bh',$('bottom').offsetHeight+'px');
-  td.innerHTML='<b>To do</b>'+todoItems().map(it=>{
-    const key=`${G.rd}|${G.cur}|${it.t}`,anim=it.done&&!SEEN.has(key);
-    if(it.done)SEEN.add(key);
-    return `<div class="td${it.done?' done':''}${anim?' anim':''}${it.dis?' dis':''}${it.head?' head':''}${it.temp?' temp':''}">${it.done?'☑':it.head?'▸':'☐'} ${esc(it.t)}</div>`;
-  }).join('');
+  const line=(it,sub)=>{const key=`${G.rd}|${G.cur}|${it.t}`,anim=it.done&&!SEEN.has(key);if(it.done)SEEN.add(key);return `<div class="td${sub?' sub':''}${it.done?' done':''}${anim?' anim':''}${it.dis?' dis':''}${it.head?' head':''}${it.temp?' temp':''}">${it.done?'☑':it.head?'▸':'☐'} ${esc(it.t)}</div>`};
+  td.innerHTML='<b>To do</b>'+todoItems().map(it=>line(it,false)+(it.sub?it.sub.map(s=>line(s,true)+(s.sub?s.sub.map(x=>line(x,true)).join(''):'')).join(''):'')).join('');
 }
 function drawBoard(){
   const svg=$('svg'),top=$('top'),logEl=$('log'),hand=$('hand'),wh=$('wheel'),bs=$('buyside'),cx=$('cx'),bar=$('bar'),bottom=$('bottom');
@@ -711,7 +714,7 @@ function drawBoard(){
     TIPS['o'+oi]=tipObj(ob);
     const same=objsAt(ob.c).filter(x=>!x.nuke),i=same.indexOf(ob),n=same.length;
     const x=px(ob.c)+(i-(n-1)/2)*15,y=py(ob.c)-20;
-    const car=dh&&K(ob.c)==K(dh.c)&&(ob.p==dh.p||true);
+    const car=dh&&K(ob.c)==K(dh.c)&&ob.p==dh.p;
     o+=`<g class="${G.mode&&(G.mode=='buyskill'||G.mode=='develop')&&!uSel(ob)?'mute':''}" data-u="o${oi}" data-k="${K(ob.c)}" data-tip="o${oi}"><rect x="${x-7}" y="${y-7}" width="14" height="14" rx="3" fill="${COL[ob.p]}" stroke="#0e0e12" stroke-width="1"/>${uSel(ob)||car?`<rect class='ring-o' x="${x-10}" y="${y-10}" width="20" height="20" rx="4"/>`:''}<text x="${x}" y="${y-1}" font-size="9">${ob.sym||'🧱'}</text><text x="${x+5}" y="${y+5}" font-size="5" font-weight="bold" fill="#fff" stroke="#000" stroke-width=".8" paint-order="stroke">${ob.s.def}</text></g>`;
   });
   // the Nuke is drawn last, centred on its tile, with a generous hit area
@@ -725,7 +728,6 @@ function drawBoard(){
   svg.innerHTML=o;
   const p=G.pl[G.cur];
   top.innerHTML=`<span class="badge" style="background:${COL[G.cur]}">${esc(p.name)}'s turn</span><span class="chip">Round ${G.rd} · ${phase()}</span>${G.apoc?'<span class="alert">☢ Apocalypse</span>':''}${G.over?`<span class="alert">🏆 ${esc(G.over)}</span>`:''}${offlineTxt()}
-    <span class="hint" id="hint"></span>
     <span style="flex:1"></span>
     ${myTurn()?`<button class="endb" data-end="1" ${boardOK()&&!mcBlock()?'':'disabled'}>➜ End Turn</button>`:''}
     <button class="ghost" data-leave="1">Leave</button>
@@ -736,328 +738,5 @@ function drawBoard(){
   const vp=G.pl[mi>=0?mi:G.cur];
   bs.style.display='flex';
   const buys=buyItems(),row=b=>`<button class="opt2 ${buyOn(b.v)?'on':''}" data-bi="${b.v}" ${b.dis?'disabled':''}>${b.ic} ${b.t}<small>${b.c}</small></button>`;
-  bs.innerHTML=`<div class="vside">${vp.v} V</div>`+(myTurn()?`<div class="sec">Buy</div><div class="brow3">${buys.slice(0,3).map(row).join('')}</div><div class="brow4">${buys.slice(3).map(row).join('')}</div>`:'<span class="muted small">Buying is available on your turn.</span>');
-  // bottom bar: section labels and icon buttons, with minimize
-  bar.innerHTML=`<button class="sbtn" data-sec="log">📜 Log</button><button class="sbtn" data-sec="hand">🃏 Hand (${hm.length})</button><button class="sbtn" data-sec="buy">🛒 Buy</button><span style="flex:1"></span><button class="sbtn" data-min="1">${BOT_MIN?'▴ Expand':'▾ Minimize'}</button>`;
-  if(G.wheel){
-    const w=G.wheel,[x,y]=w.xy||scr(w.c),n=w.items.length,emo=w.kind=='emo';
-    wh.style.left=x+'px';wh.style.top=y+'px';wh.style.display='block';
-    wh.innerHTML=w.items.map((it,i)=>{const a=-Math.PI/2+i*2*Math.PI/n;return `<button class="wbtn ${emo?'emo':''} ${it.on?'on':''}" data-w="${it.v}" ${it.dis?'disabled':''} style="left:calc(${Math.cos(a).toFixed(3)} * var(--r));top:calc(${Math.sin(a).toFixed(3)} * var(--r))"><span class="wi">${it.ic}</span>${it.t?`<small>${it.t}</small>`:''}</button>`}).join('')+'<button class="wbtn wx" data-w="x">✕</button>';
-  }else{wh.style.display='none';wh.innerHTML=''}
-  // round ✕ to cancel the current mode, shown like the wheel's close button
-  if(G.mode&&G.mode!='place'&&G.mode!='remove'&&!G.wheel){cx.style.display='block';cx.style.top=(top.offsetHeight+8)+'px';cx.innerHTML='<button class="xbtn" data-cancel="1">✕</button>'}
-  else{cx.style.display='none';cx.innerHTML=''}
-  $('hint').textContent=hintText();
-  drawTodo();
-}
-function hintText(){
-  if(G.over)return G.over;
-  if(G.msg)return G.msg;
-  if(ctrlActive())return 'You control a ceded hero this turn. Drag it to act, or click it to skip its remaining actions.';
-  if(!myTurn())return `Waiting for ${G.pl[G.cur].name}… (click your own hero to send an emoji)`;
-  if(!boardOK())return G.rd<=5?'Place a tile: click a dashed spot, then choose its skill.':'Decline: click one of the marching tiles with no hero on it.';
-  if(mcBlock())return 'A Mind Controlled hero still has actions. Use or cede them before ending your turn.';
-  if(G.mode=='develop')return G.dev?HINT_DEV[G.dev=='skill'?'skill':G.dev]:'Pick a develop option, then a target.';
-  return HINT[G.mode]||'Drag your hero to move or attack. Click it to develop. Drag a card onto a hero.';
-}
-function drawModal(){
-  const m=$('modal');let h='';
-  if(!UNAME||!validName(UNAME))h=`<div class='card'><h2 style='margin:0'>VERSA</h2><div class='muted'>Choose a username (2 to 16 letters or numbers)</div><input id='nameIn' maxlength='16'><div class='row'><button class='endb' data-savename='1'>Continue</button></div></div>`;
-  else if(!ROOM)h=`<div class='card'><h2 style='margin:0'>Play VERSA</h2><div class='muted'>Playing as <b>${esc(UNAME)}</b></div><div class='row'><button class='endb' data-create='1'>Create room</button></div><div class='row'><input id='codeIn' maxlength='6' placeholder='Room code'><button data-join='1'>Join room</button></div><div class='row'><button class='ghost' data-rename='1'>Change username</button></div></div>`;
-  else if(LOADING||(!G&&!ROW))h=`<div class='card'><h2 style='margin:0'>Loading room ${esc(ROOM)}…</h2><div class='row'><button class='ghost' data-leave='1'>Back to lobby</button></div></div>`;
-  else if(!G&&ROW){const ps=ROW.players||[];h=`<div class='card'><h2 style='margin:0'>Room ${ROOM}</h2><div class='muted'>Share this code with your opponent. Up to 6 players.</div><div>${ps.map((p,i)=>`<div style='color:${COL[i]}'>${i+1}. ${esc(p.name)}${p.uid==ME?' (you)':''}</div>`).join('')}</div>${ROW.host==ME?`<div class='row'><button class='endb' data-start='1' ${ps.length<2?'disabled':''}>Start game</button></div>`:`<div class='muted'>Waiting for the host to start…</div>`}<div class='row'><button class='ghost' data-leave='1'>Leave room</button></div></div>`}
-  else if(G&&G.over)h=`<div class='card'><h2 style='margin:0'>🏆 ${esc(G.over)}</h2><div class='row'><button class='endb' data-leave='1'>Back to lobby</button></div></div>`;
-  else if(G&&myTurn()&&noOpts())h=`<div class='card'><h2 style='margin:0'>Out of Actions and Versa</h2><div class='muted'>${esc(UNAME)} has no actions, no Versa, and no Traversal cards to play. End the turn.</div><div class='row'><button class='endb' data-end='1'>End turn ➜</button></div></div>`;
-  m.innerHTML=h;m.style.display=h?'flex':'none';
-  const ni=$('nameIn');if(ni)ni.value=UNAME;
-}
-// Out of options only when no hero can act, Versa is under 5 and no Traversal cards remain
-const noOpts=()=>!G.over&&boardOK()&&!mcBlock()&&!G.heroes.some(h=>h.alive&&h.p==G.cur&&h.acts>0&&(canAct(h,'move')||canAct(h,'attack')||canAct(h,'develop')))&&G.pl[G.cur].v<5&&G.pl[G.cur].hand.length==0;
-function vsify(){[...['top','log','hand','fx','modal','wheel','tip','carry','buyside','todo','bar'].map(i=>$(i)),...document.querySelectorAll('.ghostc')].forEach(root=>{if(!root)return;const w=document.createTreeWalker(root,NodeFilter.SHOW_TEXT),nodes=[];while(w.nextNode())nodes.push(w.currentNode);nodes.forEach(n=>{if(!/\d ?V\b/.test(n.nodeValue))return;const parts=n.nodeValue.split(/(\d+ ?)V\b/),frag=document.createDocumentFragment();parts.forEach((p,i)=>{if(i%2){frag.append(p);const s=document.createElement('span');s.className='vs';s.textContent='V';frag.append(s)}else if(p)frag.append(p)});n.replaceWith(frag)})})}
-function render(){
-  if(G&&G.mode=='develop'&&!G.dev&&!G.wheel)G.mode='';
-  if(G&&G.started&&!G.over)check();
-  fixBars();
-  drawBoard();fitCards();drawModal();vsify();syncOut();
-}
-
-// ---------- input ----------
-$('svg').addEventListener('pointerdown',e=>{
-  if(!G||G.over)return;
-  const t=e.target.closest('[data-u^="h"]');
-  const h=t?G.heroes[+t.dataset.u.slice(1)]:null;
-  if(h&&canHero(h)&&!G.mode&&boardOK()&&h.acts>0){
-    // dragging is allowed while the hero can still move or attack
-    G.drag={h,sx:e.clientX,sy:e.clientY,moved:false,cx:0,cy:0,hover:null,canDrag:canAct(h,'move')||canAct(h,'attack')};
-    return;
-  }
-  PAN={sx:e.clientX,sy:e.clientY,cx0:VIEW.cx,cy0:VIEW.cy,moved:false};
-});
-// Drag label: when over an enemy, show the Strength and Intelligence of both heroes, including object bonuses
-function dragLabel(d){
-  const cl=$('carry'),a=d.h,aO=objFor(a),e=d.hover;
-  if(!e){cl.textContent=carryText(a);return}
-  const eO=objFor(e),bon2=(o,k)=>o?` +${o.s[k]} obj`:'';
-  cl.innerHTML=`⚔ ${esc(who(a))}: STR ${a.s.str}${bon2(aO,'str')} · INT ${a.s.int}${bon2(aO,'int')}<br>🛡 ${esc(who(e))}: STR ${e.s.str}${bon2(eO,'str')} · DEF ${e.s.def}${bon2(eO,'def')} · INT ${e.s.int}${bon2(eO,'int')}`;
-}
-addEventListener('pointermove',e=>{
-  if(PAN){
-    const dx=e.clientX-PAN.sx,dy=e.clientY-PAN.sy;
-    if(!PAN.moved&&Math.hypot(dx,dy)<5)return;
-    PAN.moved=true;
-    const s=$('svg').getBoundingClientRect().width/VIEW.z;
-    VIEW.cx=PAN.cx0-dx/s;VIEW.cy=PAN.cy0-dy/s;
-    if(G)drawBoard();
-    return;
-  }
-  const d=G&&G.drag;if(!d)return;
-  if(!d.moved){if(Math.hypot(e.clientX-d.sx,e.clientY-d.sy)<6)return;if(!d.canDrag)return;d.moved=true;G.sel=d.h;G.mode='move';G.wheel=null}
-  const v=s2v(e.clientX,e.clientY);d.cx=v.x;d.cy=v.y;
-  let hov=null;for(const t of Object.values(G.tiles)){if(Math.hypot(px(t.c)-v.x,py(t.c)-v.y)<R){hov=t.c;break}}
-  d.hover=hov?heroesAt(hov).find(x=>ac(x)!=ac(d.h))||null:null;
-  let cl=$('carry');if(!cl){cl=document.createElement('div');cl.id='carry';document.body.appendChild(cl)}
-  cl.style.left=(e.clientX+18)+'px';cl.style.top=(e.clientY+18)+'px';dragLabel(d);vsify();
-  drawBoard();
-});
-addEventListener('pointerup',e=>{
-  const out=OUT;OUT=false;
-  if(PAN){
-    const moved=PAN.moved;PAN=null;
-    if(moved){if(G){G.swallow=true;setTimeout(()=>{if(G)G.swallow=false},80)}}
-    else if(out&&G&&backOne())render();
-    return;
-  }
-  const d=G&&G.drag;if(!d)return;G.drag=null;
-  $('carry')?.remove();
-  G.swallow=true;setTimeout(()=>{if(G)G.swallow=false},80);
-  if(!d.moved){
-    G.sel=d.h;
-    // a controlled hero belongs to its controller: clicking it offers to skip its remaining actions
-    if(d.h.p!=myIdx()){G.wheel={c:d.h.c,kind:'skip',u:d.h,items:[{v:'skip',ic:'⏭',t:'Skip rest'}]};return render()}
-    if(!canAct(d.h,'develop')){note(d.h.acts<1?'No actions left for this hero this turn':'This hero already used Develop this turn');return render()}
-    G.mode='develop';G.dev=null;G.wstack=[];G.wheel={c:d.h.c,kind:'dev',items:devItems()};return render();
-  }
-  G.mode='';
-  const v=s2v(e.clientX,e.clientY);
-  let tgt=null;for(const t of Object.values(G.tiles)){if(Math.hypot(px(t.c)-v.x,py(t.c)-v.y)<R){tgt=t.c;break}}
-  if(!tgt){note('Drop on a tile or an enemy hero to act');return render()}
-  const A=ac(d.h),en=heroesAt(tgt).find(x=>ac(x)!=A),nk=nukeAt(tgt);
-  // dropping close to the Nuke's centre targets the Nuke, even with heroes on its tile
-  const nearNuke=nk&&Math.hypot(px(tgt)-v.x,py(tgt)-v.y)<14;
-  if(nearNuke){
-    if(canNukeHit(d.h)&&dist(d.h.c,tgt)<=d.h.s.rng)attackNuke(d.h,nk);else note('Nuke attack needs range and an attack action left');
-  }
-  else if(en){
-    // release over an enemy: choose Combat or Mind Control
-    const inRange=dist(d.h.c,tgt)<=d.h.s.rng;
-    const atkOk=inRange&&canAct(d.h,'attack');
-    const mindOk=inRange&&G.rd>=4&&!G.apoc&&d.h.acts>0&&canRep(d.h,'mind')&&mindOK(en,A);
-    if(!atkOk&&!mindOk)note('No attack or Mind Control available to this hero on that target');
-    else G.wheel={c:tgt,kind:'atkchoice',a:d.h,d:en,items:[{v:'atk',ic:'⚔️',t:'Combat',dis:!atkOk},{v:'mind',ic:'🧠',t:'Mind Control',dis:!mindOk}]};
-  }
-  else if(nk&&!canAct(d.h,'move')){
-    if(canNukeHit(d.h)&&dist(d.h.c,tgt)<=d.h.s.rng)attackNuke(d.h,nk);else note('Nuke attack needs range and an attack action left');
-  }
-  else{
-    if(!canAct(d.h,'move')){note('This hero has already moved this turn');return render()}
-    if(dist(d.h.c,tgt)<1||dist(d.h.c,tgt)>reach(d.h)){note('Out of range');return render()}
-    const f0=[...hpos(d.h)];move(d.h,tgt);
-    if(!G.wheel){G.tw={h:d.h,x0:f0[0],y0:f0[1],t0:performance.now()};requestAnimationFrame(tickT)}
-  }
-  render();
-});
-function tickT(){drawBoard();if(G&&G.tw&&performance.now()-G.tw.t0<440)requestAnimationFrame(tickT);else if(G)G.tw=null}
-// hover highlight and tooltips
-let hovEl=null;
-$('svg').addEventListener('pointermove',e=>{
-  const el=e.target.closest('[data-u],[data-k]');
-  if(el!==hovEl){if(hovEl)hovEl.classList.remove('hov');hovEl=el;if(el)el.classList.add('hov')}
-  const tg=e.target.closest('[data-tip]'),tipEl=$('tip');
-  const T=tg&&TIPS[tg.dataset.tip];
-  if(!T){tipEl.style.display='none';return}
-  tipEl.className='k-'+T.k;tipEl.style.setProperty('--pc',T.c);tipEl.innerHTML=T.html;tipEl.style.display='block';
-  tipEl.style.left=Math.min(e.clientX+16,innerWidth-300)+'px';tipEl.style.top=(e.clientY+16)+'px';
-});
-$('svg').addEventListener('pointerleave',()=>{$('tip').style.display='none';if(hovEl){hovEl.classList.remove('hov');hovEl=null}});
-$('svg').addEventListener('wheel',e=>{e.preventDefault();VIEW.z=Math.max(380,Math.min(1800,VIEW.z*(e.deltaY>0?1.1:0.9)));if(G)drawBoard()},{passive:false});
-$('svg').onclick=e=>{if(G&&G.swallow){G.swallow=false;return}const g=e.target.closest('[data-k]');if(!g||!G||G.over)return;click(g.dataset.k,e.target.closest('[data-u]')?.dataset.u||null)};
-function click(k,u){
-  G.msg='';G.dd=null;
-  if(G.wheel){G.wheel=(G.wstack||[]).pop()||null;if(G.mode=='develop'&&!G.dev)G.mode='';return render()}
-  // off your turn, clicking your own hero sends an emoji over it
-  if(!myTurn()&&!ctrlActive()){
-    const hh=u&&u[0]=='h'?G.heroes[+u.slice(1)]:null;
-    if(hh&&hh.p==myIdx())G.wheel={c:hh.c,kind:'emo',h:hh,items:EMOJIS.map(x=>({v:x,ic:x,t:''}))};
-    return render();
-  }
-  // owner ceding a controlled hero
-  if(u&&u[0]=='h'){const hh=G.heroes[+u.slice(1)];if(hh&&hh.mc&&!hh.mc.ceded&&hh.p==myIdx()&&myTurn()&&!G.mode){G.sel=null;G.wheel={c:hh.c,kind:'cede',u:hh,items:[{v:'cede',ic:'🤝',t:'Cede to '+G.pl[hh.mc.by].name}]};return render()}}
-  const c=P(k),m=G.mode;
-  // a selected hero attacks the Nuke by clicking it
-  const nk0=nukeAt(c);
-  if(nk0&&!G.mode&&G.sel&&canHero(G.sel)&&canNukeHit(G.sel)&&dist(G.sel.c,c)<=G.sel.s.rng){attackNuke(G.sel,nk0);return render()}
-  const hero=u&&u[0]=='h'?G.heroes[+u.slice(1)]:null,obj=u&&u[0]=='o'?G.objs[+u.slice(1)]:null;
-  if(m=='mind'){
-    const A=ac(G.sel),tg=hero&&ac(hero)!=A?hero:heroesAt(c).find(x=>ac(x)!=A);
-    if(!tg)return render();
-    if(!mindOK(tg,A)||dist(G.sel.c,tg.c)>G.sel.s.rng){note('Out of range, or that hero can\'t be controlled right now');return render()}
-    mindRoll(G.sel,tg);G.mode='';return render();
-  }
-  if(m=='buyskill'||(m=='develop'&&G.dev=='skill')){
-    if(!boardOK())return render();
-    // only the hero or object itself is picked here; the hextile does not matter
-    const tu=hero||obj;if(!tu)return note('Click one of the highlighted heroes or objects');
-    if(m=='buyskill'){if(tu.p!=G.cur)return note('Pick one of your own heroes or objects');buySkill(tu);G.mode=''}
-    else{const s=G.sel;if(!s||!canHero(s)||s.acts<1||!canRep(s,'develop'))return note('Select a hero with a Develop action left');if(ac(tu)!=ac(s))return note('Pick one of your own heroes or objects');if(dist(s.c,tu.c)>1)return note('Target must be within 1 tile of the developing hero');G.wheel={c:tu.c,kind:'devskill',u:tu,items:skillItems()}}
-    return render();
-  }
-  if(m=='place'){if(valid(c))G.wheel={c,kind:'place',items:G.pl[G.cur].pool.map(t=>({v:t,ic:ICON[t],t:NAME[t]}))};return render()}
-  if(m=='remove'){if(valid(c))removeTile(k);return render()}
-  if(!valid(c)){
-    // clicking anywhere that is not a target leaves the current menu or mode
-    if(G.mode=='develop'){G.mode='';G.dev=null}
-    else if(G.mode&&G.mode!='place'&&G.mode!='remove'){G.mode='';G.dev=null}
-    return render();
-  }
-  if(m=='develop'){
-    // barriers ask Up or Down first; other develop targets go straight to the roll
-    if(G.dev=='barrier')G.wheel={c,kind:'bdir',t:c,items:bdirItems(c,false)};
-    else G.wheel={c,kind:'roll',t:c,items:rollItems()};
-  }
-  else if(m=='barrier'){G.wheel={c,kind:'bdir',t:c,buy:true,items:bdirItems(c,true)}}
-  else if(m=='hero'){buyHero(c);G.mode=''}
-  else if(m=='obj'){buyObj(c);G.mode=''}
-  render();
-}
-function wheelPick(v){
-  const w=G.wheel;
-  if(!w||v=='x'){if(w&&w.kind=='discover')return;if(w&&w.kind=='carry')G.pm=null;G.wheel=null;return render()}
-  if(w.kind=='emo'){
-    G.wheel=null;const payload={uid:ME,k:w.h.k,e:v};
-    if(chan)chan.send({type:'broadcast',event:'emoji',payload});
-    showEmoji(payload);return render();
-  }
-  if(w.kind=='place'){G.wheel=null;place(w.c,v);return render()}
-  if(w.kind=='bdir'){
-    if(w.buy){G.wheel=null;G.mode='';buyBarrier(w.t,v);return render()}
-    G.bdir=v;G.wheel={c:w.t,kind:'roll',t:w.t,dir:v,items:rollItems()};return render();
-  }
-  if(w.kind=='carry'){
-    const pm=G.pm;
-    if(v=='go'){
-      // reach beyond the hero's own range needs an object with range taken along
-      if(pm&&dist(pm.h.c,pm.c)>pm.h.s.rng&&!pm.sel.some(o=>(o.s.rng||0)>0)){note('Too far for its own range: take an object with range along');return render()}
-      G.wheel=null;G.pm=null;if(pm)move(pm.h,pm.c,pm.sel);return render();
-    }
-    const o=G.objs[+v.slice(1)],i=pm.sel.indexOf(o);
-    if(i>=0)pm.sel.splice(i,1);else pm.sel.push(o);
-    G.wheel={c:pm.h.c,kind:'carry',items:carryItems()};return render();
-  }
-  if(w.kind=='atkchoice'){
-    G.wheel=null;G.mode='';
-    if(v=='atk'){if(canAct(w.a,'attack')&&dist(w.a.c,w.d.c)<=w.a.s.rng)attack(w.a,w.d);else note('Combat not available')}
-    else if(v=='mind'){if(mindOK(w.d,ac(w.a))&&canRep(w.a,'mind')&&w.a.acts>0&&dist(w.a.c,w.d.c)<=w.a.s.rng)mindRoll(w.a,w.d);else note('Mind Control not available')}
-    return render();
-  }
-  if(w.kind=='cede'){G.wheel=null;w.u.mc.ceded=true;log(`${G.pl[G.cur].name} cedes ${who(w.u)} to ${G.pl[w.u.mc.by].name}`,G.cur);return render()}
-  if(w.kind=='skip'){G.wheel=null;w.u.acts=0;log(`${G.pl[w.u.p].name}'s ${who(w.u)} skips its remaining actions (controlled by ${G.pl[myIdx()].name})`,myIdx());return render()}
-  if(w.kind=='dev'){
-    G.wheel=null;
-    if(v=='skill'){G.dev='skill';G.msg='Click one of the highlighted heroes or objects to raise the chosen skill.'}
-    else{G.dev=v;G.msg=''}
-    return render();
-  }
-  if(w.kind=='devskill'){if(w.u.s[v]>=5){note('That skill is maxed');return render()}G.devSkill=v;G.wheel={c:w.u.c,kind:'roll',u:w.u,items:rollItems()};return render()}
-  if(w.kind=='roll'){
-    G.wheel=null;G.take=v=='take';
-    if(w.u)develop(G.sel,null,w.u);else develop(G.sel,w.t);
-    G.bdir=null;
-    // a Natural 20 reopens the full develop menu; otherwise the develop step is over
-    if(!G.wheel){G.mode='';G.dev=null}
-    return render();
-  }
-  if(w.kind=='discover'){G.wheel=null;const pd=G.pend2;G.pend2=null;if(pd){pd.t.disc=1;const u=v=='obj'?objFor(pd.h):pd.h;if(!u)note('No object here to receive the bonus');else{u.s[pd.sk]=Math.min(5,u.s[pd.sk]+1);log(`  ${u.k?who(u):'Object'} +1 ${pd.sk} from discovery`,pd.h.p)}}return render()}
-}
-$('wheel').onclick=e=>{const b=e.target.closest('[data-w]');if(b&&!b.disabled)wheelPick(b.dataset.w)};
-function buyPick(v){if(v.startsWith('s:')){G.devSkill=v.slice(2);G.mode='buyskill'}else G.mode=v;G.wheel=null;G.msg='';render()}
-function cancelMode(){if(G.mode!='place'&&G.mode!='remove'){G.mode='';G.dev=null}G.wheel=null;G.pm=null;G.msg='';render()}
-$('top').onclick=e=>{
-  if(!G)return;const t=e.target.closest('button');if(!t)return;const d=t.dataset;
-  if(d.end!==undefined){if(!myTurn())return;if(!boardOK())note('Finish your board step first');else if(mcBlock())note('Use or cede your Mind Controlled hero\'s actions first');else endTurn();return render()}
-  if(d.leave!==undefined){leaveRoom();return}
-};
-$('buyside').onclick=e=>{const b=e.target.closest('[data-bi]');if(b&&!b.disabled)buyPick(b.dataset.bi)};
-$('bar').onclick=e=>{const b=e.target.closest('button');if(!b)return;if(b.dataset.min!==undefined)BOT_MIN=!BOT_MIN;else if(b.dataset.sec)BOT_MIN=false;render()};
-$('cx').onclick=e=>{if(e.target.closest('[data-cancel]'))cancelMode()};
-$('hand').onclick=e=>{
-  if(G&&G.swallowH){G.swallowH=false;return}
-  if(!G||!myTurn())return;
-  const c=e.target.closest('[data-card]'),d=e.target.closest('[data-disc]');
-  if(c)playCard(+c.dataset.card);else if(d)discardCard(+d.dataset.disc);
-  render();
-};
-let cdrag=null;
-$('hand').addEventListener('pointerdown',e=>{if(!G||!myTurn())return;const b=e.target.closest('[data-card]');if(!b)return;cdrag={i:+b.dataset.card,sx:e.clientX,sy:e.clientY,moved:false}});
-addEventListener('pointermove',e=>{
-  if(!cdrag)return;
-  if(!cdrag.moved){if(Math.hypot(e.clientX-cdrag.sx,e.clientY-cdrag.sy)<6)return;cdrag.moved=true;const c=G.pl[G.cur].hand[cdrag.i];cdrag.el=document.createElement('div');cdrag.el.className='ghostc';cdrag.el.innerHTML=c=='v'?'💰 +5V':`${ICON[c]} +1 ${NAME[c]}`;document.body.appendChild(cdrag.el);vsify()}
-  cdrag.el.style.left=e.clientX+'px';cdrag.el.style.top=e.clientY+'px';
-});
-addEventListener('pointerup',e=>{
-  const d=cdrag;if(!d)return;cdrag=null;if(d.el)d.el.remove();if(!d.moved)return;
-  G.swallowH=true;setTimeout(()=>{if(G)G.swallowH=false},80);
-  const c=G.pl[G.cur].hand[d.i];if(c===undefined)return;
-  const hEl=document.elementFromPoint(e.clientX,e.clientY),ou=hEl&&hEl.closest('[data-u^="h"],[data-u^="o"]');
-  if(c=='v'){if(hEl&&$('hand').contains(hEl))return render();applyCard(d.i,null)}
-  else{if(!ou)return note('Drop a skill card on one of your heroes or objects');applyCard(d.i,ou.dataset.u[0]=='h'?G.heroes[+ou.dataset.u.slice(1)]:G.objs[+ou.dataset.u.slice(1)])}
-  render();
-});
-// Clicks on empty board or non-target parts of the page step back one level (Develop exits entirely)
-addEventListener('pointerdown',e=>{
-  if(!G||G.over)return;const t=e.target;
-  if(t.closest('#wheel,#modal,#top button,#hand button,#buyside,#bar,#cx,#cx button,#todo'))return;
-  if(t.closest('#svg')){
-    const kk=t.closest('[data-k]');
-    OUT=!(t.closest('polygon.ok,polygon.cand,polygon.rm')||(G.mode&&kk&&valid(P(kk.dataset.k)))||t.closest('g[data-u]')?.querySelector('[class^="ring-"]')||t.closest('g[data-k]')?.querySelector('[class^="ring-"]'));
-    return;
-  }
-  if(backOne())render();
-});
-function backOne(){
-  const w=G.wheel;
-  if(w&&w.kind=='discover')return false;
-  if(w&&(G.mode=='develop'||w.kind=='carry')){G.wheel=null;G.pm=null;if(G.mode=='develop'){G.mode='';G.dev=null}G.msg='';return true}
-  if(w){G.wheel=(G.wstack||[]).pop()||null;if(G.mode=='develop'&&!G.dev)G.mode='';G.msg='';return true}
-  if(G.mode=='develop'){G.mode='';G.dev=null;G.msg='';return true}
-  if(G.mode&&G.mode!='place'&&G.mode!='remove'){G.mode='';G.dev=null;G.msg='';return true}
-  return false;
-}
-addEventListener('keydown',e=>{if(e.key=='Escape'&&G&&(G.mode||G.wheel)){cancelMode()}});
-$('modal').onclick=e=>{
-  const b=e.target.closest('button');if(!b)return;const d=b.dataset;
-  if(d.savename!==undefined){const n=($('nameIn')?.value||'').trim();if(!validName(n))return toast('Use 2 to 16 letters or numbers');UNAME=n;localStorage.setItem('versa-name',n);return render()}
-  if(d.rename!==undefined){UNAME='';localStorage.removeItem('versa-name');return render()}
-  if(d.create!==undefined)return createRoom();
-  if(d.join!==undefined){const c=($('codeIn')?.value||'').trim().toUpperCase();if(c)joinRoom(c);return}
-  if(d.start!==undefined)return startGame();
-  if(d.leave!==undefined)return leaveRoom();
-  if(d.end!==undefined){if(boardOK()&&!mcBlock())endTurn();return render()}
-};
-
-// ---------- boot ----------
-setInterval(()=>{if(G&&G.started){tickPresence();if(Object.keys(OFF).length)render()}},1000);
-(async()=>{
-  const {data:{session}}=await sb.auth.getSession();
-  if(session){ME=session.user.id}
-  else{
-    const {data,error}=await sb.auth.signInAnonymously();
-    if(error){toast('Sign-in failed: '+error.message);return}
-    ME=data.user.id;
-  }
-  const saved=localStorage.getItem('versa-room');
-  if(saved&&UNAME&&validName(UNAME))enterRoom(saved);
-  render();
-})();
-addEventListener('resize',()=>{if(G||ROOM||!UNAME)render()});
-render();
-</script></body></html>
+  bs.innerHTML=`<div class="vside">${vp.v} V</div>`+(myTurn()?`<div class="sec">Buy</div><div class="bcol"><div class="brow" style="grid-template-columns:repeat(3,1fr)">${buys.slice(0,3).map(row).join('')}</div><div class="brow" style="grid-template-columns:repeat(2,1fr)">${buys.slice(3,5).map(row).join('')}</div><div class="brow" style="grid-template-columns:repeat(2,1fr)">${buys.slice(5).map(row).join('')}</div></div>`:'<span class="muted small">Buying is available on your turn.</span>');
+  // bottom bar: section labels and icon bu
