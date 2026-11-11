@@ -44,6 +44,7 @@
     #tip { position: fixed; display: none; pointer-events: none; --pc: #8a8aff; background: #0b0b12f5; border: 2px solid var(--pc); border-radius: .8em; padding: .5em .6em; font-size: clamp(12px, 1.05vw, 15px); line-height: 1.45; z-index: 9; min-width: 12em; max-width: 19em; box-shadow: 0 8px 24px #000c; }
     #modal { position: fixed; inset: 0; background: #06060acc; display: none; align-items: center; justify-content: center; z-index: 20; padding: 1em; }
     #carry { position: fixed; display: none; pointer-events: none; z-index: 31; background: #000e; border: 1px solid #ffe066; border-radius: .5em; padding: .3em .6em; line-height: 1.5; white-space: nowrap; }
+    #defeated { position: absolute; left: 50%; top: calc(var(--top-h) + 8px); transform: translateX(-50%); display: none; z-index: 8; background: #5a1010ee; color: #ffd0d0; border: 1px solid #ff5252; border-radius: .6em; padding: .35em .9em; font-weight: 700; pointer-events: none; }
 
     /* =========================================================
        CONTROLS
@@ -194,6 +195,7 @@
     <svg id="svg" xmlns="http://www.w3.org/2000/svg"></svg>
     <div id="cx"></div>
     <div id="todo"></div>
+    <div id="defeated">☠ Defeated: you are observing the game</div>
     <div id="wheel"></div>
     <div id="fx"></div>
     <div id="bottom">
@@ -260,6 +262,7 @@
     minBarrier: 3, maxBarrier: 12, nukeHits: 3,
     startVersa: 5, heroCost: 30, actionCost: 5, sellValue: 2, cardVersa: 5,
     heroActions: 2, offlineLimitMs: 60000, logLimit: 80,
+    newObjectRange: 0,
   };
 
   /* =============================================================
@@ -339,6 +342,7 @@
   let suppressClick = false;
   let suppressHandClick = false;
   let botMinimized = false;
+  let gameOverDismissed = false;
   let lastActionWasRetry = false;
   let tooltips = {};
   let onlineUsers = new Set();
@@ -370,8 +374,8 @@
   const nukeAt = cube => G.objs.find(o => o.alive && o.nuke && sameTile(o.c, cube));
   const objectCount = player => G.objs.filter(o => o.alive && !o.nuke && o.p === player).length;
 
-  // the object a hero fights and develops with: its own object on its tile
-  const objectFor = hero => G.objs.find(o => o.alive && !o.nuke && o.p === hero.p && sameTile(o.c, hero.c));
+  // the object a hero fights and develops with: an object its controller owns, on its tile
+  const objectFor = hero => G.objs.find(o => o.alive && !o.nuke && actingPlayer(hero) === o.p && sameTile(o.c, hero.c));
 
   // anything on the hero's tile may be taken along: own or opponent objects, and the Nuke
   const carryable = hero => objectsAt(hero.c);
@@ -385,6 +389,7 @@
   const alivePlayers = () => G.pl.map((_, i) => i).filter(isAlive);
   const myIndex = () => (G ? G.pl.findIndex(p => p.uid === ME) : -1);
   const isMyTurn = () => !!G && G.started && !G.over && G.pl[G.cur]?.uid === ME;
+  const isDefeated = () => { const me = myIndex(); return me >= 0 && !isAlive(me); };
 
   // a ceded Mind Controlled hero acts for its controller
   const actingPlayer = hero => (hero.mc && hero.mc.ceded ? hero.mc.by : hero.p);
@@ -656,6 +661,7 @@
     roomLoading = true;
     render();
     ROOM = code;
+    gameOverDismissed = false;
     localStorage.setItem('versa-room', code);
     openRoomChannel(code);
     const { data, error } = await db.from('rooms').select('*').eq('code', code).maybeSingle();
@@ -714,6 +720,7 @@
     channel = null;
     ROOM = null; ROOM_ROW = null; G = null; PRIV = null; privateLoad = null;
     roomLoading = false; onlineUsers = new Set(); presenceReady = false; offlineSince = {};
+    gameOverDismissed = false;
     localStorage.removeItem('versa-room');
     render();
   }
@@ -1282,9 +1289,10 @@
     addLog(`${unit.k ? heroLabel(unit) : 'Object'}: +1 ${ui.devSkill} (5V)`, G.cur);
   }
 
+  // new objects start with 0 range; the owner must still pay to raise it through develop or buying
   function newObject(player, cube, defense) {
     const obj = {
-      p: player, c: cube, s: { str: 0, def: defense, rng: 1, int: 0 },
+      p: player, c: cube, s: { str: 0, def: defense, rng: RULES.newObjectRange, int: 0 },
       dmg: 0, alive: 1, sym: OBJECT_SYMBOLS[G.objs.length % OBJECT_SYMBOLS.length],
     };
     G.objs.push(obj);
@@ -1990,6 +1998,7 @@
     const endButton = isMyTurn()
       ? `<button class="endb" data-action="end-turn" ${boardStepDone() && !endTurnBlocked() ? '' : 'disabled'}>➜ End Turn</button>`
       : '';
+    const finalNote = G.over && gameOverDismissed ? '<button class="endb" data-action="leave">Back to lobby</button>' : '';
     el('top').innerHTML = `
       <span class="badge" style="background:${PLAYER_COLORS[G.cur]}">${escapeHtml(player.name)}'s turn</span>
       <span class="chip">Round ${G.rd} · ${phaseName()}</span>
@@ -1998,8 +2007,10 @@
       ${offlineBadges()}
       <span style="flex:1"></span>
       ${endButton}
+      ${finalNote}
       <button class="ghost" data-action="leave">Leave</button>
       ${chips}`;
+    el('defeated').style.display = isDefeated() && !G.over ? 'block' : 'none';
   }
 
   function drawLog() {
@@ -2099,6 +2110,7 @@
 
   function todoItems() {
     if (G.over) return [{ text: G.over }];
+    if (isDefeated()) return [{ text: 'You have been defeated. Watch the game.' }];
     if (!isMyTurn()) return [{ text: `Waiting for ${G.pl[G.cur].name}…` }];
     const items = [];
 
@@ -2201,9 +2213,13 @@
         <div>${players.map((p, i) => `<div style="color:${PLAYER_COLORS[i]}">${i + 1}. ${escapeHtml(p.name)}${p.uid === ME ? ' (you)' : ''}</div>`).join('')}</div>
         ${startButton}
         <div class="row"><button class="ghost" data-action="leave">Leave room</button></div></div>`;
-    } else if (G && G.over) {
+    } else if (G && G.over && !gameOverDismissed) {
       html = `<div class="card"><h2 style="margin:0">🏆 ${escapeHtml(G.over)}</h2>
-        <div class="row"><button class="endb" data-action="leave">Back to lobby</button></div></div>`;
+        <div class="muted">The board stays visible so you can review the game.</div>
+        <div class="row">
+          <button class="ghost" data-action="review-board">Review board</button>
+          <button class="endb" data-action="leave">Back to lobby</button>
+        </div></div>`;
     } else if (G && isMyTurn() && noActionsLeft()) {
       html = `<div class="card"><h2 style="margin:0">Out of Actions and Versa</h2>
         <div class="muted">${escapeHtml(username)} has no actions, no Versa, and no Traversal cards to play.</div>
@@ -2237,6 +2253,7 @@
     } else {
       el('wheel').style.display = 'none';
       el('cx').style.display = 'none';
+      el('defeated').style.display = 'none';
       el('top').innerHTML = '';
       el('log').innerHTML = '';
       el('hand').innerHTML = '';
@@ -2245,7 +2262,7 @@
       el('todo').innerHTML = '';
     }
     drawModal();
-    document.body.classList.toggle('wait', !!G && !isMyTurn() && !isControllingOpponent());
+    document.body.classList.toggle('wait', !!G && (!isMyTurn() && !isControllingOpponent()) || isDefeated());
     publishChanges();
   }
 
@@ -2277,6 +2294,7 @@
       case 'leave': return leaveRoom();
       case 'end-turn': return endTurnClick();
       case 'cancel': return cancelMode();
+      case 'review-board': gameOverDismissed = true; return render();
       case 'minimize': botMinimized = !botMinimized; return render();
       case 'show-log':
       case 'show-hand':
