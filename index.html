@@ -18,18 +18,25 @@
     #board { position: absolute; inset: 0; display: flex; flex-direction: column; overflow: hidden; }
     #top { display: flex; flex-wrap: wrap; row-gap: .4em; gap: .5em; align-items: center; padding: .5em .8em; background: #17171f; border-bottom: 1px solid #2c2c3e; position: relative; z-index: 50; }
     #svg { width: 100%; flex: 1; min-height: 0; position: relative; cursor: grab; touch-action: none; }
+
     #bottom { display: flex; flex-direction: column; height: clamp(200px, 32vh, 320px); border-top: 1px solid #2c2c3e; overflow: hidden; }
     #bottom.minimized { height: auto; }
-    #bar { display: flex; gap: .4em; align-items: center; padding: .3em .6em; background: #15151d; flex: none; flex-wrap: wrap; }
-    .msg { color: #ffe8a3; font-size: .9em; }
+    #bar { display: flex; align-items: center; gap: .6em; padding: .25em .6em; background: #15151d; flex: none; }
+    .msg { color: #ffe8a3; font-size: .9em; flex: 1; min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
     #panels { display: flex; flex: 1; min-height: 0; min-width: 0; }
     #bottom.minimized #panels { display: none; }
-    #log { flex: 0 1 auto; width: max-content; max-width: 28%; overflow: auto; background: #0a0a0e; padding: .5em .9em; font: .85em/1.45 ui-monospace, monospace; border-right: 1px solid #2c2c3e; }
+
+    .col { display: flex; flex-direction: column; min-height: 0; }
+    #logcol { flex: 0 1 auto; width: max-content; max-width: 28%; }
+    #handcol { flex: 1 1 0; min-width: 0; }
+    #buycol { flex: 0 0 auto; width: clamp(230px, 24vw, 340px); margin-left: .9em; border-left: 1px solid #2c2c3e; }
+    .sec-head { width: 100%; text-align: left; font-size: .85em; padding: .3em .6em; border-radius: 0; border-left: 0; border-right: 0; background: #15151d; white-space: nowrap; flex: none; }
+
+    #log { flex: 1; min-height: 0; overflow: auto; background: #0a0a0e; padding: .5em .9em; font: .85em/1.45 ui-monospace, monospace; border-right: 1px solid #2c2c3e; }
     #log div { white-space: pre-wrap; }
-    #hand { flex: 1 1 0; min-width: 0; overflow: auto; background: #101018; padding: .5em .7em; display: flex; flex-wrap: wrap; gap: .5em; align-content: flex-start; container-type: size; }
-    #hand .sec { width: 100%; }
-    #buyside { flex: 0 0 auto; width: clamp(230px, 24vw, 340px); background: #101018; border-left: 1px solid #2c2c3e; margin-left: .9em; padding: .5em .6em; display: flex; flex-direction: column; gap: .4em; overflow: auto; }
-    #buyside .sec { font-size: .8em; }
+    #hand { flex: 1; min-height: 0; overflow: auto; background: #101018; padding: .5em .7em; display: flex; flex-wrap: wrap; gap: .5em; align-content: flex-start; container-type: size; }
+    #buyside { flex: 1; min-height: 0; overflow: auto; background: #101018; padding: .5em .6em; display: flex; flex-direction: column; gap: .4em; }
+
     #cx { position: absolute; left: 12px; top: 60px; display: none; z-index: 8; }
     #wheel { position: absolute; width: 0; height: 0; z-index: 5; display: none; }
     #fx { position: absolute; left: 50%; top: 38%; transform: translate(-50%, -50%); display: flex; flex-direction: column; align-items: center; gap: .5em; pointer-events: none; z-index: 6; max-width: 90%; }
@@ -50,6 +57,14 @@
     .xbtn { width: clamp(34px, 4vmin, 44px); height: clamp(34px, 4vmin, 44px); border-radius: 50%; background: #3a2a2a; padding: 0; font-size: 1.1em; }
     .wait #hand button, .wait #buyside button, .wait #top .endb { pointer-events: none; opacity: .6; }
     .muted { color: #8a8aa0; }
+    .roomcode { font-family: ui-monospace, monospace; font-size: 1.6em; letter-spacing: .15em; font-weight: 800; color: #ffe8a3; background: #17171f; border-color: #ffe8a3; padding: .2em .6em; }
+
+    /* =========================================================
+       V CURRENCY: each V carries a double strike-through
+       ========================================================= */
+    .vs { position: relative; display: inline-block; font-weight: 800; }
+    .vs::before, .vs::after { content: ''; position: absolute; left: -.15em; right: -.15em; height: .09em; background: currentColor; top: 40%; }
+    .vs::after { top: 54%; }
 
     /* =========================================================
        BUY PANEL: three rows of buttons that fill the panel
@@ -85,7 +100,7 @@
     polygon.rm { stroke: #ff9f6e !important; stroke-width: 2 !important; stroke-dasharray: 6 4; animation: march 2.4s linear infinite; }
     polygon.cand { fill: #15151c; stroke: #8ab4ff; stroke-dasharray: 6 4; stroke-width: 1; animation: march 2.4s linear infinite; }
     .barglow { fill: none; stroke-width: 1.2; pointer-events: none; }
-    g[data-k]:hover circle, g[data-k]:hover rect { stroke: #fff; stroke-width: 2.5; }
+    g[data-k]:hover circle, g[data-k]:hover rect { stroke: #fff; stroke-width: 2; }
     polygon[data-tip]:hover { filter: brightness(1.35); }
     .mute { opacity: .28; }
     text { pointer-events: none; text-anchor: middle; dominant-baseline: central; font-family: system-ui, sans-serif; }
@@ -95,7 +110,7 @@
     .ring-atk { stroke: #ff5252; }
     .ring-selh { stroke: #7cf0ff; }
     .ring-o { stroke: #ffd54f; }
-    .ring-nk { stroke: #ff3d3d; stroke-width: 2; }
+    .ring-nk { stroke: #ff3d3d; stroke-width: 1.5; }
     .ring-march { fill: none; stroke: #ffffffcc; stroke-width: 1; stroke-dasharray: 2 2; pointer-events: none; animation: march 1s linear infinite; }
     .ring-mc { fill: none; stroke: #c77dff; stroke-width: 1.2; stroke-dasharray: 2 3; pointer-events: none; }
 
@@ -171,7 +186,6 @@
     #modal .card { background: #1c1c28; border: 1px solid #2c2c3e; border-radius: .8em; width: min(92vw, 40em); max-height: 90vh; overflow: auto; padding: 1.6em; display: flex; flex-direction: column; gap: 1em; font-size: 1.15em; text-align: center; }
     #modal input { font-size: 1em; padding: .5em; border-radius: .4em; border: 1px solid #556; background: #0e0e12; color: inherit; text-align: center; }
     #modal .row { display: flex; gap: .5em; justify-content: center; flex-wrap: wrap; }
-    .vs { position: relative; display: inline-block; font-weight: 800; }
   </style>
 </head>
 <body>
@@ -185,9 +199,18 @@
     <div id="bottom">
       <div id="bar"></div>
       <div id="panels">
-        <div id="log"></div>
-        <div id="hand"></div>
-        <div id="buyside"></div>
+        <div class="col" id="logcol">
+          <button class="sec-head" data-action="show-log">📜 Log</button>
+          <div id="log"></div>
+        </div>
+        <div class="col" id="handcol">
+          <button class="sec-head" data-action="show-hand">🃏 Hand</button>
+          <div id="hand"></div>
+        </div>
+        <div class="col" id="buycol">
+          <button class="sec-head" data-action="show-buy">🛒 Buy</button>
+          <div id="buyside"></div>
+        </div>
       </div>
     </div>
   </div>
@@ -227,6 +250,10 @@
   const DIRECTIONS = [[1, -1, 0], [1, 0, -1], [0, 1, -1], [-1, 1, 0], [-1, 0, 1], [0, -1, 1]];
   const HEX_RADIUS = 36;
 
+  // where the Nuke marker sits inside its tile (lower-right corner, so heroes stay clickable)
+  const NUKE_OFFSET = 21;
+  const NUKE_RADIUS = 7;
+
   const ROUND = { placementEnds: 5, attacksFrom: 4, declineFrom: 7 };
   const RULES = {
     maxPlayers: 6, maxHeroes: 3, maxObjects: 3, maxSkill: 5,
@@ -256,6 +283,11 @@
   // three of each card, so the deck has 15 cards
   const makeTraversalDeck = () => shuffled(HAND_CARDS.flatMap(card => [card, card, card]));
   const escapeHtml = text => String(text).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+  // wraps each V in a span that draws the double strike-through
+  const markV = html => html.replace(/(\d+) ?V\b/g, '$1<span class="vs">V</span>');
+  const textWithV = text => markV(escapeHtml(text));
+
   const dieHtml = (value, delay) => `<span class="die" style="--d:${delay}s">${value}</span>`;
   const bonusHtml = (text, delay) => `<span class="bon" style="--d:${delay}s">${text}</span>`;
   const isValidName = name => /^[A-Za-z0-9]{2,16}$/.test(name);
@@ -272,6 +304,7 @@
   const neighbours = cube => DIRECTIONS.map(d => [cube[0] + d[0], cube[1] + d[1], cube[2] + d[2]]);
   const hexX = cube => Math.sqrt(3) * HEX_RADIUS * (cube[0] + cube[2] / 2);
   const hexY = cube => 1.5 * HEX_RADIUS * cube[2];
+  const nukePoint = cube => [hexX(cube) + NUKE_OFFSET, hexY(cube) + NUKE_OFFSET];
 
   // corners of a pointy-top hexagon, optionally at a smaller radius
   function hexPoints(cube, radius = HEX_RADIUS - 4) {
@@ -411,8 +444,9 @@
   const canAct = (hero, type) => !G.over && hero.alive && hero.p === G.cur && boardStepDone()
     && hero.acts > 0 && canRepeat(hero, type) && (type !== 'attack' || G.rd >= ROUND.attacksFrom);
 
-  const canHitNuke = hero => !G.over && hero.alive && hero.p === G.cur && boardStepDone()
-    && hero.acts > 0 && canRepeat(hero, 'attack');
+  // Nuke hits are allowed in every round. A hit always lands, so it does not use up the
+  // one-successful-attack limit: the Nuke needs several hits to destroy it.
+  const canHitNuke = hero => !G.over && hero.alive && hero.p === G.cur && boardStepDone() && hero.acts > 0;
 
   const endTurnBlocked = () => hasControlledHeroWithActions();
 
@@ -453,7 +487,7 @@
      8. DATABASE SYNC
      ============================================================= */
 
-  // loads this player's private data, or creates it the first time (always returns a promise)
+  // loads this player's private data, or creates it the first time
   async function ensurePrivateData() {
     if (PRIV) return;
     if (!privateLoad) {
@@ -658,6 +692,21 @@
     const state = { ...makeNewGame(ROOM_ROW.players), seq: 1 };
     const { error } = await db.from('rooms').update({ state }).eq('code', ROOM);
     if (error) toast(error.message);
+  }
+
+  // copies the room code; falls back to a hidden text field where the Clipboard API is blocked
+  async function copyRoomCode() {
+    try {
+      await navigator.clipboard.writeText(ROOM);
+    } catch (error) {
+      const field = document.createElement('textarea');
+      field.value = ROOM;
+      document.body.appendChild(field);
+      field.select();
+      document.execCommand('copy');
+      field.remove();
+    }
+    toast(`Room code ${ROOM} copied`);
   }
 
   function leaveRoom() {
@@ -1378,7 +1427,7 @@
     const heroNode = event.target.closest('[data-hero]');
     const hero = heroNode ? G.heroes[+heroNode.dataset.hero] : null;
     const canDrag = hero && canControlHero(hero) && !ui.mode && boardStepDone() && hero.acts > 0
-      && (canAct(hero, 'move') || canAct(hero, 'attack'));
+      && (canAct(hero, 'move') || canAct(hero, 'attack') || canHitNuke(hero));
     if (canDrag) {
       drag = { hero, startX: event.clientX, startY: event.clientY, moved: false, point: null, hoverHero: null };
     } else {
@@ -1426,6 +1475,7 @@
       if (!finished.moved) return;     // a plain press: the click handler takes over
       suppressClicksBriefly();
       handleDrop(finished.hero, svgPoint(event.clientX, event.clientY));
+      ui.selected = null;
       render();
     }
   }
@@ -1454,9 +1504,10 @@
     const cube = tileUnderPoint(point);
     if (!cube) return setMessage('Drop on a tile or an enemy hero to act');
 
-    // dropping near the Nuke's centre attacks it, even with heroes on the same tile
+    // dropping on the Nuke marker attacks it, even with heroes on the same tile
     const nuke = nukeAt(cube);
-    if (nuke && Math.hypot(hexX(cube) - point.x, hexY(cube) - point.y) < 14) {
+    const [nx, ny] = nukePoint(cube);
+    if (nuke && Math.hypot(nx - point.x, ny - point.y) < NUKE_RADIUS + 4) {
       if (canHitNuke(hero) && cubeDistance(hero.c, cube) <= reach(hero)) attackNuke(hero, nuke);
       else setMessage('Nuke attack needs range and an attack action left');
       return;
@@ -1489,10 +1540,10 @@
       if (ui.wheel && ui.wheel.kind !== 'discovery') { dismissMenus(); render(); }
       return;
     }
-    handleBoardClick(node.dataset.k, node.dataset.hero, node.dataset.obj);
+    handleBoardClick(node.dataset.k, node.dataset.hero, node.dataset.obj, node.dataset.nuke === '1');
   }
 
-  function handleBoardClick(keyText, heroIndex, objectIndex) {
+  function handleBoardClick(keyText, heroIndex, objectIndex, clickedNuke) {
     setMessage('');
     if (ui.wheel) {
       if (ui.wheel.kind === 'discovery') return render();
@@ -1522,6 +1573,17 @@
     // my hero under Mind Control: I may cede it on my turn
     if (hero && hero.p === myIndex() && hero.mc && !hero.mc.ceded && isMyTurn() && !ui.mode) {
       openWheel({ cube: hero.c, kind: 'cede', hero, items: [{ v: 'cede', ic: '🤝', t: 'Cede to ' + G.pl[hero.mc.by].name }] });
+      return render();
+    }
+
+    // clicking the Nuke attacks it with the selected hero, if that hero can still act
+    if (clickedNuke && isMyTurn() && !ui.mode) {
+      const nuke = nukeAt(cube);
+      const attacker = ui.selected;
+      if (nuke && attacker && canControlHero(attacker) && canHitNuke(attacker) && cubeDistance(attacker.c, cube) <= reach(attacker)) {
+        attackNuke(attacker, nuke);
+        ui.selected = null;
+      }
       return render();
     }
 
@@ -1602,6 +1664,7 @@
 
   /* =============================================================
      20. WHEEL MENU CHOICES
+     Every choice closes the wheel first; a handler opens the next one if it needs to.
      ============================================================= */
 
   function pickWheelItem(value) {
@@ -1650,11 +1713,8 @@
       discovery: () => finishDiscovery(value),
     };
 
-    // carry, buildDir, developSkill, developType and roll reopen their own menus when needed
-    if (!['carry', 'developSkill', 'buildDir', 'developType'].includes(wheel.kind)) closeWheel();
-    if (wheel.kind === 'developType' || wheel.kind === 'roll') closeWheel();
-    if (wheel.kind === 'buildDir' && !wheel.buy) closeWheel();
-    if (wheel.kind === 'developSkill') closeWheel();
+    // the wheel is closed before the handler runs, so a finished menu never stays open
+    closeWheel();
     const handler = handlers[wheel.kind];
     if (handler) handler();
     render();
@@ -1728,7 +1788,7 @@
      ============================================================= */
 
   function showFloat(html, extraClass = '') {
-    let content = html;
+    let content = markV(html);
     if (lastActionWasRetry && !extraClass) content += ' <span class="retry">(try again)</span>';
     lastActionWasRetry = false;
     const node = document.createElement('div');
@@ -1882,15 +1942,14 @@
       + `</g>`;
   }
 
-  // drawn last, so a drop near its centre always reaches it
+  // a small marker in the tile's lower-right corner; drawn before heroes so heroes stay on top
   function nukeSvg(nuke) {
-    const x = hexX(nuke.c), y = hexY(nuke.c);
+    const [x, y] = nukePoint(nuke.c);
     tooltips.nuke = nukeTooltip(nuke);
-    const ring = drag && drag.moved ? `<circle class="ring-nk" cx="${x}" cy="${y}" r="13"/>` : '';
-    return `<g data-k="${cubeKey(nuke.c)}" data-tip="nuke">`
-      + `<circle cx="${x}" cy="${y}" r="16" fill="transparent"/>`
-      + `<circle cx="${x}" cy="${y}" r="10" fill="#2a0a0a" stroke="#ff3d3d" stroke-width="1.6"/>`
-      + `<text x="${x}" y="${y}" font-size="13" fill="#ff3d3d">☢</text>`
+    const ring = drag && drag.moved ? `<circle class="ring-nk" cx="${x}" cy="${y}" r="${NUKE_RADIUS + 3}"/>` : '';
+    return `<g data-k="${cubeKey(nuke.c)}" data-nuke="1" data-tip="nuke">`
+      + `<circle cx="${x}" cy="${y}" r="${NUKE_RADIUS}" fill="#2a0a0a" stroke="#ff3d3d" stroke-width="1.2"/>`
+      + `<text x="${x}" y="${y}" font-size="8" fill="#ff3d3d">☢</text>`
       + ring + `</g>`;
   }
 
@@ -1906,10 +1965,10 @@
       placementCandidates().forEach(c => { out += `<polygon class="cand" data-k="${cubeKey(c)}" points="${hexPoints(c)}"/>`; });
     }
     Object.values(G.tiles).forEach(tile => { out += tileSvg(tile, mine); });
-    G.heroes.forEach((hero, i) => { if (hero.alive) out += heroSvg(hero, i); });
-    G.objs.forEach((obj, i) => { if (obj.alive && !obj.nuke) out += objectSvg(obj, i); });
     const nuke = G.objs.find(o => o.alive && o.nuke);
     if (nuke) out += nukeSvg(nuke);
+    G.heroes.forEach((hero, i) => { if (hero.alive) out += heroSvg(hero, i); });
+    G.objs.forEach((obj, i) => { if (obj.alive && !obj.nuke) out += objectSvg(obj, i); });
     if (drag && drag.moved && drag.point) {
       const [hx, hy] = heroPosition(drag.hero);
       out += `<line x1="${hx}" y1="${hy}" x2="${drag.point.x}" y2="${drag.point.y}" stroke="#ffe066" stroke-width="2" stroke-dasharray="6 4" marker-end="url(#arrow)"/>`;
@@ -1926,7 +1985,7 @@
     const chips = G.pl.map((p, i) => {
       const heroCount = G.heroes.filter(h => h.alive && h.p === i).length;
       const status = isAlive(i) ? `${heroCount} heroes` : 'out';
-      return `<span class="pchip ${i === G.cur ? 'cur' : ''} ${isAlive(i) ? '' : 'out'}" style="--c:${PLAYER_COLORS[i]}">${escapeHtml(p.name)} · ${p.v} V · ${status}</span>`;
+      return `<span class="pchip ${i === G.cur ? 'cur' : ''} ${isAlive(i) ? '' : 'out'}" style="--c:${PLAYER_COLORS[i]}">${escapeHtml(p.name)} · ${markV(p.v + ' V')} · ${status}</span>`;
     }).join('');
     const endButton = isMyTurn()
       ? `<button class="endb" data-action="end-turn" ${boardStepDone() && !endTurnBlocked() ? '' : 'disabled'}>➜ End Turn</button>`
@@ -1945,7 +2004,7 @@
 
   function drawLog() {
     el('log').innerHTML = G.log.slice(0, 60)
-      .map(line => `<div style="color:${line.p >= 0 ? PLAYER_COLORS[line.p] : '#9a9ab0'}">${escapeHtml(line.t)}</div>`)
+      .map(line => `<div style="color:${line.p >= 0 ? PLAYER_COLORS[line.p] : '#9a9ab0'}">${textWithV(line.t)}</div>`)
       .join('');
   }
 
@@ -1962,8 +2021,7 @@
         <button class="dc" data-sell="${i}">Sell 2V</button>
       </div>`;
     }).join('');
-    hand.innerHTML = `<div class="sec">Traversal hand · ${cards.length} card${cards.length === 1 ? '' : 's'}</div>`
-      + (cardHtml || '<span class="muted small">No cards. Move a hero to draw one.</span>');
+    hand.innerHTML = cardHtml || '<span class="muted small">No cards. Move a hero to draw one.</span>';
     fitCardLabels();
   }
 
@@ -1985,28 +2043,26 @@
     const side = el('buyside');
     const viewer = G.pl[myIndex() >= 0 ? myIndex() : G.cur];
     const items = buyOptions();
-    const button = item => `<button class="opt2 ${buyIsActive(item.v) ? 'on' : ''}" data-bi="${item.v}" ${item.disabled ? 'disabled' : ''}>${item.icon} ${item.label}<small>${item.cost}</small></button>`;
+    const button = item => `<button class="opt2 ${buyIsActive(item.v) ? 'on' : ''}" data-bi="${item.v}" ${item.disabled ? 'disabled' : ''}>${item.icon} ${item.label}<small>${markV(item.cost)}</small></button>`;
     const body = isMyTurn()
-      ? `<div class="sec">Buy</div>
-         <div class="bcol">
+      ? `<div class="bcol">
            <div class="brow" style="grid-template-columns:repeat(3,1fr)">${items.slice(0, 3).map(button).join('')}</div>
            <div class="brow" style="grid-template-columns:repeat(2,1fr)">${items.slice(3, 5).map(button).join('')}</div>
            <div class="brow" style="grid-template-columns:repeat(2,1fr)">${items.slice(5).map(button).join('')}</div>
          </div>`
       : '<span class="muted small">Buying is available on your turn.</span>';
-    side.innerHTML = `<div class="vside">${viewer.v} V</div>${body}`;
+    side.innerHTML = `<div class="vside">${markV(viewer.v + ' V')}</div>${body}`;
   }
 
   function drawBottomBar() {
     el('bottom').classList.toggle('minimized', botMinimized);
-    const handSize = myIndex() >= 0 ? G.pl[myIndex()].hand.length : 0;
     el('bar').innerHTML = `
-      <button class="sbtn" data-action="expand">📜 Log</button>
-      <button class="sbtn" data-action="expand">🃏 Hand (${handSize})</button>
-      <button class="sbtn" data-action="expand">🛒 Buy</button>
-      <span class="msg">${escapeHtml(ui.message)}</span>
-      <span style="flex:1"></span>
+      <span class="msg">${textWithV(ui.message)}</span>
       <button class="sbtn" data-action="minimize">${botMinimized ? '▴ Expand' : '▾ Minimize'}</button>`;
+    const handSize = myIndex() >= 0 ? G.pl[myIndex()].hand.length : 0;
+    el('logcol').querySelector('.sec-head').textContent = '📜 Log';
+    el('handcol').querySelector('.sec-head').textContent = `🃏 Hand (${handSize})`;
+    el('buycol').querySelector('.sec-head').textContent = '🛒 Buy';
   }
 
   function drawWheel() {
@@ -2022,7 +2078,7 @@
       const emojiClass = wheel.kind === 'emoji' ? 'emoji-btn' : '';
       return `<button class="wbtn ${emojiClass} ${item.on ? 'on' : ''}" data-w="${item.v}" ${item.dis ? 'disabled' : ''}
         style="left:calc(${Math.cos(angle).toFixed(3)} * var(--r));top:calc(${Math.sin(angle).toFixed(3)} * var(--r))">
-        <span class="wi">${item.ic}</span>${item.t ? `<small>${item.t}</small>` : ''}</button>`;
+        <span class="wi">${item.ic}</span>${item.t ? `<small>${markV(item.t)}</small>` : ''}</button>`;
     }).join('');
     const closeButton = wheel.kind === 'discovery' ? '' : '<button class="wbtn wx" data-w="x">✕</button>';
     wheelEl.innerHTML = buttons + closeButton;
@@ -2037,8 +2093,8 @@
 
   /* =============================================================
      26. TO-DO LIST
-     Phases first, then one sub-list per hero's remaining actions.
-     Finished steps are struck through once.
+     Phases first, then each hero listed with its own remaining actions
+     below it. Finished steps are struck through once.
      ============================================================= */
 
   function todoItems() {
@@ -2063,21 +2119,22 @@
     }
 
     if (boardStepDone()) {
-      const heroes = G.heroes.filter(h => h.alive && h.p === G.cur && !h.mc);
-      const heroItems = heroes.map(hero => {
-        const used = type => hero.t.some(x => x.type === type && !x.fail);
-        return {
-          text: `H${hero.k}: ${hero.acts} action${hero.acts === 1 ? '' : 's'} left`,
-          done: hero.acts < 1,
-          children: [
-            { text: 'Move', done: used('move'), dim: !used('move') && !canAct(hero, 'move') },
-            { text: G.rd < ROUND.attacksFrom ? 'Attack (from round 4)' : 'Attack', done: used('attack'), dim: !used('attack') && !canAct(hero, 'attack') },
-            { text: 'Develop', done: used('develop'), dim: !used('develop') && !canAct(hero, 'develop') },
-          ],
-        };
-      });
-      if (heroItems.length) items.push({ text: 'Hero actions', head: true, done: heroItems.every(x => x.done), children: heroItems });
-      else items.push({ text: 'Hero actions: none left', done: true });
+      G.heroes
+        .filter(h => h.alive && h.p === G.cur && !h.mc)
+        .forEach(hero => {
+          const used = type => hero.t.some(x => x.type === type && !x.fail);
+          items.push({
+            text: `H${hero.k}: ${hero.acts} action${hero.acts === 1 ? '' : 's'} left`,
+            head: true,
+            done: hero.acts < 1,
+            children: [
+              { text: 'Move', done: used('move'), dim: !used('move') && !canAct(hero, 'move') },
+              { text: G.rd < ROUND.attacksFrom ? 'Attack (from round 4)' : 'Attack', done: used('attack'), dim: !used('attack') && !canAct(hero, 'attack') },
+              { text: 'Develop', done: used('develop'), dim: !used('develop') && !canAct(hero, 'develop') },
+            ],
+          });
+        });
+      if (!items.some(item => item.text.startsWith('H'))) items.push({ text: 'Hero actions: none left', done: true });
     }
 
     if (hasControlledHeroWithActions()) items.push({ text: 'Use or cede your Mind Controlled hero' });
@@ -2101,7 +2158,7 @@
       item.dim ? 'dim' : '', item.done ? 'done' : '', animate ? 'strike' : ''].join(' ');
     const mark = item.done ? '☑' : item.head ? '▸' : '☐';
     const children = (item.children || []).map(child => todoLineHtml(child, depth + 1)).join('');
-    return `<div class="${classes}">${mark} ${escapeHtml(item.text)}</div>${children}`;
+    return `<div class="${classes}">${mark} ${textWithV(item.text)}</div>${children}`;
   }
 
   function drawTodo() {
@@ -2138,8 +2195,9 @@
       const startButton = ROOM_ROW.host === ME
         ? `<div class="row"><button class="endb" data-action="start-game" ${players.length < 2 ? 'disabled' : ''}>Start game</button></div>`
         : '<div class="muted">Waiting for the host to start…</div>';
-      html = `<div class="card"><h2 style="margin:0">Room ${ROOM}</h2>
-        <div class="muted">Share this code with your opponent. Up to 6 players.</div>
+      html = `<div class="card"><h2 style="margin:0">Room</h2>
+        <div class="muted">Click the code to copy it, then share it with your opponent.</div>
+        <div class="row"><button class="roomcode" data-action="copy-room" title="Copy room code">${ROOM}</button></div>
         <div>${players.map((p, i) => `<div style="color:${PLAYER_COLORS[i]}">${i + 1}. ${escapeHtml(p.name)}${p.uid === ME ? ' (you)' : ''}</div>`).join('')}</div>
         ${startButton}
         <div class="row"><button class="ghost" data-action="leave">Leave room</button></div></div>`;
@@ -2214,12 +2272,15 @@
         if (code) joinRoom(code);
         return;
       }
+      case 'copy-room': return copyRoomCode();
       case 'start-game': return startGame();
       case 'leave': return leaveRoom();
       case 'end-turn': return endTurnClick();
       case 'cancel': return cancelMode();
       case 'minimize': botMinimized = !botMinimized; return render();
-      case 'expand': botMinimized = false; return render();
+      case 'show-log':
+      case 'show-hand':
+      case 'show-buy': botMinimized = false; return render();
     }
   }
 
