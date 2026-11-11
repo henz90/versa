@@ -55,7 +55,7 @@ text{pointer-events:none;text-anchor:middle;dominant-baseline:central;font-famil
 @keyframes hin{from{opacity:0;transform:translateX(-12px)}to{opacity:1;transform:none}}
 .card-t{width:clamp(4.5em,30cqh,9em);min-width:0;max-width:none;overflow:hidden;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2cqh;padding:3cqh 2cqh;background:#24243a;border:1px solid #454558;border-radius:.7em}
 .cbtn{border:0;background:none;padding:0;display:flex;flex-direction:column;align-items:center;gap:2cqh;min-width:0;width:100%;color:inherit}
-.card-t small{font-size:min(7cqh,11cqw);color:#9a9ab0;white-space:normal;text-align:center;line-height:1.15;overflow-wrap:anywhere}
+.card-t small{font-size:min(7cqh,11cqw);color:#9a9ab0;white-space:nowrap;overflow:hidden;max-width:100%;line-height:1.15}
 .card-t .dc{font-size:min(6cqh,9cqw);padding:.1em .3em;line-height:1.1;max-width:100%;white-space:normal;text-align:center}
 .cicon{font-size:clamp(1.2em,26cqh,2.6em);line-height:1}
 [data-card]{cursor:grab}
@@ -130,7 +130,7 @@ const heroesAt=c=>G.heroes.filter(h=>h.alive&&K(h.c)==K(c));
 const objsAt=c=>G.objs.filter(o=>o.alive&&K(o.c)==K(c));
 // the object a hero uses in combat or develop: its first own object on its tile
 const objFor=h=>G.objs.find(o=>o.alive&&!o.nuke&&o.p==h.p&&K(o.c)==K(h.c));
-// objects a hero may take with it: its own objects and the Nuke, if they started on its tile
+// objects a hero may take with it: its own objects and the Nuke, if they are on its tile
 const carryable=h=>objsAt(h.c).filter(o=>o.nuke||o.p==h.p);
 const nukeAt=c=>G.objs.find(o=>o.alive&&o.nuke&&K(o.c)==K(c));
 const objCount=p=>G.objs.filter(o=>o.alive&&!o.nuke&&o.p==p).length;
@@ -154,8 +154,8 @@ const phase=()=>G.rd<=3?'Peace · Growth':G.rd<=5?'War · Growth':G.rd==6?'Stagn
 const removable=()=>Object.values(G.tiles).some(t=>!t.gz&&t.own==G.cur&&!heroesAt(t.c).length);
 const needsBoard=()=>G.rd<=5?G.pl[G.cur].pool.length>0:G.rd>=7&&removable();
 const boardOK=()=>G.done||!needsBoard();
-// a hero may repeat an action only if its only action so far was that same action and it failed
-const canRep=(h,m)=>h.ok[m]||h.t.length==0||(h.t.length==1&&h.t[0].type==m&&h.t[0].fail);
+// an action type can be retried only if it has never succeeded this turn (a failed action may be repeated)
+const canRep=(h,m)=>!h.t.some(x=>x.type==m&&!x.fail)||h.ok[m];
 const canAct=(h,t)=>!G.over&&h.alive&&h.p==G.cur&&boardOK()&&h.acts>0&&canRep(h,t)&&(t!='attack'||G.rd>=4);
 const canNukeHit=h=>!G.over&&h.alive&&h.p==G.cur&&boardOK()&&h.acts>0&&canRep(h,'attack');
 // barrier ownership is judged by the acting player's heroes
@@ -457,6 +457,8 @@ function setViewBox(){
   svg.setAttribute('viewBox',`${VIEW.cx-VIEW.z/2} ${VIEW.cy-h/2} ${VIEW.z} ${h}`);
 }
 const buyOn=v=>v.startsWith('s:')?G.mode=='buyskill'&&G.devSkill==v.slice(2):G.mode==v;
+// Traversal card labels: full name, then the 3-letter form, then the symbol, whichever fits
+function fitCards(){document.querySelectorAll('#hand small.cl').forEach(el=>{const f=el.dataset.full,s=el.dataset.short,y=el.dataset.sym;el.textContent=f;if(el.scrollWidth>el.clientWidth){el.textContent=s;if(el.scrollWidth>el.clientWidth)el.textContent=y}})}
 function drawBoard(){
   const svg=$('svg'),top=$('top'),logEl=$('log'),hand=$('hand'),wh=$('wheel'),bs=$('buyside'),cx=$('cx');
   document.body.classList.toggle('wait',!!G&&!myTurn()&&!ctrlActive());
@@ -507,7 +509,7 @@ function drawBoard(){
     ${G.pl.map((_,i)=>`<span class="pchip ${i==G.cur?'cur':''} ${alivePl(i)?'':'out'}" style="--c:${COL[i]}">${esc(G.pl[i].name)} · ${alivePl(i)?G.heroes.filter(h=>h.alive&&h.p==i).length+' heroes':'out'}</span>`).join('')}`;
   logEl.innerHTML=G.log.slice(0,60).map(l=>`<div style="color:${l.p>=0?COL[l.p]:'#9a9ab0'}">${esc(l.t)}</div>`).join('');
   const hm=G.pl[mi]?.hand||[];
-  hand.innerHTML=mi<0?'<span class="muted">Spectating</span>':`<div class="sec">Traversal hand · ${hm.length} card${hm.length==1?'':'s'}</div>`+(hm.map((c,i)=>`<div class="card-t"><button data-card="${i}" class="cbtn"><span class="cicon">${c=='v'?'💰':ICON[c]}</span><small>${c=='v'?'+5V':'+1 '+NAME[c]}</small></button><button class="dc" data-disc="${i}">Sell 2V</button></div>`).join('')||'<span class="muted small">No cards. Move a hero to draw one.</span>');
+  hand.innerHTML=mi<0?'<span class="muted">Spectating</span>':`<div class="sec">Traversal hand · ${hm.length} card${hm.length==1?'':'s'}</div>`+(hm.map((c,i)=>{const full=c=='v'?'+5V':'+1 '+NAME[c],short=c=='v'?'+5V':'+1 '+c.toUpperCase(),sym=c=='v'?'+5V':ICON[c];return `<div class="card-t"><button data-card="${i}" class="cbtn"><span class="cicon">${c=='v'?'💰':ICON[c]}</span><small class="cl" data-full="${full}" data-short="${short}" data-sym="${sym}">${full}</small></button><button class="dc" data-disc="${i}">Sell 2V</button></div>`}).join('')||'<span class="muted small">No cards. Move a hero to draw one.</span>');
   const vp=G.pl[mi>=0?mi:G.cur];
   bs.style.display='flex';
   bs.innerHTML=`<div class="vside">${vp.v} V</div>`+(myTurn()?'<div class="sec">Buy</div>'+buyItems().map(i=>`<button class="opt2 ${buyOn(i.v)?'on':''}" data-bi="${i.v}" ${i.dis?'disabled':''}>${i.ic} ${i.t}</button>`).join(''):'<span class="muted small">Buying is available on your turn.</span>');
@@ -524,7 +526,7 @@ function drawBoard(){
 function hintText(){
   if(G.over)return G.over;
   if(G.msg)return G.msg;
-  if(ctrlActive())return 'You control a ceded hero this turn. Drag it to act with it.';
+  if(ctrlActive())return 'You control a ceded hero this turn. Drag it to act, or click it to skip its remaining actions.';
   if(!myTurn())return `Waiting for ${G.pl[G.cur].name}…`;
   if(!boardOK())return G.rd<=5?'Place a tile: click a dashed spot, then choose its skill.':'Decline: click one of the marching tiles with no hero on it.';
   if(mcBlock())return 'A Mind Controlled hero still has actions. Use or cede them before ending your turn.';
@@ -549,7 +551,7 @@ function render(){
   if(G&&G.mode=='develop'&&!G.dev&&!G.wheel)G.mode='';
   if(G&&G.started&&!G.over)check();
   fixBars();
-  drawBoard();drawModal();vsify();syncOut();
+  drawBoard();fitCards();drawModal();vsify();syncOut();
 }
 
 // ---------- input ----------
@@ -603,6 +605,8 @@ addEventListener('pointerup',e=>{
   G.swallow=true;setTimeout(()=>{if(G)G.swallow=false},80);
   if(!d.moved){
     G.sel=d.h;
+    // a controlled hero belongs to its controller: clicking it offers to skip its remaining actions
+    if(d.h.p!=myIdx()){G.wheel={c:d.h.c,kind:'skip',u:d.h,items:[{v:'skip',ic:'⏭',t:'Skip rest'}]};return render()}
     if(!canAct(d.h,'develop')){note(d.h.acts<1?'No actions left for this hero this turn':'This hero already used Develop this turn');return render()}
     G.mode='develop';G.dev=null;G.wstack=[];G.wheel={c:d.h.c,kind:'dev',items:devItems()};return render();
   }
@@ -646,7 +650,7 @@ $('svg').addEventListener('pointerleave',()=>{$('tip').style.display='none';if(h
 $('svg').addEventListener('wheel',e=>{e.preventDefault();VIEW.z=Math.max(380,Math.min(1800,VIEW.z*(e.deltaY>0?1.1:0.9)));if(G)drawBoard()},{passive:false});
 $('svg').onclick=e=>{if(G&&G.swallow){G.swallow=false;return}const g=e.target.closest('[data-k]');if(!g||!G||G.over)return;click(g.dataset.k,e.target.closest('[data-u]')?.dataset.u||null)};
 function click(k,u){
-  G.msg='';
+  G.msg='';G.dd=null;
   if(G.wheel){G.wheel=(G.wstack||[]).pop()||null;if(G.mode=='develop'&&!G.dev)G.mode='';return render()}
   if(!myTurn()&&!ctrlActive())return render();
   // owner ceding a controlled hero
@@ -702,6 +706,7 @@ function wheelPick(v){
     return render();
   }
   if(w.kind=='cede'){G.wheel=null;w.u.mc.ceded=true;log(`${G.pl[G.cur].name} cedes ${who(w.u)} to ${G.pl[w.u.mc.by].name}`,G.cur);return render()}
+  if(w.kind=='skip'){G.wheel=null;w.u.acts=0;log(`${G.pl[w.u.p].name}'s ${who(w.u)} skips its remaining actions (controlled by ${G.pl[myIdx()].name})`,myIdx());return render()}
   if(w.kind=='dev'){
     G.wheel=null;
     if(v=='skill'){G.dev='skill';G.msg='Click one of the highlighted heroes or objects to raise the chosen skill.'}
