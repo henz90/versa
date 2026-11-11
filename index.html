@@ -52,7 +52,7 @@
     .muted { color: #8a8aa0; }
 
     /* =========================================================
-       BUY PANEL
+       BUY PANEL: three rows of buttons that fill the panel
        ========================================================= */
     .vside { font-size: 1.5em; font-weight: 800; color: #ffd54f; text-align: center; padding: .3em; background: #17171f; border-radius: .4em; }
     .bcol { flex: 1; display: flex; flex-direction: column; gap: .3em; min-height: 0; }
@@ -199,8 +199,8 @@
   <script>
   /* =============================================================
      1. CONFIGURATION
-     Fixed game rules, colours and icons, plus the Supabase
-     connection. The publishable key is safe in browser code.
+     Game rules, colours, icons and the Supabase connection.
+     The publishable key is designed to be public.
      ============================================================= */
 
   const SUPABASE_URL = 'https://jbdfcqqobtatxmmhmipa.supabase.co';
@@ -221,8 +221,9 @@
   const SKILL_SHORT = { str: 'STR', def: 'DEF', rng: 'RNG', int: 'INT' };
   const OBJECT_SYMBOLS = ['🔮', '🗡️', '🏺', '📿', '🧿', '⚗️', '🪬', '🔑', '🪄', '🧭', '🕯️', '🏹'];
   const EMOJIS = ['😂', '👏', '😱', '🔥', '🤔', '💀', '🎯', '🙃'];
-  const HAND_CARDS = ['str', 'def', 'rng', 'int', 'v'];       // 'v' is the 5V card
+  const HAND_CARDS = ['str', 'def', 'rng', 'int', 'v'];   // 'v' is the 5V card
 
+  // six neighbouring directions in cube coordinates
   const DIRECTIONS = [[1, -1, 0], [1, 0, -1], [0, 1, -1], [-1, 1, 0], [-1, 0, 1], [0, -1, 1]];
   const HEX_RADIUS = 36;
 
@@ -261,7 +262,7 @@
 
   /* =============================================================
      3. HEX GEOMETRY
-     Tiles use cube coordinates [x, y, z]. Map keys are "x,y,z".
+     Tiles use cube coordinates [x, y, z]. Map keys look like "x,y,z".
      ============================================================= */
 
   const cubeKey = cube => cube.join(',');
@@ -272,7 +273,7 @@
   const hexX = cube => Math.sqrt(3) * HEX_RADIUS * (cube[0] + cube[2] / 2);
   const hexY = cube => 1.5 * HEX_RADIUS * cube[2];
 
-  // corners of a pointy-top hexagon, optionally shrunk to a smaller radius
+  // corners of a pointy-top hexagon, optionally at a smaller radius
   function hexPoints(cube, radius = HEX_RADIUS - 4) {
     return [0, 1, 2, 3, 4, 5].map(i => {
       const angle = Math.PI / 3 * i + Math.PI / 6;
@@ -282,9 +283,9 @@
 
   /* =============================================================
      4. CLIENT STATE
-     G     shared game state, synced through the database
-     PRIV  this player's private data: hidden tiles, hand, pool, deck
-     ui    local interaction state: open menus, modes, messages
+     G      shared game state, synced through the database
+     PRIV   this player's private data: hidden tiles, hand, pool, deck
+     ui     local interaction state: open menus, modes, messages
      ============================================================= */
 
   let G = null;
@@ -313,10 +314,10 @@
   const seenTodo = new Set();
 
   const ui = {
-    mode: '',            // '', place, remove, develop, barrier, hero, obj, buyskill, move
+    mode: '',            // '', place, remove, develop, barrier, hero, obj, buyskill
     selected: null,      // hero performing the current action
     devType: null,       // develop choice: barrier | object | skill
-    devSkill: 'str',     // skill being raised by develop or by a purchase
+    devSkill: 'str',     // skill raised by develop or bought
     buildDir: null,      // barrier develop direction: up | down
     take: false,         // develop: take 10 instead of rolling
     wheel: null,         // the open wheel menu
@@ -339,7 +340,7 @@
   // the object a hero fights and develops with: its own object on its tile
   const objectFor = hero => G.objs.find(o => o.alive && !o.nuke && o.p === hero.p && sameTile(o.c, hero.c));
 
-  // anything on the hero's tile can be taken along: own or opponent objects, and the Nuke
+  // anything on the hero's tile may be taken along: own or opponent objects, and the Nuke
   const carryable = hero => objectsAt(hero.c);
 
   // objects add range, but a hero only gets that range by taking them along
@@ -365,7 +366,7 @@
   const barrierIsMine = (tile, hero) =>
     heroesAt(tile.c).some(h => actingPlayer(h) === actingPlayer(hero)) || tile.barOwn === actingPlayer(hero);
 
-  // the glow takes the colour of the player occupying the tile
+  // the barrier glow takes the colour of the player occupying the tile
   const barrierColor = cube => {
     const hero = heroesAt(cube)[0];
     return hero ? PLAYER_COLORS[hero.p] : UNOCCUPIED_BARRIER;
@@ -391,13 +392,13 @@
 
   /* =============================================================
      6. ACTION RULES
-     Whether a board step or hero action is currently allowed.
+     Whether a board step or hero action is allowed right now.
      ============================================================= */
 
   const ownerHasRemovableTile = owner =>
     Object.values(G.tiles).some(t => !t.gz && t.own === owner && !heroesAt(t.c).length);
 
-  // the owner whose removal is due next; owners blocked by a hero are skipped
+  // the next owner in the removal order who has a tile that can be removed
   const currentRemovalOwner = () => G.remOrder.find(ownerHasRemovableTile);
   const needsRemoval = () => G.rd >= ROUND.declineFrom && currentRemovalOwner() !== undefined;
   const needsPlacement = () => G.rd <= ROUND.placementEnds && G.pl[G.cur].pool.length > 0;
@@ -452,7 +453,7 @@
      8. DATABASE SYNC
      ============================================================= */
 
-  // loads this player's private data, or creates it the first time
+  // loads this player's private data, or creates it the first time (always returns a promise)
   async function ensurePrivateData() {
     if (PRIV) return;
     if (!privateLoad) {
@@ -487,7 +488,7 @@
     });
   }
 
-  // replaces the local game state with a state received from the database
+  // replaces the local game state with the state received from the database
   function applyRemoteState(state) {
     const priv = PRIV || { pool: [], hand: [], deck: [], sks: {} };
     const me = state.pl.findIndex(p => p.uid === ME);
@@ -508,6 +509,7 @@
     lastPrivate = JSON.stringify(priv);
     revealHiddenTiles(me, priv);
     clearWeakBarriers();
+    if (isMyTurn() && !boardStepDone() && !ui.mode) ui.mode = G.rd <= ROUND.placementEnds ? 'place' : 'remove';
     render();
   }
 
@@ -553,7 +555,7 @@
     render();
   }
 
-  // The lowest-numbered connected player applies the penalty, so only one browser does it
+  // the lowest-numbered connected player applies the penalty, so only one browser does it
   function checkDisconnects() {
     if (!G || !G.started || G.over || !presenceReady) return;
     if (G.pl.findIndex(p => onlineUsers.has(p.uid)) !== myIndex()) return;
@@ -697,7 +699,7 @@
     addLog(`— ${G.pl[G.cur].name} · Round ${G.rd} (${phaseName()}) · +5V`, G.cur);
   }
 
-  // your own tile first, then each eliminated player who still has a removable tile
+  // your own tile first, then each eliminated player who still has a tile
   function buildRemovalOrder() {
     const order = ownerHasRemovableTile(G.cur) ? [G.cur] : [];
     G.pl.forEach((_, i) => {
@@ -766,7 +768,7 @@
     });
   }
 
-  // keeps a board mode only while it still has something to do
+  // drops a board mode once it has nothing left to do
   function syncModeWithRules() {
     if (ui.mode === 'place' && !needsPlacement()) ui.mode = '';
     if (ui.mode === 'remove' && !needsRemoval()) ui.mode = '';
@@ -862,13 +864,14 @@
       case 'hero':
         return G.heroes.some(h => h.alive && h.p === G.cur && sameTile(h.c, cube));
       case 'obj':
-        return !G.apoc && objectCount(G.cur) < RULES.maxObjects && G.heroes.some(h => h.alive && h.p === G.cur && sameTile(h.c, cube));
+        return !G.apoc && objectCount(G.cur) < RULES.maxObjects
+          && G.heroes.some(h => h.alive && h.p === G.cur && sameTile(h.c, cube));
       default:
         return false;
     }
   }
 
-  // is this unit a legal pick for a skill purchase or develop target?
+  // is this hero or object a legal pick for a skill purchase or a skill develop?
   function isSkillTarget(unit) {
     if (ui.mode === 'buyskill') return unit.p === G.cur && unit.s[ui.devSkill] < RULES.maxSkill;
     if (ui.mode === 'develop' && ui.devType === 'skill' && ui.selected) {
@@ -938,7 +941,7 @@
     discoverTile(hero, carried);
   }
 
-  // hidden tiles of other players are revealed later by their owner
+  // arriving on an undiscovered tile: its owner reveals it later, or it is revealed now
   function discoverTile(hero, carried) {
     const tile = tileAt(hero.c);
     if (tile.disc) return;
@@ -954,6 +957,7 @@
       return;
     }
     if (carried.length) {
+      // with an object along, the player chooses whether the hero or the object gets the bonus
       ui.pendingDiscovery = { hero, skill: tile.sk };
       openWheel({
         cube: hero.c, kind: 'discovery',
@@ -979,6 +983,7 @@
      15. COMBAT
      ============================================================= */
 
+  // dropping a hero on an enemy: choose Combat or Mind Control
   function openAttackChoice(attacker, defender) {
     const inRange = cubeDistance(attacker.c, defender.c) <= reach(attacker);
     const attackOk = inRange && canAct(attacker, 'attack');
@@ -1105,12 +1110,12 @@
       : `${dieHtml(roll, 0)} ${bonusHtml('🧠+' + hero.s.int, .35)}${gz ? bonusHtml('⬡+1', .5) : ''}${objectInt ? bonusHtml('🧱+' + objectInt, .65) : ''}`;
     const rollLabel = take ? '10 (taken)' : `${roll} +${total - roll}`;
 
+    ui.take = false;
     if (total < 10) {
       spendAction(hero, 'develop', true);
       showFloat(`🛠 ${heroLabel(hero)} ${rollText} = <b>${total}</b> · <span style="color:#ff7b7b">FAILED</span>`);
       addLog(`${heroLabel(hero)} 🛠 rolled ${rollLabel} = ${total}: failed`, hero.p);
       setMessage(`Develop rolled ${total}: needed 10 or more`);
-      ui.take = false;
       return;
     }
 
@@ -1120,7 +1125,6 @@
     addLog(`${heroLabel(hero)} 🛠 rolled ${rollLabel} = ${total}: bonus ${bonus}`, hero.p);
     applyDevelopEffect(hero, cube, unit, bonus);
     setMessage(`Develop bonus ${bonus}`);
-    ui.take = false;
     ui.buildDir = null;
 
     if (roll === 20) {
@@ -1171,7 +1175,7 @@
     }
   }
 
-  // Up/Down options; only the legal direction is enabled
+  // Up / Down options; only the legal direction is enabled
   function buildDirItems(cube, buying) {
     const tile = tileAt(cube), player = G.pl[G.cur];
     if (buying) {
@@ -1301,7 +1305,7 @@
   }
 
   /* =============================================================
-     18. UI STATE AND WHEELS
+     18. UI STATE AND MENUS
      ============================================================= */
 
   function resetUi() {
@@ -1319,17 +1323,21 @@
   function openWheel(wheel) { ui.wheel = wheel; }
   function closeWheel() { ui.wheel = null; }
 
-  // Cancel leaves develop and purchase modes; place and remove must be finished
-  function cancelMode() {
-    if (ui.mode !== 'place' && ui.mode !== 'remove') ui.mode = '';
-    ui.devType = null;
-    ui.carry = null;
+  // closes any open menu and leaves develop or purchase modes; placing and removing must be finished
+  function dismissMenus() {
     closeWheel();
+    ui.carry = null;
+    ui.devType = null;
+    if (ui.mode !== 'place' && ui.mode !== 'remove') ui.mode = '';
+  }
+
+  function cancelMode() {
+    dismissMenus();
     ui.message = '';
     render();
   }
 
-  // screen position (relative to the board) of a point in board coordinates
+  // a point in board coordinates, converted to screen coordinates relative to the board
   function screenPoint(x, y) {
     const svg = el('svg'), point = svg.createSVGPoint();
     point.x = x;
@@ -1339,7 +1347,7 @@
     return [m.x - board.left, m.y - board.top];
   }
 
-  // board coordinates of a pointer position
+  // a pointer position converted to board coordinates
   function svgPoint(x, y) {
     const svg = el('svg'), point = svg.createSVGPoint();
     point.x = x;
@@ -1361,8 +1369,8 @@
 
   /* =============================================================
      19. POINTER INPUT ON THE BOARD
-     A press on a hero starts a drag; a press elsewhere pans the board.
-     A press that does not move becomes a click (see onBoardClick).
+     A press on a ready hero starts a drag. Any other press on the
+     board pans it. A press that does not move becomes a click.
      ============================================================= */
 
   function onBoardPointerDown(event) {
@@ -1394,9 +1402,8 @@
       if (!drag.moved) {
         if (Math.hypot(event.clientX - drag.startX, event.clientY - drag.startY) < 6) return;
         drag.moved = true;
-        ui.mode = 'move';
-        ui.selected = drag.hero;
       }
+      el('tip').style.display = 'none';
       drag.point = svgPoint(event.clientX, event.clientY);
       const cube = tileUnderPoint(drag.point);
       drag.hoverHero = cube ? heroesAt(cube).find(h => actingPlayer(h) !== actingPlayer(drag.hero)) || null : null;
@@ -1408,6 +1415,7 @@
   function onPointerUp(event) {
     if (handDrag) return onHandDragEnd(event);
     if (pan) {
+      if (pan.moved) suppressClicksBriefly();
       pan = null;
       return;
     }
@@ -1417,9 +1425,7 @@
       el('carry').style.display = 'none';
       if (!finished.moved) return;     // a plain press: the click handler takes over
       suppressClicksBriefly();
-      ui.mode = '';
       handleDrop(finished.hero, svgPoint(event.clientX, event.clientY));
-      ui.selected = null;
       render();
     }
   }
@@ -1461,12 +1467,12 @@
     moveTo(hero, cube);
   }
 
-  // hover: show the tooltip for whatever is under the pointer
+  // hover: tooltip for whatever is under the pointer
   function onBoardHover(event) {
     const node = event.target.closest('[data-tip]');
     const info = node && tooltips[node.dataset.tip];
     const tip = el('tip');
-    if (!info) { tip.style.display = 'none'; return; }
+    if (!info || drag) { tip.style.display = 'none'; return; }
     tip.className = 'kind-' + info.kind;
     tip.style.setProperty('--pc', info.color);
     tip.innerHTML = info.html;
@@ -1475,18 +1481,22 @@
     tip.style.top = (event.clientY + 16) + 'px';
   }
 
-  // a click on the board: opens menus or chooses a target
   function onBoardClick(event) {
     if (suppressClick || !G || G.over) return;
     const node = event.target.closest('[data-k]');
-    if (!node) return;
+    if (!node) {
+      // a click on empty board leaves menus and develop or purchase modes
+      if (ui.wheel && ui.wheel.kind !== 'discovery') { dismissMenus(); render(); }
+      return;
+    }
     handleBoardClick(node.dataset.k, node.dataset.hero, node.dataset.obj);
   }
 
   function handleBoardClick(keyText, heroIndex, objectIndex) {
     setMessage('');
     if (ui.wheel) {
-      if (ui.wheel.kind !== 'discovery') closeWheel();
+      if (ui.wheel.kind === 'discovery') return render();
+      dismissMenus();
       return render();
     }
 
@@ -1573,13 +1583,14 @@
     render();
   }
 
-  // opens the attack/move choices for a card dragged onto this unit's wheel
+  // a buy button starts a purchase mode; pressing the same one again cancels it
   function pickBuy(value) {
-    ui.wheel = null;
-    ui.message = '';
+    setMessage('');
+    closeWheel();
     const isSkillBuy = value.startsWith('s:');
     const nextMode = isSkillBuy ? 'buyskill' : value;
-    if (ui.mode === nextMode && (!isSkillBuy || ui.devSkill === value.slice(2))) {
+    const sameSkill = !isSkillBuy || ui.devSkill === value.slice(2);
+    if (ui.mode === nextMode && sameSkill) {
       ui.mode = '';
     } else {
       if (isSkillBuy) ui.devSkill = value.slice(2);
@@ -1597,7 +1608,7 @@
     const wheel = ui.wheel;
     if (!wheel) return render();
     if (value === 'x') {
-      if (wheel.kind !== 'discovery') closeWheel();
+      if (wheel.kind !== 'discovery') dismissMenus();
       return render();
     }
 
@@ -1612,7 +1623,6 @@
       carry: () => (value === 'go' ? confirmCarry() : toggleCarry(value)),
       attackChoice: () => {
         ui.mode = '';
-        ui.selected = null;
         if (value === 'atk') attackHero(wheel.attacker, wheel.defender);
         else mindControlRoll(wheel.attacker, wheel.defender);
       },
@@ -1640,7 +1650,11 @@
       discovery: () => finishDiscovery(value),
     };
 
-    closeWheel();
+    // carry, buildDir, developSkill, developType and roll reopen their own menus when needed
+    if (!['carry', 'developSkill', 'buildDir', 'developType'].includes(wheel.kind)) closeWheel();
+    if (wheel.kind === 'developType' || wheel.kind === 'roll') closeWheel();
+    if (wheel.kind === 'buildDir' && !wheel.buy) closeWheel();
+    if (wheel.kind === 'developSkill') closeWheel();
     const handler = handlers[wheel.kind];
     if (handler) handler();
     render();
@@ -1648,6 +1662,8 @@
 
   /* =============================================================
      21. HAND (traversal cards)
+     Click a 5V card to play it, drag a skill card onto a unit,
+     or sell any card for 2V.
      ============================================================= */
 
   function onHandPointerDown(event) {
@@ -1681,10 +1697,13 @@
 
     const card = G.pl[G.cur].hand[finished.index];
     if (card === undefined) return render();
-    const target = document.elementFromPoint(event.clientX, event.clientY)?.closest('[data-hero],[data-obj]');
-    if (card === 'v' && !target) playVersaCard(finished.index);
-    else if (!target) setMessage('Drop a skill card on one of your heroes or objects');
-    else {
+    const under = document.elementFromPoint(event.clientX, event.clientY);
+    if (under && el('hand').contains(under)) return render();     // dropped back in the hand: cancel
+    const target = under ? under.closest('[data-hero],[data-obj]') : null;
+    if (!target) {
+      if (card === 'v') playVersaCard(finished.index);
+      else setMessage('Drop a skill card on one of your heroes or objects');
+    } else {
       const unit = target.dataset.hero !== undefined ? G.heroes[+target.dataset.hero] : G.objs[+target.dataset.obj];
       applySkillCard(finished.index, unit);
     }
@@ -1721,7 +1740,7 @@
 
   /* =============================================================
      23. TOOLTIP CONTENT
-     One layout per entity kind.
+     One layout per kind of entity.
      ============================================================= */
 
   const statGrid = stats => `<div class="tstats">${[
@@ -1730,9 +1749,13 @@
 
   const damageBar = (damage, limit) => `<div class="tbar"><i style="width:${Math.min(100, damage / limit * 100)}%"></i></div>`;
 
-  function heroTooltip(hero, index) {
-    const actions = canControlHero(hero) ? `<div class="tsub">Actions: ${'●'.repeat(hero.acts)}${'✕'.repeat(Math.max(0, 2 - hero.acts))}</div>` : '';
-    const control = hero.mc ? `<div class="tsub">🧠 Controlled by ${escapeHtml(G.pl[hero.mc.by].name)}${hero.mc.ceded ? ' · ceded' : ''}</div>` : '';
+  function heroTooltip(hero) {
+    const actions = canControlHero(hero)
+      ? `<div class="tsub">Actions: ${'●'.repeat(hero.acts)}${'✕'.repeat(Math.max(0, 2 - hero.acts))}</div>`
+      : '';
+    const control = hero.mc
+      ? `<div class="tsub">🧠 Controlled by ${escapeHtml(G.pl[hero.mc.by].name)}${hero.mc.ceded ? ' · ceded' : ''}</div>`
+      : '';
     return {
       kind: 'hero', color: PLAYER_COLORS[hero.p],
       html: `<div class="th">🧍 ${escapeHtml(heroLabel(hero))}</div>${statGrid(hero.s)}${damageBar(hero.dmg, hero.s.def)}
@@ -1741,8 +1764,7 @@
   }
 
   function objectTooltip(obj) {
-    const mine = obj.p === myIndex();
-    const ownerNote = mine ? '' : ' · owned by another player; taking it makes it yours';
+    const ownerNote = obj.p === myIndex() ? '' : ' · owned by another player; taking it makes it yours';
     const rangeNote = obj.s.rng > 0 ? `Adds ${obj.s.rng} range: the hero must take it along to move that far` : '';
     return {
       kind: 'object', color: PLAYER_COLORS[obj.p],
@@ -1774,8 +1796,10 @@
       : seen ? 'Discovered'
       : 'Undiscovered: its type is hidden until its owner reveals it';
     return {
+      kind: 'tile', color: tile.own >= 0 ? PLAYER_COLORS[tile.own] : UNOWNED_STROKE,
       html: `<div class="th">${title}</div><div class="tsub">Owner: ${escapeHtml(owner)}</div><div class="tsub">${status}</div>${barrierLine}`,
     };
+  }
 
   /* =============================================================
      24. BOARD DRAWING
@@ -1802,22 +1826,24 @@
     const fill = tile.gz ? GROUND_ZERO_FILL : tile.disc ? TILE_COLORS[tile.sk] : NEUTRAL_FILL;
     const stroke = tile.own >= 0 ? PLAYER_COLORS[tile.own] : UNOWNED_STROKE;
     const symbol = tile.gz ? '⬡' : !seen ? '?' : tile.sk === 'bar' ? '🛑' : SKILL_ICON[tile.sk];
+    const label = tile.bar && seen && tile.sk === 'bar' ? '🛑' + tile.bar : symbol;
     const cls = [barrierTarget ? 'ok' : '', removable ? 'rm' : ''].join(' ');
     tooltips['t' + key] = tileTooltip(tile);
 
+    const glowColor = barrierColor(cube);
     const glow = tile.bar > 0
-      ? `<polygon class="barglow" points="${hexPoints(cube, HEX_RADIUS - 9)}" stroke="${barrierColor(cube)}" style="filter:drop-shadow(0 0 1.5px ${barrierColor(cube)})"/>`
+      ? `<polygon class="barglow" points="${hexPoints(cube, HEX_RADIUS - 9)}" stroke="${glowColor}" style="filter:drop-shadow(0 0 1.5px ${glowColor})"/>`
       : '';
     const barrierTag = tile.bar && !(seen && tile.sk === 'bar')
       ? `<text x="${hexX(cube) + HEX_RADIUS * 0.5}" y="${hexY(cube) + HEX_RADIUS * 0.6}" font-size="8" font-weight="bold" fill="#ffd54f" stroke="#000" stroke-width="1" paint-order="stroke">🛑${tile.bar}</text>`
       : '';
-    const label = tile.bar && seen && tile.sk === 'bar' ? '🛑' + tile.bar : symbol;
     return `<polygon data-k="${key}" data-tip="t${key}" class="${cls}" fill="${fill}" stroke="${stroke}" stroke-width="1.5" points="${hexPoints(cube)}"/>`
       + glow
       + `<text x="${hexX(cube)}" y="${hexY(cube)}" font-size="${label.length > 2 ? 22 : 34}" fill="#fff">${label}</text>`
       + barrierTag;
   }
 
+  // during a drag, enemies within the dragged hero's reach get a ring
   function isEnemyInDragReach(hero) {
     return !!drag && drag.moved && actingPlayer(hero) !== actingPlayer(drag.hero)
       && cubeDistance(drag.hero.c, hero.c) <= reach(drag.hero);
@@ -1826,7 +1852,7 @@
   function heroSvg(hero, index) {
     const [x, y] = heroPosition(hero);
     const mc = hero.mc ? `<circle class="ring-mc" cx="${x}" cy="${y}" r="9"/>` : '';
-    const march = canControlHero(hero) && hero.acts > 0 && !ui.mode ? `<circle class="ring-march" cx="${x}" cy="${y}" r="8"/>` : '';
+    const march = canControlHero(hero) && hero.acts > 0 && !ui.mode && !drag ? `<circle class="ring-march" cx="${x}" cy="${y}" r="8"/>` : '';
     const attackRing = isEnemyInDragReach(hero) ? `<circle class="ring-atk" cx="${x}" cy="${y}" r="10"/>` : '';
     const skillRing = isSkillTarget(hero) ? `<circle class="ring-selh" cx="${x}" cy="${y}" r="10"/>` : '';
     const dots = canControlHero(hero)
@@ -1834,7 +1860,7 @@
       : '';
     const damage = hero.dmg ? `<text x="${x + 8}" y="${y - 6}" font-size="7" font-weight="bold" fill="#ff5252">-${hero.dmg}</text>` : '';
     const muted = (ui.mode === 'buyskill' || ui.mode === 'develop') && !isSkillTarget(hero) ? 'mute' : '';
-    tooltips['h' + index] = heroTooltip(hero, index);
+    tooltips['h' + index] = heroTooltip(hero);
     return `<g class="${muted}" data-hero="${index}" data-k="${cubeKey(hero.c)}" data-tip="h${index}">`
       + `<circle cx="${x}" cy="${y}" r="6" fill="${HERO_COLORS[index % HERO_COLORS.length]}" stroke="${PLAYER_COLORS[hero.p]}" stroke-width="1.5"/>`
       + mc + march + attackRing + skillRing + dots + damage + `</g>`;
@@ -2004,14 +2030,15 @@
 
   function drawCancel() {
     const cancel = el('cx');
-    const show = !!ui.mode && ui.mode !== 'place' && ui.mode !== 'remove' && ui.mode !== 'move' && !ui.wheel;
+    const show = !!ui.mode && ui.mode !== 'place' && ui.mode !== 'remove' && !ui.wheel;
     cancel.style.display = show ? 'block' : 'none';
     cancel.innerHTML = show ? '<button class="xbtn" data-action="cancel">✕</button>' : '';
   }
 
   /* =============================================================
      26. TO-DO LIST
-     Phases, then one sub-list per hero. Finished steps are struck through.
+     Phases first, then one sub-list per hero's remaining actions.
+     Finished steps are struck through once.
      ============================================================= */
 
   function todoItems() {
@@ -2030,7 +2057,7 @@
         done: boardStepDone(),
         children: G.remPlan.map(owner => ({
           text: owner === G.cur ? 'One of your tiles' : `${G.pl[owner].name} (eliminated)`,
-          done: !G.remOrder.includes(owner),
+          done: !G.remOrder.includes(owner) || !ownerHasRemovableTile(owner),
         })),
       });
     }
@@ -2136,10 +2163,7 @@
      ============================================================= */
 
   function render() {
-    if (G) {
-      checkWinner();
-      syncModeWithRules();
-    }
+    if (G) syncModeWithRules();
     drawBoard();
     if (G) {
       drawTop();
@@ -2169,7 +2193,7 @@
 
   /* =============================================================
      29. BUTTON ACTIONS
-     Every button that carries data-action comes through here.
+     Every element with data-action is routed through here.
      ============================================================= */
 
   function saveUsername() {
@@ -2242,7 +2266,7 @@
 
   wireEvents();
 
-  // presence refresh: the disconnect timer and the offline countdown
+  // once a second: disconnect timer and the offline countdown
   setInterval(() => {
     if (!G || !G.started) return;
     checkDisconnects();
