@@ -57,7 +57,7 @@ g.hov rect{stroke:#fff!important;stroke-width:1.5!important}
 .cand{fill:#15151c;stroke:#8ab4ff;stroke-dasharray:6 4;stroke-width:1;animation:march 2.4s linear infinite}
 @keyframes march{to{stroke-dashoffset:-10}}
 .ring-atk,.ring-selh,.ring-o,.ring-nk{fill:none;stroke-width:1.5;pointer-events:none;animation:pulse 1s ease-in-out infinite}
-.ring-atk{stroke:#ff5252}.ring-selh{stroke:#7cf0ff}.ring-o{stroke:#ffd54f}.ring-nk{stroke:#ff3d3d}
+.ring-atk{stroke:#ff5252}.ring-selh{stroke:#7cf0ff}.ring-o{stroke:#ffd54f}.ring-nk{stroke:#ff3d3d;stroke-width:2}
 .ring-march{fill:none;stroke:#ffffffcc;stroke-width:1;stroke-dasharray:2 2;pointer-events:none;animation:march 1s linear infinite}
 .ring-mc{fill:none;stroke:#c77dff;stroke-width:1.2;stroke-dasharray:2 3;pointer-events:none}
 @keyframes pulse{0%,100%{opacity:.3}50%{opacity:1}}
@@ -86,11 +86,14 @@ text{pointer-events:none;text-anchor:middle;dominant-baseline:central;font-famil
 .wbtn .wi{font-size:1.6em}
 .wbtn small{font-size:.8em;font-weight:700}
 .wbtn.wx{left:0;top:0;width:clamp(34px,4vmin,44px);height:clamp(34px,4vmin,44px);background:#3a2a2a}
+.wbtn.emo{width:clamp(44px,6vmin,64px);height:clamp(44px,6vmin,64px)}
+.wbtn.emo .wi{font-size:1.9em}
 #fx{position:absolute;left:50%;top:38%;transform:translate(-50%,-50%);display:flex;flex-direction:column;align-items:center;gap:.5em;pointer-events:none;z-index:6;max-width:90%}
 .fx{background:#000d;border:1px solid #8a8aff;border-radius:.7em;padding:.5em .9em;font-size:1.15em;font-weight:700;line-height:1.7;text-align:center;animation:fxin .3s ease-out,fxout .4s ease-in 2.6s forwards}
 .fx span{display:inline-block;animation:pop .35s both;animation-delay:var(--d,0s)}
 .fx .die{display:inline-block;min-width:1.7em;text-align:center;background:#f4f4f4;color:#111;border-radius:.3em;padding:.1em .3em;font-weight:900;margin:0 .15em;animation:roll .7s cubic-bezier(.2,.8,.3,1) both;animation-delay:var(--d,0s)}
 .fx .bon{display:inline-block;background:#24243a;border:1px solid #556;border-radius:.4em;padding:0 .35em;margin:0 .15em;font-size:.9em;animation:pop .35s both;animation-delay:var(--d,0s)}
+.fx .retry{font-size:.8em;color:#ffe8a3;font-weight:600}
 .fx.nat{border-color:#ffd54f;background:#2a2100f0;font-size:1.6em;box-shadow:0 0 50px #ffd54f88;animation:natin .6s ease-out,fxout .4s ease-in 2.8s forwards}
 .fx.nat>span:first-child{color:#ffd54f;animation:spin .8s ease-out both}
 @keyframes fxin{from{opacity:0;transform:translateY(14px) scale(.9)}to{opacity:1;transform:none}}
@@ -103,13 +106,25 @@ text{pointer-events:none;text-anchor:middle;dominant-baseline:central;font-famil
 @keyframes emofl{0%{opacity:0;margin-top:0}15%{opacity:1}100%{opacity:0;margin-top:-40px}}
 .ghostc{position:fixed;pointer-events:none;z-index:30;transform:translate(-50%,-50%);background:#24243a;border:1px solid #ffe066;border-radius:.6em;padding:.4em .7em;font-size:1.2em;opacity:.9}
 #carry{position:fixed;pointer-events:none;z-index:31;background:#000e;border:1px solid #ffe066;border-radius:.5em;padding:.3em .6em;font-size:1em;line-height:1.5;white-space:nowrap}
-#tip{position:fixed;display:none;pointer-events:none;background:#000f;border:1px solid #556;border-radius:.6em;padding:.6em .8em;font-size:1.25em;line-height:1.45;z-index:9;max-width:26em}
+#tip{position:fixed;display:none;pointer-events:none;--pc:#8a8aff;background:#0b0b12f5;border:2px solid var(--pc);border-radius:.8em;padding:.5em .6em;font-size:clamp(12px,1.05vw,15px);line-height:1.45;z-index:9;min-width:12em;max-width:19em;box-shadow:0 8px 24px #000c}
+#tip .th{background:var(--pc);color:#000;font-weight:800;border-radius:.4em;padding:.25em .5em;margin-bottom:.4em}
+#tip .tsub{color:#b0b0c4;font-size:.92em;margin:.15em 0}
+#tip .tstats{display:grid;grid-template-columns:repeat(4,1fr);gap:.3em;margin:.2em 0}
+#tip .tstat{background:#24243a;border-radius:.4em;text-align:center;padding:.2em}
+#tip .tstat b{display:block;font-size:1.1em}
+#tip .tstat small{font-size:.75em;color:#9a9ab0}
+#tip .tbar{height:.45em;background:#2a2a3c;border-radius:.3em;overflow:hidden;margin:.3em 0}
+#tip .tbar i{display:block;height:100%;background:#ff5252}
+#tip.k-obj .th{background:#1b1b2a;color:#fff;border-left:6px solid var(--pc)}
+#tip.k-tile .th{background:#2a2a3c;color:#fff;border-left:6px solid var(--pc)}
+#tip.k-nuke{border-style:dashed;box-shadow:0 0 22px #ff3d3d88}
+#tip.k-nuke .th{background:#ff3d3d;color:#fff}
 #modal{position:fixed;inset:0;background:#06060acc;display:none;align-items:center;justify-content:center;z-index:20;padding:1em}
 #modal .card{background:#1c1c28;border:1px solid #2c2c3e;border-radius:.8em;width:min(92vw,40em);max-height:90vh;overflow:auto;padding:1.6em;display:flex;flex-direction:column;gap:1em;font-size:1.15em;text-align:center}
 #modal input{font-size:1em;padding:.5em;border-radius:.4em;border:1px solid #556;background:#0e0e12;color:inherit;text-align:center}
 #modal .row{display:flex;gap:.5em;justify-content:center;flex-wrap:wrap}
 .muted{color:#8a8aa0}
-.wait #hand button,.wait #buyside button,.wait #top .endb,.wait #wheel{pointer-events:none;opacity:.6}
+.wait #hand button,.wait #buyside button,.wait #top .endb{pointer-events:none;opacity:.6}
 </style></head>
 <body>
 <div id="board"><div id="top"></div><svg id="svg" xmlns="http://www.w3.org/2000/svg"></svg><div id="cx"></div><div id="todo"></div><div id="wheel"></div><div id="fx"></div>
@@ -147,7 +162,7 @@ const NUKE_DEF=3;
 // ---------- session state ----------
 let G=null,PRIV=null,ME=null,ROOM=null,ROW=null,chan=null,lastPub='',lastPriv='',privP=null,LOADING=false;
 let UNAME=localStorage.getItem('versa-name')||'';
-let VIEW={cx:0,cy:0,z:900},PAN=null,OUT=false,BOT_MIN=false;
+let VIEW={cx:0,cy:0,z:900},PAN=null,OUT=false,BOT_MIN=false,LASTRETRY=false,TIPS={};
 let ONLINE=new Set(),ONLINE_READY=false,OFF={};
 const SEEN=new Set();
 const validName=n=>/^[A-Za-z0-9]{2,16}$/.test(n);
@@ -158,8 +173,8 @@ const heroesAt=c=>G.heroes.filter(h=>h.alive&&K(h.c)==K(c));
 const objsAt=c=>G.objs.filter(o=>o.alive&&K(o.c)==K(c));
 // the object a hero uses in combat or develop: its first own object on its tile
 const objFor=h=>G.objs.find(o=>o.alive&&!o.nuke&&o.p==h.p&&K(o.c)==K(h.c));
-// objects a hero may take with it: its own objects and the Nuke, if they are on its tile
-const carryable=h=>objsAt(h.c).filter(o=>o.nuke||o.p==h.p);
+// anything left on the hero's tile can be taken along: own or opponent objects, and the Nuke
+const carryable=h=>objsAt(h.c);
 // objects extend a hero's reach, but the hero must take them along to use that reach
 const reach=h=>h.s.rng+Math.max(0,...carryable(h).map(o=>o.s.rng||0));
 const nukeAt=c=>G.objs.find(o=>o.alive&&o.nuke&&K(o.c)==K(c));
@@ -182,7 +197,8 @@ const mcBlock=()=>!!G&&G.heroes.some(h=>h.alive&&h.p==G.cur&&h.mc&&h.acts>0);
 const who=h=>`${G.pl[h.p].name} H${h.k}`;
 const phase=()=>G.rd<=3?'Peace · Growth':G.rd<=5?'War · Growth':G.rd==6?'Stagnation':'Decline';
 const removable=()=>Object.values(G.tiles).some(t=>!t.gz&&t.own==G.cur&&!heroesAt(t.c).length);
-const needsBoard=()=>G.rd<=5?G.pl[G.cur].pool.length>0:G.rd>=7&&removable();
+// Decline: removal is decided once at the start of the turn, and ends if no tile can still be removed
+const needsBoard=()=>G.rd<=5?G.pl[G.cur].pool.length>0:(G.rd>=7&&!!G.remNeeded&&!G.done&&removable());
 const boardOK=()=>G.done||!needsBoard();
 // an action type can be retried only if it has never succeeded this turn (a failed action may be repeated)
 const canRep=(h,m)=>!h.t.some(x=>x.type==m&&!x.fail)||h.ok[m];
@@ -192,14 +208,15 @@ const canNukeHit=h=>!G.over&&h.alive&&h.p==G.cur&&boardOK()&&h.acts>0&&canRep(h,
 const barMineFor=(t,h)=>heroesAt(t.c).some(x=>ac(x)==ac(h))||t.barOwn==ac(h);
 const note=s=>{G.msg=s};
 function log(t,p=-1){G.log.unshift({t,p});G.log.length=Math.min(G.log.length,80)}
-function act(h,type,fail){h.acts--;h.t.push({type,fail:!!fail});h.ok[type]=0}
+// every action records whether it is a retry of a failed one this turn
+function act(h,type,fail){h.acts--;const retry=h.t.some(x=>x.type==type&&x.fail);h.t.push({type,fail:!!fail});h.ok[type]=0;LASTRETRY=retry;if(retry)log(`  ${who(h)} tries ${type} again (try again)`,h.p)}
 function spend(n){const p=G.pl[G.cur];if(p.v<n){note(`Need ${n}V (you have ${p.v}V)`);return false}p.v-=n;return true}
 function fixBars(){if(!G)return;Object.values(G.tiles).forEach(t=>{if(t.bar&&t.bar<3){t.bar=0;t.barOwn=undefined}})}
 function newObj(p,c,def){const o={p,c,s:{str:0,def,rng:1,int:0},dmg:0,alive:1,sym:ITEMS[G.objs.length%ITEMS.length]};G.objs.push(o);return o}
 
 // ---------- room, lobby and sync ----------
 function makeState(players){
-  const n=players.length,S={n,rd:1,cur:0,started:true,apoc:0,nd:0,over:'',done:false,first:true,
+  const n=players.length,S={n,rd:1,cur:0,started:true,apoc:0,nd:0,over:'',done:false,first:true,remNeeded:false,
     pl:players.map(p=>({uid:p.uid,name:p.name,v:0,poolN:5,handN:0})),
     tiles:{'0,0,0':{c:[0,0,0],gz:1,disc:1,bar:0,own:-1,sk:null}},
     heroes:players.map((p,i)=>({p:i,k:1,c:[0,0,0],s:{str:1,def:1,rng:1,int:1},dmg:0,acts:i==0?2:0,t:[],ok:{},alive:1})),
@@ -208,7 +225,7 @@ function makeState(players){
   S.pl[0].v=n==2?0:5;
   return S;
 }
-function pubOf(){return JSON.stringify({n:G.n,rd:G.rd,cur:G.cur,started:G.started,apoc:G.apoc,nd:G.nd||0,over:G.over,done:G.done,first:G.first,
+function pubOf(){return JSON.stringify({n:G.n,rd:G.rd,cur:G.cur,started:G.started,apoc:G.apoc,nd:G.nd||0,over:G.over,done:G.done,first:G.first,remNeeded:!!G.remNeeded,
   pl:G.pl.map(p=>({uid:p.uid,name:p.name,v:p.v,poolN:p.pool.length,handN:p.hand.length})),
   tiles:Object.fromEntries(Object.entries(G.tiles).map(([k,t])=>[k,{...t,sk:t.disc?t.sk:null}])),
   heroes:G.heroes,objs:G.objs,log:G.log})}
@@ -267,8 +284,8 @@ function onPresence(){
 // a player gone for over a minute loses their heroes; the lowest-numbered connected player performs it
 function tickPresence(){
   if(!G||!G.started||G.over||!ONLINE_READY)return;
-  const now=Date.now(),me=myIdx();
-  if(G.pl.findIndex(p=>ONLINE.has(p.uid))!==me)return;
+  const now=Date.now();
+  if(G.pl.findIndex(p=>ONLINE.has(p.uid))!==myIdx())return;
   let changed=false;
   G.pl.forEach((p,i)=>{
     if(ONLINE.has(p.uid)||!OFF[p.uid]||!alivePl(i))return;
@@ -346,6 +363,8 @@ function beginEffects(){
   G.heroes.forEach(h=>{if(h.mc&&h.mc.by==G.cur)h.mc.kept=false});
   G.objs.forEach(o=>{if(o.p==G.cur)o.dmg=0});
   G.pl[G.cur].v+=5;G.done=false;G.first=true;
+  // Decline: the removal step is decided here, once, at the start of the turn
+  G.remNeeded=G.rd>=7&&removable();
   log(`— ${G.pl[G.cur].name} · Round ${G.rd} (${phase()}) · +5V`,G.cur);
 }
 function endTurn(){
@@ -430,7 +449,9 @@ function moveCore(h,c,carry){
   if(!h.mc)G.pl[G.cur].v+=r;   // Mind Controlled heroes' moves earn no Versa
   act(h,'move',0);
   const carried=carry||[];
-  h.c=c;carried.forEach(o=>o.c=c);
+  h.c=c;
+  // taking an object (even an opponent's) makes it yours; the Nuke keeps no owner
+  carried.forEach(o=>{o.c=c;if(!o.nuke)o.p=h.p});
   fx(`🏃 ${who(h)} ${die(a,0)} ${die(b,.2)} ${bon(h.mc?'no Versa':'+'+r+' V',.5)}`);
   log(`${who(h)} 🏃 (${c}) rolled ${a}+${b}${h.mc?'':': +'+r+'V'}`,h.p);
   if(carried.length)log(`  Carried along: ${carried.map(o=>o.nuke?'☢ Nuke':(o.sym||'🧱')+' object (DEF '+o.s.def+')').join(', ')}`,h.p);
@@ -460,11 +481,16 @@ function move(h,c,carry){
   if(t0&&!wasD&&t0.sk=='bar'&&t0.disc)t0.barOwn=h.p;
   if(ask){t0.disc=0;if(K(h.c)!=before){G.pend2={t:t0,h,sk:t0.sk};G.wheel={c,kind:'discover',items:[{v:'hero',ic:'👤',t:'Hero'},{v:'obj',ic:'🧱',t:'Object'}]}}}
 }
-const carryItems=()=>{const pm=G.pm,sel=pm.sel;return [...carryable(pm.h).map(o=>({v:'o'+G.objs.indexOf(o),ic:o.nuke?'☢':(o.sym||'🧱'),t:(sel.includes(o)?'✔ ':'')+(o.nuke?'Nuke':'DEF '+o.s.def+' · RNG '+o.s.rng),on:sel.includes(o)})),{v:'go',ic:'➜',t:'Move'}]};
+const carryItems=()=>{const pm=G.pm,sel=pm.sel;return [...carryable(pm.h).map(o=>({v:'o'+G.objs.indexOf(o),ic:o.nuke?'☢':(o.sym||'🧱'),t:(sel.includes(o)?'✔ ':'')+(o.nuke?'Nuke':(o.p!=pm.h.p?G.pl[o.p].name+' · ':'')+'DEF '+o.s.def+' · RNG '+o.s.rng),on:sel.includes(o)})),{v:'go',ic:'➜',t:'Move'}]};
 function attack(a,d){
   const t=tile(d.c),tw=who(d);
   // Meets beats: a 2d6 total equal to the barrier level gets through
-  if(t.bar){const r1=d6(),r2=d6(),r=r1+r2;if(r<t.bar){act(a,'attack',1);log(`${who(a)} ⚔ barrier 2d6 rolled ${r1}+${r2}=${r} vs L${t.bar}: blocked`,a.p);fx(`🛑 ${who(a)} barrier: ${die(r1,0)} ${die(r2,.2)} = ${r} vs ${bon('🛑 L'+t.bar,.5)} · BLOCKED`);return}}
+  if(t.bar){
+    const r1=d6(),r2=d6(),r=r1+r2;
+    if(r<t.bar){act(a,'attack',1);log(`${who(a)} ⚔ barrier 2d6 rolled ${r1}+${r2}=${r} vs L${t.bar}: blocked`,a.p);fx(`🛑 ${who(a)} barrier: ${die(r1,0)} ${die(r2,.2)} = ${r} vs ${bon('🛑 L'+t.bar,.5)} · <span style="color:#ff7b7b">BLOCKED</span>`);return}
+    log(`${who(a)} ⚔ barrier 2d6 rolled ${r1}+${r2}=${r} vs L${t.bar}: gets through`,a.p);
+    fx(`🛑 ${who(a)} barrier: ${die(r1,0)} ${die(r2,.2)} = ${r} vs ${bon('🛑 L'+t.bar,.5)} · <span style="color:#66bb6a">GETS THROUGH</span>`);
+  }
   const oa=objFor(a),od=objFor(d),ra=d20(),rd=d20(),sa=a.s.str,ga=gzb(a),oas=oa?oa.s.str:0,A=ra+sa+ga+oas;
   const sd=d.s.def,gd=gzb(d),ods=od?od.s.def:0,D=rd+sd+gd+ods,hit=A>D;
   act(a,'attack',!hit);
@@ -552,7 +578,11 @@ const buyItems=()=>{const p=G.pl[G.cur],mine=G.heroes.filter(h=>h.alive&&h.p==G.
   {v:'s:int',ic:'🧠',t:'INT',c:'5V',dis:p.v<5||!bok}]};
 
 // ---------- effects ----------
-function fx(html,cls){const d=document.createElement('div');d.className='fx '+(cls||'');d.innerHTML=html;$('fx').appendChild(d);vsify();setTimeout(()=>d.remove(),3000)}
+function fx(html,cls){
+  if(LASTRETRY&&!cls)html+=' <span class="retry">(try again)</span>';
+  LASTRETRY=false;
+  const d=document.createElement('div');d.className='fx '+(cls||'');d.innerHTML=html;$('fx').appendChild(d);vsify();setTimeout(()=>d.remove(),3000);
+}
 const natFx=(ic,name)=>fx(`<span>NATURAL 20!</span> ${ic} ${name} available again`,'nat');
 
 // ---------- input helpers ----------
@@ -563,6 +593,39 @@ function hexPts(c,r=R-4){return [0,1,2,3,4,5].map(i=>{const a=Math.PI/3*i+Math.P
 // barrier glow: grey when unoccupied, the occupying player's colour when occupied
 const barCol=c=>{const h=heroesAt(c)[0];return h?COL[h.p]:'#9a9a9a'};
 function scr(c){const svg=$('svg'),pt=svg.createSVGPoint();pt.x=px(c);pt.y=py(c);const m=pt.matrixTransform(svg.getScreenCTM()),br=$('board').getBoundingClientRect();return [m.x-br.left,m.y-br.top]}
+
+// ---------- tooltips: each kind of entity has its own layout ----------
+function tipHero(h){
+  return {k:'hero',c:COL[h.p],html:`<div class="th">🧍 ${esc(who(h))}</div>
+    <div class="tstats">${[['✊','STR',h.s.str],['🛡️','DEF',h.s.def],['🏹','RNG',h.s.rng],['🧠','INT',h.s.int]].map(([i,n,v])=>`<div class="tstat">${i}<b>${v}</b><small>${n}</small></div>`).join('')}</div>
+    <div class="tbar"><i style="width:${Math.min(100,h.dmg/h.s.def*100)}%"></i></div>
+    <div class="tsub">Damage ${h.dmg} of ${h.s.def}</div>
+    ${canHero(h)?`<div class="tsub">Actions: ${'●'.repeat(h.acts)}${'✕'.repeat(Math.max(0,2-h.acts))}</div>`:''}
+    ${h.mc?`<div class="tsub">🧠 Controlled by ${esc(G.pl[h.mc.by].name)}${h.mc.ceded?' · ceded':''}</div>`:''}`};
+}
+function tipObj(o){
+  const mine=o.p==myIdx();
+  return {k:'obj',c:COL[o.p],html:`<div class="th">${o.sym||'🧱'} ${esc(G.pl[o.p].name)}'s object</div>
+    <div class="tstats">${[['✊','STR',o.s.str],['🛡️','DEF',o.s.def],['🏹','RNG',o.s.rng],['🧠','INT',o.s.int]].map(([i,n,v])=>`<div class="tstat">${i}<b>${v}</b><small>${n}</small></div>`).join('')}</div>
+    <div class="tbar"><i style="width:${Math.min(100,o.dmg/o.s.def*100)}%"></i></div>
+    <div class="tsub">Damage ${o.dmg} of ${o.s.def}</div>
+    <div class="tsub">${o.s.rng>0?'Range '+o.s.rng+': the hero must take it along to use this':''}${mine?'':' · owned by another player; taking it makes it yours'}</div>`};
+}
+function tipNuke(o){
+  return {k:'nuke',c:'#ff3d3d',html:`<div class="th">☢ Nuke</div>
+    <div class="tbar"><i style="width:${Math.min(100,o.dmg/o.s.def*100)}%"></i></div>
+    <div class="tsub">Hits ${o.dmg} of ${o.s.def}. Each attack is one hit.</div>
+    <div class="tsub">Destroying it triggers the Apocalypse.</div>`};
+}
+function tipTile(t){
+  const mi=myIdx(),seen=t.disc||t.own==mi;
+  const title=t.gz?'⬡ Ground Zero':!seen?'? Hidden HexTile':(t.sk=='bar'?'🛑 Barrier HexTile':ICON[t.sk]+' '+NAME[t.sk]+' HexTile');
+  const owner=t.own>=0?G.pl[t.own].name:'Neutral';
+  const bar=t.bar?`<div class="tsub">🛑 Barrier L${t.bar}${t.barOwn!=null&&G.pl[t.barOwn]?' · held by '+esc(G.pl[t.barOwn].name):''}</div>`:'';
+  return {k:'tile',c:t.own>=0?COL[t.own]:'#c9a227',html:`<div class="th">${title}</div>
+    <div class="tsub">Owner: ${esc(owner)}</div>
+    <div class="tsub">${t.gz?'Ground Zero: +1 to d20 rolls for heroes on it':seen?'Discovered':'Undiscovered: its type is hidden until its owner reveals it'}</div>${bar}`};
+}
 
 // ---------- drawing ----------
 function setViewBox(){
@@ -579,18 +642,20 @@ function todoItems(){
   if(!myTurn())return [{t:`Waiting for ${G.pl[G.cur].name}…`}];
   const items=[],p=G.pl[G.cur];
   if(G.rd<=5)items.push({t:'Place a tile',done:G.done||!needsBoard()});
-  else if(G.rd>=7)items.push({t:'Remove one of your tiles with no hero on it',done:G.done||!needsBoard()});
+  else if(G.rd>=7&&G.remNeeded)items.push({t:'Remove one of your tiles with no hero on it',done:G.done||!needsBoard()});
   if(boardOK()){
     const used=ty=>G.heroes.some(h=>h.alive&&h.p==G.cur&&h.t.some(x=>x.type==ty&&!x.fail));
     items.push({t:'Pick two actions:',head:1});
     items.push({t:G.rd<4?'Attack (unlocks in round 4)':'Attack',done:used('attack'),dis:G.rd<4});
     items.push({t:'Move',done:used('move')});
     items.push({t:'Develop',done:used('develop')});
-    const n=G.heroes.filter(h=>h.alive&&h.p==G.cur&&!h.mc&&h.acts>0).reduce((s,h)=>s+h.acts,0);
-    if(n)items.push({t:`${n} hero action${n>1?'s':''} left`});
+    // hero actions category: lists what each hero can still do, and completes when none is left
+    const avail=G.heroes.filter(h=>h.alive&&h.p==G.cur&&!h.mc&&h.acts>0).map(h=>{const a=[];if(canAct(h,'move'))a.push('Move');if(canAct(h,'attack'))a.push('Attack');if(canAct(h,'develop'))a.push('Develop');return {h,a}}).filter(x=>x.a.length);
+    if(avail.length)items.push({t:'Hero actions: '+avail.map(x=>`H${x.h.k}: ${x.a.join('/')}`).join(' · ')});
+    else items.push({t:'Hero actions: none left',done:true});
   }
   if(mcBlock())items.push({t:'Use or cede your Mind Controlled hero'});
-  if(p.hand.length)items.push({t:`Traversal cards: drag skill cards onto heroes, or play 5V`});
+  if(p.hand.length)items.push({t:'Traversal cards: drag skill cards onto heroes, or play 5V'});
   if(p.v>=5)items.push({t:`${p.v} V: buy options on the right`});
   if(boardOK()&&!mcBlock()&&!G.heroes.some(h=>h.alive&&h.p==G.cur&&h.acts>0))items.push({t:'Nothing left: end your turn',head:1});
   // a menu that is open shows its options as a temporary item
@@ -611,6 +676,7 @@ function drawBoard(){
   const svg=$('svg'),top=$('top'),logEl=$('log'),hand=$('hand'),wh=$('wheel'),bs=$('buyside'),cx=$('cx'),bar=$('bar'),bottom=$('bottom');
   document.body.classList.toggle('wait',!!G&&!myTurn()&&!ctrlActive());
   bottom.classList.toggle('min',BOT_MIN);
+  TIPS={};
   if(!G){svg.innerHTML='';top.innerHTML='';logEl.innerHTML='';hand.innerHTML='';bs.innerHTML='';bar.innerHTML='';$('todo').innerHTML='';wh.style.display='none';cx.style.display='none';return}
   setViewBox();
   const cands=G.mode=='place'?[...new Set(Object.values(G.tiles).flatMap(t=>adj(t.c)).filter(c=>!tile(c)&&valid(c)).map(K))].map(P):[];
@@ -621,10 +687,11 @@ function drawBoard(){
     // hextiles highlight only for barrier actions and removable tiles during Decline
     const c=t.c,ok=valid(c)&&(G.mode=='barrier'||(G.mode=='develop'&&G.dev=='barrier')),rm=G.mode=='remove'&&valid(c),fill=t.gz?GZF:t.disc?TC[t.sk]:NEUT,stroke=t.own>=0?COL[t.own]:'#c9a227';
     const seen=t.disc||t.own==mi;
+    TIPS['t'+K(c)]=tipTile(t);
     // the tile symbol fills the hextile and is centred on it
     const sym=t.gz?'⬡':!seen?'?':(t.sk=='bar'?'🛑':ICON[t.sk]);
     const big=(t.bar&&seen&&t.sk=='bar')?'🛑'+t.bar:sym;
-    o+=`<polygon data-k="${K(c)}" class="${ok?'ok':''}${rm?' rm':''}" fill="${fill}" stroke="${stroke}" stroke-width="1.5" points="${hexPts(c)}"/>`;
+    o+=`<polygon data-k="${K(c)}" data-tip="t${K(c)}" class="${ok?'ok':''}${rm?' rm':''}" fill="${fill}" stroke="${stroke}" stroke-width="1.5" points="${hexPts(c)}"/>`;
     if(t.bar>0)o+=`<polygon class="barglow" points="${hexPts(c,R-9)}" stroke="${barCol(c)}" style="filter:drop-shadow(0 0 1.5px ${barCol(c)})"/>`;
     o+=`<text class="${t.bar&&G.mode&&!ok?'mute':''}" x="${px(c)}" y="${py(c)}" font-size="${big.length>2?22:34}" fill="#fff">${big}</text>`;
     if(t.bar&&!(t.sk=='bar'&&seen))o+=`<text x="${px(c)+R*0.5}" y="${py(c)+R*0.6}" font-size="8" font-weight="bold" fill="#ffd54f" stroke="#000" stroke-width="1" paint-order="stroke">🛑${t.bar}</text>`;
@@ -633,25 +700,27 @@ function drawBoard(){
     if(!h.alive)return;
     let [x,y]=hpos(h);const sel=G.sel===h;
     if(G.tw&&G.tw.h===h){const tt=Math.min(1,(performance.now()-G.tw.t0)/420),ee=1-Math.pow(1-tt,3);x=G.tw.x0+(x-G.tw.x0)*ee;y=G.tw.y0+(y-G.tw.y0)*ee}
-    const tip=`<b>${esc(who(h))}</b><br>✊ ${h.s.str} · 🛡️ ${h.s.def} · 🏹 ${h.s.rng} · 🧠 ${h.s.int}<br>Damage ${h.dmg}/${h.s.def}${canHero(h)?' · Actions left '+h.acts:''}${h.mc?'<br>Mind Controlled by '+esc(G.pl[h.mc.by].name)+(h.mc.ceded?' · ceded':''):''}`;
+    TIPS['h'+hi]=tipHero(h);
     const march=canHero(h)&&h.acts>0&&!G.mode&&!G.drag?`<circle class='ring-march' cx='${x}' cy='${y}' r='8'/>`:'';
     const dots=canHero(h)?`<text x="${x}" y="${y-9}" font-size="6" fill="#ffe8a3" stroke="#000" stroke-width="1" paint-order="stroke">${'●'.repeat(h.acts)}${'✕'.repeat(Math.max(0,2-h.acts))}</text>`:'';
-    o+=`<g class="${G.mode&&(G.mode=='buyskill'||G.mode=='develop')&&!uSel(h)?'mute':''}" data-u="h${hi}" data-k="${K(h.c)}" data-tip="${tip}"><circle cx="${x}" cy="${y}" r="6" fill="${hcol(h)}" stroke="${COL[h.p]}" stroke-width="${sel?2:1.5}"/>${h.mc?`<circle class='ring-mc' cx='${x}' cy='${y}' r='9'/>`:''}${march}${ringH(h,x,y)}${dots}${h.dmg?`<text x="${x+8}" y="${y-6}" font-size="7" font-weight="bold" fill="#ff5252">-${h.dmg}</text>`:''}</g>`;
+    o+=`<g class="${G.mode&&(G.mode=='buyskill'||G.mode=='develop')&&!uSel(h)?'mute':''}" data-u="h${hi}" data-k="${K(h.c)}" data-tip="h${hi}"><circle cx="${x}" cy="${y}" r="6" fill="${hcol(h)}" stroke="${COL[h.p]}" stroke-width="${sel?2:1.5}"/>${h.mc?`<circle class='ring-mc' cx='${x}' cy='${y}' r='9'/>`:''}${march}${ringH(h,x,y)}${dots}${h.dmg?`<text x="${x+8}" y="${y-6}" font-size="7" font-weight="bold" fill="#ff5252">-${h.dmg}</text>`:''}</g>`;
   });
   // objects sit in a row above the tile symbol, each with its own item symbol
   G.objs.forEach((ob,oi)=>{
-    if(!ob.alive)return;
-    const tip=ob.nuke?`<b>☢ Nuke</b><br>Takes ${ob.s.def} hits · Hits ${ob.dmg}/${ob.s.def}<br>Any attack hits it. Destroying it triggers the Apocalypse`:`<b>${esc(G.pl[ob.p].name)} object</b><br>✊ ${ob.s.str} · 🛡️ ${ob.s.def} · 🏹 ${ob.s.rng} · 🧠 ${ob.s.int}<br>Damage ${ob.dmg}/${ob.s.def}`;
-    if(ob.nuke){
-      const x=px(ob.c),y=py(ob.c);
-      o+=`<g data-k="${K(ob.c)}" data-tip="${tip}"><circle cx="${x}" cy="${y}" r="9" fill="#2a0a0a" stroke="#ff3d3d" stroke-width="1.2"/><text x="${x}" y="${y}" font-size="11" fill="#ff3d3d">☢</text>${G.mode=='attack'||dh?`<circle class='ring-nk' cx='${x}' cy='${y}' r='12'/>`:''}</g>`;
-      return;
-    }
+    if(!ob.alive||ob.nuke)return;
+    TIPS['o'+oi]=tipObj(ob);
     const same=objsAt(ob.c).filter(x=>!x.nuke),i=same.indexOf(ob),n=same.length;
     const x=px(ob.c)+(i-(n-1)/2)*15,y=py(ob.c)-20;
-    const car=dh&&K(ob.c)==K(dh.c)&&ob.p==dh.p;
-    o+=`<g class="${G.mode&&(G.mode=='buyskill'||G.mode=='develop')&&!uSel(ob)?'mute':''}" data-u="o${oi}" data-k="${K(ob.c)}" data-tip="${tip}"><rect x="${x-7}" y="${y-7}" width="14" height="14" rx="3" fill="${COL[ob.p]}" stroke="#0e0e12" stroke-width="1"/>${uSel(ob)||car?`<rect class='ring-o' x="${x-10}" y="${y-10}" width="20" height="20" rx="4"/>`:''}<text x="${x}" y="${y-1}" font-size="9">${ob.sym||'🧱'}</text><text x="${x+5}" y="${y+5}" font-size="5" font-weight="bold" fill="#fff" stroke="#000" stroke-width=".8" paint-order="stroke">${ob.s.def}</text></g>`;
+    const car=dh&&K(ob.c)==K(dh.c)&&(ob.p==dh.p||true);
+    o+=`<g class="${G.mode&&(G.mode=='buyskill'||G.mode=='develop')&&!uSel(ob)?'mute':''}" data-u="o${oi}" data-k="${K(ob.c)}" data-tip="o${oi}"><rect x="${x-7}" y="${y-7}" width="14" height="14" rx="3" fill="${COL[ob.p]}" stroke="#0e0e12" stroke-width="1"/>${uSel(ob)||car?`<rect class='ring-o' x="${x-10}" y="${y-10}" width="20" height="20" rx="4"/>`:''}<text x="${x}" y="${y-1}" font-size="9">${ob.sym||'🧱'}</text><text x="${x+5}" y="${y+5}" font-size="5" font-weight="bold" fill="#fff" stroke="#000" stroke-width=".8" paint-order="stroke">${ob.s.def}</text></g>`;
   });
+  // the Nuke is drawn last, centred on its tile, with a generous hit area
+  const nk=G.objs.find(x=>x.alive&&x.nuke);
+  if(nk){
+    TIPS.nuke=tipNuke(nk);
+    const x=px(nk.c),y=py(nk.c);
+    o+=`<g data-k="${K(nk.c)}" data-tip="nuke"><circle cx="${x}" cy="${y}" r="16" fill="transparent"/><circle cx="${x}" cy="${y}" r="10" fill="#2a0a0a" stroke="#ff3d3d" stroke-width="1.6"/><text x="${x}" y="${y}" font-size="13" fill="#ff3d3d">☢</text>${G.mode=='attack'||dh?`<circle class='ring-nk' cx='${x}' cy='${y}' r='13'/>`:''}</g>`;
+  }
   if(G.drag&&G.drag.moved){const [hx,hy]=hpos(G.drag.h);o+=`<line x1="${hx}" y1="${hy}" x2="${G.drag.cx}" y2="${G.drag.cy}" stroke="#ffe066" stroke-width="2" stroke-dasharray="6 4" marker-end="url(#ar)" style="animation:march .5s linear infinite"/>`}
   svg.innerHTML=o;
   const p=G.pl[G.cur];
@@ -671,9 +740,9 @@ function drawBoard(){
   // bottom bar: section labels and icon buttons, with minimize
   bar.innerHTML=`<button class="sbtn" data-sec="log">📜 Log</button><button class="sbtn" data-sec="hand">🃏 Hand (${hm.length})</button><button class="sbtn" data-sec="buy">🛒 Buy</button><span style="flex:1"></span><button class="sbtn" data-min="1">${BOT_MIN?'▴ Expand':'▾ Minimize'}</button>`;
   if(G.wheel){
-    const w=G.wheel,[x,y]=w.xy||scr(w.c),n=w.items.length;
+    const w=G.wheel,[x,y]=w.xy||scr(w.c),n=w.items.length,emo=w.kind=='emo';
     wh.style.left=x+'px';wh.style.top=y+'px';wh.style.display='block';
-    wh.innerHTML=w.items.map((it,i)=>{const a=-Math.PI/2+i*2*Math.PI/n;return `<button class="wbtn ${it.on?'on':''}" data-w="${it.v}" ${it.dis?'disabled':''} style="left:calc(${Math.cos(a).toFixed(3)} * var(--r));top:calc(${Math.sin(a).toFixed(3)} * var(--r))"><span class="wi">${it.ic}</span><small>${it.t||''}</small></button>`}).join('')+'<button class="wbtn wx" data-w="x">✕</button>';
+    wh.innerHTML=w.items.map((it,i)=>{const a=-Math.PI/2+i*2*Math.PI/n;return `<button class="wbtn ${emo?'emo':''} ${it.on?'on':''}" data-w="${it.v}" ${it.dis?'disabled':''} style="left:calc(${Math.cos(a).toFixed(3)} * var(--r));top:calc(${Math.sin(a).toFixed(3)} * var(--r))"><span class="wi">${it.ic}</span>${it.t?`<small>${it.t}</small>`:''}</button>`}).join('')+'<button class="wbtn wx" data-w="x">✕</button>';
   }else{wh.style.display='none';wh.innerHTML=''}
   // round ✕ to cancel the current mode, shown like the wheel's close button
   if(G.mode&&G.mode!='place'&&G.mode!='remove'&&!G.wheel){cx.style.display='block';cx.style.top=(top.offsetHeight+8)+'px';cx.innerHTML='<button class="xbtn" data-cancel="1">✕</button>'}
@@ -773,7 +842,12 @@ addEventListener('pointerup',e=>{
   let tgt=null;for(const t of Object.values(G.tiles)){if(Math.hypot(px(t.c)-v.x,py(t.c)-v.y)<R){tgt=t.c;break}}
   if(!tgt){note('Drop on a tile or an enemy hero to act');return render()}
   const A=ac(d.h),en=heroesAt(tgt).find(x=>ac(x)!=A),nk=nukeAt(tgt);
-  if(en){
+  // dropping close to the Nuke's centre targets the Nuke, even with heroes on its tile
+  const nearNuke=nk&&Math.hypot(px(tgt)-v.x,py(tgt)-v.y)<14;
+  if(nearNuke){
+    if(canNukeHit(d.h)&&dist(d.h.c,tgt)<=d.h.s.rng)attackNuke(d.h,nk);else note('Nuke attack needs range and an attack action left');
+  }
+  else if(en){
     // release over an enemy: choose Combat or Mind Control
     const inRange=dist(d.h.c,tgt)<=d.h.s.rng;
     const atkOk=inRange&&canAct(d.h,'attack');
@@ -782,7 +856,6 @@ addEventListener('pointerup',e=>{
     else G.wheel={c:tgt,kind:'atkchoice',a:d.h,d:en,items:[{v:'atk',ic:'⚔️',t:'Combat',dis:!atkOk},{v:'mind',ic:'🧠',t:'Mind Control',dis:!mindOk}]};
   }
   else if(nk&&!canAct(d.h,'move')){
-    // the Nuke is only attacked when the hero has no move left to take
     if(canNukeHit(d.h)&&dist(d.h.c,tgt)<=d.h.s.rng)attackNuke(d.h,nk);else note('Nuke attack needs range and an attack action left');
   }
   else{
@@ -800,8 +873,9 @@ $('svg').addEventListener('pointermove',e=>{
   const el=e.target.closest('[data-u],[data-k]');
   if(el!==hovEl){if(hovEl)hovEl.classList.remove('hov');hovEl=el;if(el)el.classList.add('hov')}
   const tg=e.target.closest('[data-tip]'),tipEl=$('tip');
-  if(!tg){tipEl.style.display='none';return}
-  tipEl.innerHTML=tg.dataset.tip;tipEl.style.display='block';
+  const T=tg&&TIPS[tg.dataset.tip];
+  if(!T){tipEl.style.display='none';return}
+  tipEl.className='k-'+T.k;tipEl.style.setProperty('--pc',T.c);tipEl.innerHTML=T.html;tipEl.style.display='block';
   tipEl.style.left=Math.min(e.clientX+16,innerWidth-300)+'px';tipEl.style.top=(e.clientY+16)+'px';
 });
 $('svg').addEventListener('pointerleave',()=>{$('tip').style.display='none';if(hovEl){hovEl.classList.remove('hov');hovEl=null}});
@@ -900,7 +974,6 @@ function wheelPick(v){
     G.bdir=null;
     // a Natural 20 reopens the full develop menu; otherwise the develop step is over
     if(!G.wheel){G.mode='';G.dev=null}
-    G.msg=G.msg||'';
     return render();
   }
   if(w.kind=='discover'){G.wheel=null;const pd=G.pend2;G.pend2=null;if(pd){pd.t.disc=1;const u=v=='obj'?objFor(pd.h):pd.h;if(!u)note('No object here to receive the bonus');else{u.s[pd.sk]=Math.min(5,u.s[pd.sk]+1);log(`  ${u.k?who(u):'Object'} +1 ${pd.sk} from discovery`,pd.h.p)}}return render()}
