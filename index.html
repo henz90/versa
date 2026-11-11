@@ -1,5 +1,6 @@
 <!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>VERSA</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cpolygon points='16,2 28,9 28,23 16,30 4,23 4,9' fill='%2324243a' stroke='%23ffe066' stroke-width='3'/%3E%3C/svg%3E">
 <style>
 :root{color-scheme:dark;--r:clamp(70px,9vmin,130px)}
 *{box-sizing:border-box}
@@ -16,6 +17,7 @@ body{margin:0;font-size:clamp(12px,1.05vw,17px);font-family:system-ui,sans-serif
 #hand .sec{width:100%}
 #buyside{flex:0 0 auto;width:clamp(140px,15vw,230px);min-width:0;background:#101018;border-left:1px solid #2c2c3e;padding:.5em;display:flex;flex-direction:column;gap:.35em;overflow:auto}
 #buyside .sec{font-size:.8em}
+.vside{font-size:1.5em;font-weight:800;color:#ffd54f;text-align:center;padding:.3em;background:#17171f;border-radius:.4em}
 button{background:#2a2a36;color:inherit;border:1px solid #454558;border-radius:.45em;padding:.4em .6em;cursor:pointer;font:inherit}
 button.on{background:#4a6cf7;border-color:#4a6cf7}
 button:disabled{opacity:.35;cursor:default}
@@ -26,7 +28,8 @@ button:disabled{opacity:.35;cursor:default}
 .endb{background:linear-gradient(135deg,#ff2e7e,#ff9500);border:none;color:#fff;font-weight:800;padding:.4em .9em;box-shadow:0 0 14px #ff2e7e99}
 .ghost{background:transparent}
 polygon{cursor:pointer}
-polygon.rm{stroke-dasharray:6 4;animation:march 2.4s linear infinite}
+polygon.ok{stroke:#ffe066!important;stroke-width:1.5!important}
+polygon.rm{stroke:#ff9f6e!important;stroke-width:2!important;stroke-dasharray:6 4;animation:march 2.4s linear infinite}
 polygon.hov{stroke:#fff!important;stroke-width:2.5!important;filter:brightness(1.35)}
 g.hov circle{stroke:#fff!important;stroke-width:2.5!important}
 g.hov rect{stroke:#fff!important;stroke-width:1.5!important}
@@ -41,7 +44,6 @@ text{pointer-events:none;text-anchor:middle;dominant-baseline:central;font-famil
 .mute{opacity:.28}
 .badge{color:#000;font-weight:800;border-radius:.4em;padding:.2em .6em}
 .chip{font-size:.85em;background:#2a2a3c;border-radius:20px;padding:.2em .7em}
-.versa{font-size:1.4em;font-weight:800;color:#ffd54f}
 .vs{position:relative;display:inline-block;font-weight:800;margin-left:.05em}
 .vs::before,.vs::after{content:'';position:absolute;left:-.15em;right:-.15em;height:.09em;background:currentColor;top:40%}
 .vs::after{top:54%}
@@ -59,17 +61,23 @@ text{pointer-events:none;text-anchor:middle;dominant-baseline:central;font-famil
 [data-card]{cursor:grab}
 #wheel{position:absolute;width:0;height:0;z-index:5;display:none}
 .wbtn{position:absolute;width:clamp(60px,8vmin,92px);height:clamp(60px,8vmin,92px);transform:translate(-50%,-50%);border-radius:50%;display:flex;flex-direction:column;align-items:center;justify-content:center;background:#1c1c2c;border:1.5px solid #8a8aff;font-size:.95em;padding:0;line-height:1.1;box-shadow:0 4px 14px #000a}
+.wbtn.on{background:#4a6cf7;border-color:#4a6cf7}
 .wbtn .wi{font-size:1.6em}
 .wbtn small{font-size:.8em;font-weight:700}
 .wbtn.wx{left:0;top:0;width:clamp(34px,4vmin,44px);height:clamp(34px,4vmin,44px);background:#3a2a2a}
 #fx{position:absolute;left:50%;top:38%;transform:translate(-50%,-50%);display:flex;flex-direction:column;align-items:center;gap:.5em;pointer-events:none;z-index:6;max-width:90%}
-.fx{background:#000d;border:1px solid #8a8aff;border-radius:.7em;padding:.5em .9em;font-size:1.15em;font-weight:700;line-height:1.5;text-align:center;animation:fxin .3s ease-out,fxout .4s ease-in 2.2s forwards}
+.fx{background:#000d;border:1px solid #8a8aff;border-radius:.7em;padding:.5em .9em;font-size:1.15em;font-weight:700;line-height:1.7;text-align:center;animation:fxin .3s ease-out,fxout .4s ease-in 2.6s forwards}
 .fx span{display:inline-block;animation:pop .35s both;animation-delay:var(--d,0s)}
-.fx.nat{border-color:#ffd54f;background:#2a2100f0;font-size:1.6em;box-shadow:0 0 50px #ffd54f88;animation:natin .6s ease-out,fxout .4s ease-in 2.6s forwards}
+.fx .die{display:inline-block;min-width:1.7em;text-align:center;background:#f4f4f4;color:#111;border-radius:.3em;padding:.1em .3em;font-weight:900;margin:0 .15em;animation:roll .7s cubic-bezier(.2,.8,.3,1) both;animation-delay:var(--d,0s)}
+.fx .bon{display:inline-block;background:#24243a;border:1px solid #556;border-radius:.4em;padding:0 .35em;margin:0 .15em;font-size:.9em;animation:pop .35s both;animation-delay:var(--d,0s)}
+.fx.nat{border-color:#ffd54f;background:#2a2100f0;font-size:1.6em;box-shadow:0 0 50px #ffd54f88;animation:natin .6s ease-out,fxout .4s ease-in 2.8s forwards}
+.fx.nat>span:first-child{color:#ffd54f;animation:spin .8s ease-out both}
 @keyframes fxin{from{opacity:0;transform:translateY(14px) scale(.9)}to{opacity:1;transform:none}}
 @keyframes fxout{to{opacity:0;transform:translateY(-12px)}}
 @keyframes pop{from{opacity:0;transform:scale(.3)}to{opacity:1;transform:none}}
+@keyframes roll{0%{transform:rotate(-720deg) scale(.3);opacity:0}70%{transform:rotate(15deg) scale(1.15);opacity:1}100%{transform:none;opacity:1}}
 @keyframes natin{0%{opacity:0;transform:scale(.3) rotate(-8deg)}60%{transform:scale(1.12)}100%{opacity:1;transform:none}}
+@keyframes spin{from{transform:rotate(-360deg) scale(.2)}to{transform:none}}
 .ghostc{position:fixed;pointer-events:none;z-index:30;transform:translate(-50%,-50%);background:#24243a;border:1px solid #ffe066;border-radius:.6em;padding:.4em .7em;font-size:1.2em;opacity:.9}
 #carry{position:fixed;pointer-events:none;z-index:31;background:#000e;border:1px solid #ffe066;border-radius:.5em;padding:.3em .6em;font-size:1em;line-height:1.5;white-space:nowrap}
 #tip{position:fixed;display:none;pointer-events:none;background:#000f;border:1px solid #556;border-radius:.6em;padding:.6em .8em;font-size:1.25em;line-height:1.45;z-index:9;max-width:26em}
@@ -97,7 +105,7 @@ const TC={str:'#7a2e38',def:'#24527a',rng:'#4f6b26',int:'#5b3478',bar:'#7a5a22'}
 const ICON={str:'✊',def:'🛡️',rng:'🏹',int:'🧠',bar:'🛑'},NAME={str:'Strength',def:'Defense',rng:'Range',int:'Intelligence',bar:'Barrier'},SK=['str','def','rng','int'];
 const DIRS=[[1,-1,0],[1,0,-1],[0,1,-1],[-1,1,0],[-1,0,1],[0,-1,1]],R=36;
 const HINT={attack:'Drag your hero onto an enemy hero in range. Release to choose Combat or Mind Control. Drop on the Nuke to attack it.',barrier:'Click a discovered tile next to one of your heroes (creates L3, or +1).',hero:'Click a tile with one of your heroes to spawn a new one (acts next turn).',obj:'Click a tile with one of your heroes to place an object.',buyskill:'Cyan rings: heroes you can pick. Gold rings: objects you can pick.'};
-const HINT_DEV={barrier:'Where should the barrier go? Highlighted: your hero\'s tile and the tiles next to it.',object:'Where should the object go? Highlighted: your hero\'s tile and the tiles next to it.',skill:'Click one of the highlighted heroes or objects to raise the chosen skill.'};
+const HINT_DEV={barrier:'Where should the barrier go? Highlighted: your hero\'s tile and the tiles next to it.',object:'Where should the object go? Click a tile next to your hero or on its tile.',skill:'Click one of the highlighted heroes or objects to raise the chosen skill.'};
 const K=c=>c.join(','),P=k=>k.split(',').map(Number);
 const dist=(a,b)=>(Math.abs(a[0]-b[0])+Math.abs(a[1]-b[1])+Math.abs(a[2]-b[2]))/2;
 const px=c=>Math.sqrt(3)*R*(c[0]+c[2]/2),py=c=>1.5*R*c[2];
@@ -106,6 +114,8 @@ const shuffle=a=>{for(let i=a.length-1;i>0;i--){const j=Math.random()*(i+1)|0;[a
 const makeDeck=()=>shuffle(['str','def','rng','int','v'].flatMap(s=>[s,s,s]));
 const adj=c=>DIRS.map(d=>[c[0]+d[0],c[1]+d[1],c[2]+d[2]]);
 const esc=s=>String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+const die=(v,d)=>`<span class="die" style="--d:${d}s">${v}</span>`;
+const bon=(t,d)=>`<span class="bon" style="--d:${d}s">${t}</span>`;
 const NUKE_DEF=3;
 
 // ---------- session state ----------
@@ -117,10 +127,11 @@ const validName=n=>/^[A-Za-z0-9]{2,16}$/.test(n);
 // ---------- lookups ----------
 const tile=c=>G.tiles[K(c)];
 const heroesAt=c=>G.heroes.filter(h=>h.alive&&K(h.c)==K(c));
-const objHere=c=>G.objs.find(o=>o.alive&&K(o.c)==K(c));
+const objsAt=c=>G.objs.filter(o=>o.alive&&K(o.c)==K(c));
+// the object a hero uses in combat or develop: its first own object on its tile
 const objFor=h=>G.objs.find(o=>o.alive&&!o.nuke&&o.p==h.p&&K(o.c)==K(h.c));
-// objects travel with their owner's hero; the Nuke only travels when expressly taken
-const carriedBy=(h,withNuke)=>G.objs.filter(o=>o.alive&&K(o.c)==K(h.c)&&(o.nuke?withNuke:o.p==h.p));
+// objects a hero may take with it: its own objects and the Nuke, if they started on its tile
+const carryable=h=>objsAt(h.c).filter(o=>o.nuke||o.p==h.p);
 const nukeAt=c=>G.objs.find(o=>o.alive&&o.nuke&&K(o.c)==K(c));
 const objCount=p=>G.objs.filter(o=>o.alive&&!o.nuke&&o.p==p).length;
 const gzb=h=>tile(h.c)?.gz?1:0;
@@ -136,15 +147,19 @@ const ac=h=>h.mc&&h.mc.ceded?h.mc.by:h.p;
 const canHero=h=>{if(!G||!G.started||G.over||!h||!h.alive||h.p!=G.cur)return false;if(h.p==myIdx())return myTurn()&&!h.mc;return !!h.mc&&h.mc.ceded&&h.mc.by==myIdx()};
 const ctrlActive=()=>!!G&&G.started&&!G.over&&G.cur!=myIdx()&&G.heroes.some(h=>h.alive&&h.p==G.cur&&h.mc&&h.mc.ceded&&h.mc.by==myIdx());
 const mindOK=(h,A)=>h.alive&&(!h.mc||h.mc.by==A)&&!(h.mcCool!==undefined&&(G.rd===h.mcCool||G.rd===h.mcCool+1));
+// the current player may not end the turn while one of their Mind Controlled heroes still has actions
+const mcBlock=()=>!!G&&G.heroes.some(h=>h.alive&&h.p==G.cur&&h.mc&&h.acts>0);
 const who=h=>`${G.pl[h.p].name} H${h.k}`;
 const phase=()=>G.rd<=3?'Peace · Growth':G.rd<=5?'War · Growth':G.rd==6?'Stagnation':'Decline';
 const removable=()=>Object.values(G.tiles).some(t=>!t.gz&&t.own==G.cur&&!heroesAt(t.c).length);
 const needsBoard=()=>G.rd<=5?G.pl[G.cur].pool.length>0:G.rd>=7&&removable();
 const boardOK=()=>G.done||!needsBoard();
-const canRep=(h,m)=>!h.t.some(x=>x.type==m&&!x.fail)||h.ok[m];
+// a hero may repeat an action only if its only action so far was that same action and it failed
+const canRep=(h,m)=>h.ok[m]||h.t.length==0||(h.t.length==1&&h.t[0].type==m&&h.t[0].fail);
 const canAct=(h,t)=>!G.over&&h.alive&&h.p==G.cur&&boardOK()&&h.acts>0&&canRep(h,t)&&(t!='attack'||G.rd>=4);
 const canNukeHit=h=>!G.over&&h.alive&&h.p==G.cur&&boardOK()&&h.acts>0&&canRep(h,'attack');
-const barMine=t=>heroesAt(t.c).some(h=>h.p==myIdx())||t.barOwn==myIdx();
+// barrier ownership is judged by the acting player's heroes
+const barMineFor=(t,h)=>heroesAt(t.c).some(x=>ac(x)==ac(h))||t.barOwn==ac(h);
 const note=s=>{G.msg=s};
 function log(t,p=-1){G.log.unshift({t,p});G.log.length=Math.min(G.log.length,80)}
 function act(h,type,fail){h.acts--;h.t.push({type,fail:!!fail});h.ok[type]=0}
@@ -255,6 +270,7 @@ function beginEffects(){
 }
 function endTurn(){
   if(!boardOK())return note('Finish your board step first');
+  if(mcBlock())return note('Use or cede your Mind Controlled hero\'s actions first');
   // Mind Control: the controller must have renewed control this turn, or it ends
   G.heroes.forEach(h=>{
     if(!h.alive)return;
@@ -286,12 +302,12 @@ function valid(c){
     case 'develop':{
       if(!t||!G.dev||!s||dist(s.c,c)>1)return false;
       if(G.dev=='barrier')return !G.apoc&&t.disc;
-      if(G.dev=='object')return !G.apoc&&objCount(G.cur)<3&&!objHere(c);
+      if(G.dev=='object')return !G.apoc&&objCount(G.cur)<3;
       return heroesAt(c).some(h=>ac(h)==A)||G.objs.some(o=>o.alive&&!o.nuke&&o.p==A&&K(o.c)==k);
     }
     case 'barrier':return !G.apoc&&!!t&&t.disc&&t.bar<12&&me.some(h=>dist(h.c,c)<=1);
     case 'hero':return me.some(h=>K(h.c)==k);
-    case 'obj':return !G.apoc&&objCount(G.cur)<3&&!objHere(c)&&me.some(h=>K(h.c)==k);
+    case 'obj':return !G.apoc&&objCount(G.cur)<3&&me.some(h=>K(h.c)==k);
     case 'buyskill':return !!t&&(heroesAt(c).some(h=>h.p==G.cur&&h.s[G.devSkill]<5)||G.objs.some(o=>o.alive&&!o.nuke&&o.p==G.cur&&o.s[G.devSkill]<5&&K(o.c)==k));
   }
   return false;
@@ -326,16 +342,16 @@ function applyCard(i,u){
   u.s[c]++;p.hand.splice(i,1);log(`${u.k?G.pl[u.p].name+' H'+u.k:'Object'} +1 ${NAME[c]} from a card`,G.cur);
 }
 function carryText(h){
-  const parts=carriedBy(h,false).map(o=>`🧱 object (DEF ${o.s.def})`);
-  if(nukeAt(h.c))parts.push('☢ Nuke here: you choose whether to take it');
-  return parts.length?'Carrying: '+parts.join(' · '):'Moving alone';
+  const c=carryable(h);
+  return c.length?'Objects here: choose which to take when you release':'Moving alone';
 }
-function moveCore(h,c,takeNuke){
+function moveCore(h,c,carry){
   const a=d6(),b=d6(),r=a+b;
   if(!h.mc)G.pl[G.cur].v+=r;   // Mind Controlled heroes' moves earn no Versa
   act(h,'move',0);
-  const carried=carriedBy(h,takeNuke);
+  const carried=carry||[];
   h.c=c;carried.forEach(o=>o.c=c);
+  fx(`🏃 ${who(h)} ${die(a,0)} ${die(b,.2)} ${bon(h.mc?'no Versa':'+'+r+' V',.5)}`);
   log(`${who(h)} 🏃 (${c}) rolled ${a}+${b}${h.mc?'':': +'+r+'V'}`,h.p);
   if(carried.length)log(`  Carried along: ${carried.map(o=>o.nuke?'☢ Nuke':'🧱 object (DEF '+o.s.def+')').join(', ')}`,h.p);
   if(G.first&&!h.mc){G.first=false;drawCard()}
@@ -347,23 +363,25 @@ function moveCore(h,c,takeNuke){
     }
     else{h.s[t.sk]=Math.min(5,h.s[t.sk]+1);log(`  Discovered ${t.sk} HexTile: +1`,h.p)}}
 }
-function move(h,c,takeNuke){
+// carry is undefined until the player chooses which objects come along
+function move(h,c,carry){
   if(heroesAt(c).some(x=>ac(x)!=ac(h))&&K(c)!='0,0,0')return note('Opponents can\'t share a tile online yet');
-  // the Nuke only moves when a player expressly takes it
-  if(takeNuke===undefined&&nukeAt(h.c)){G.pm={h,c};G.wheel={c:h.c,kind:'nuke',items:[{v:'take',ic:'☢',t:'Take Nuke'},{v:'leave',ic:'🚫',t:'Leave it'}]};return}
+  const choices=carryable(h);
+  if(carry===undefined&&choices.length){G.pm={h,c,sel:[]};G.wheel={c:h.c,kind:'carry',items:carryItems()};return}
   const t0=tile(c),before=K(h.c),ask=t0&&!t0.disc&&t0.sk!='bar'&&objFor(h);
   const wasD=t0&&t0.disc;if(ask)t0.disc=1;
-  moveCore(h,c,!!takeNuke);
+  moveCore(h,c,carry||[]);
   if(t0&&!wasD&&t0.sk=='bar'&&t0.disc)t0.barOwn=h.p;
   if(ask){t0.disc=0;if(K(h.c)!=before){G.pend={t:t0,h,sk:t0.sk};G.wheel={c,kind:'discover',items:[{v:'hero',ic:'👤',t:'Hero'},{v:'obj',ic:'🧱',t:'Object'}]}}}
 }
+const carryItems=()=>{const pm=G.pm,sel=pm.sel;return [...carryable(pm.h).map(o=>({v:'o'+G.objs.indexOf(o),ic:o.nuke?'☢':'🧱',t:(sel.includes(o)?'✔ ':'')+(o.nuke?'Nuke':'DEF '+o.s.def),on:sel.includes(o)})),{v:'go',ic:'➜',t:'Move'}]};
 function attack(a,d){
   const t=tile(d.c),tw=who(d);
-  if(t.bar){const r=d6()+d6();if(r<=t.bar){act(a,'attack',1);log(`${who(a)} ⚔ barrier 2d6 rolled ${r} vs L${t.bar}: blocked`,a.p);fx(`🎲 ${who(a)} barrier 2d6: ${r} vs L${t.bar} · BLOCKED`);return}}
+  if(t.bar){const r1=d6(),r2=d6(),r=r1+r2;if(r<=t.bar){act(a,'attack',1);log(`${who(a)} ⚔ barrier 2d6 rolled ${r1}+${r2}=${r} vs L${t.bar}: blocked`,a.p);fx(`🛑 ${who(a)} barrier: ${die(r1,0)} ${die(r2,.2)} = ${r} vs ${bon('🛑 L'+t.bar,.5)} · BLOCKED`);return}}
   const oa=objFor(a),od=objFor(d),ra=d20(),rd=d20(),sa=a.s.str,ga=gzb(a),oas=oa?oa.s.str:0,A=ra+sa+ga+oas;
   const sd=d.s.def,gd=gzb(d),ods=od?od.s.def:0,D=rd+sd+gd+ods,hit=A>D;
   act(a,'attack',!hit);
-  fx(`⚔ ${who(a)}: ${ra} + ${sa} STR${ga?' + 1 GZ':''}${oas?' + '+oas+' obj':''} = <b>${A}</b><br>vs ${tw}: ${rd} + ${sd} DEF${gd?' + 1 GZ':''}${ods?' + '+ods+' obj':''} = <b>${D}</b> · ${hit?'HIT':'MISS'}`);
+  fx(`⚔ ${who(a)} ${die(ra,0)} ${bon('✊+'+sa,.35)}${ga?bon('⬡+1',.5):''}${oas?bon('🧱+'+oas,.65):''} = <b>${A}</b><br>vs ${tw} ${die(rd,.9)} ${bon('🛡️+'+sd,1.25)}${gd?bon('⬡+1',1.4):''}${ods?bon('🧱+'+ods,1.55):''} = <b>${D}</b> · ${hit?'<span style="color:#66bb6a">HIT</span>':'<span style="color:#ff7b7b">MISS</span>'}`);
   log(`${who(a)} ⚔ ${tw}: rolled ${ra}+${sa}${ga?'+1 GZ':''}${oas?'+'+oas+' obj':''} = ${A} vs ${rd}+${sd}${gd?'+1 GZ':''}${ods?'+'+ods+' obj':''} = ${D}: ${hit?'hit':'miss'}`,a.p);
   if(hit){let dm=sa;if(od){od.dmg+=dm;dm=0;if(od.dmg>=od.s.def){od.alive=0;dm=od.dmg-od.s.def;log('  Object destroyed, excess spills to hero',d.p)}else log('  Object absorbs the hit',d.p)}d.dmg+=dm;if(d.dmg>=d.s.def)kill(d,'killed in combat')}
   if(ra==20){a.acts++;a.ok.attack=1;natFx('⚔️','Attack');log('  Natural 20: Attack available again',a.p)}
@@ -374,7 +392,7 @@ function attackNuke(a,nk){
   const ra=d20(),sa=a.s.str,ga=gzb(a),A=ra+sa+ga;
   act(a,'attack',0);
   nk.dmg+=sa;
-  fx(`☢ ${who(a)} hits the Nuke: ${ra} + ${sa} STR${ga?' + 1 GZ':''} = <b>${A}</b><br>Nuke takes ${sa} damage (${nk.dmg}/${nk.s.def})`);
+  fx(`☢ ${who(a)} ${die(ra,0)} ${bon('✊+'+sa,.35)}${ga?bon('⬡+1',.5):''} = <b>${A}</b><br>Nuke takes ${sa} damage (${nk.dmg}/${nk.s.def})`);
   log(`${who(a)} ☢ attacked the Nuke: rolled ${ra}+${sa}${ga?'+1 GZ':''} = ${A}; Nuke takes ${sa} damage (${nk.dmg}/${nk.s.def})`,a.p);
   if(nk.dmg>=nk.s.def){nk.alive=0;G.nd=1;log('☢ The Nuke is destroyed!',a.p)}
   if(ra==20){a.acts++;a.ok.attack=1;natFx('⚔️','Attack');log('  Natural 20: Attack available again',a.p)}
@@ -383,28 +401,28 @@ function attackNuke(a,nk){
 function mindRoll(h,tg){
   const oa=objFor(h),ob=objFor(tg),a=d20(),b=d20(),ai=h.s.int+gzb(h)+(oa?oa.s.int:0),bi=tg.s.int+(tile(tg.c).bar||0)+(ob?ob.s.int:0),A=a+ai,D=b+bi,ok=A>D;
   act(h,'mind',!ok);
-  fx(`🧠 ${who(h)} Mind Control: ${a} + ${ai} INT = <b>${A}</b><br>vs ${who(tg)}: ${b} + ${bi} INT/barrier = <b>${D}</b> · ${ok?'CONTROLLED':'RESISTED'}`);
+  fx(`🧠 ${who(h)} ${die(a,0)} ${bon('🧠+'+ai,.35)} = <b>${A}</b><br>vs ${who(tg)} ${die(b,.9)} ${bon('🧠+'+bi+' / 🛑',1.25)} = <b>${D}</b> · ${ok?'<span style="color:#66bb6a">CONTROLLED</span>':'<span style="color:#ff7b7b">RESISTED</span>'}`);
   if(ok){tg.mc={by:h.p,ceded:false,kept:true};log(`${who(h)} 🧠 Mind Controls ${who(tg)} (${A} vs ${D})`,h.p)}
   else{log(`${who(h)} 🧠 failed to control ${who(tg)} (${A} vs ${D})`,h.p);if(tg.mc&&tg.mc.by==h.p){tg.mc=null;tg.mcCool=G.rd;log(`  Control of ${who(tg)} lost; it can't be controlled again until the next round ends`,h.p)}}
   check();
 }
 function develop(h,c,tu){
   const o=objFor(h),tk=G.take,r=tk?0:d20(),ob=o?o.s.int:0,gz=gzb(h),tot=tk?10:r+h.s.int+gz+ob,t=c?tile(c):null,op=G.dev;
-  const bd=tk?'take 10':`${r} + ${h.s.int} INT${gz?' + 1 GZ':''}${ob?' + '+ob+' obj':''}`;
-  if(tot<10){act(h,'develop',1);fx(`🛠 ${who(h)}: ${bd} = <b>${tot}</b> · FAILED`);log(`${who(h)} 🛠 rolled ${bd} = ${tot}: failed`,h.p);return note(`Develop rolled ${tot}: needed 10 or more`)}
+  const bd=tk?`${bon('take 10',0)}`:`${die(r,0)} ${bon('🧠+'+h.s.int,.35)}${gz?bon('⬡+1',.5):''}${ob?bon('🧱+'+ob,.65):''}`;
+  if(tot<10){act(h,'develop',1);fx(`🛠 ${who(h)} ${bd} = <b>${tot}</b> · <span style="color:#ff7b7b">FAILED</span>`);log(`${who(h)} 🛠 rolled ${tk?'10 (taken)':r} +${tot-(tk?10:r)} = ${tot}: failed`,h.p);return note(`Develop rolled ${tot}: needed 10 or more`)}
   const b=tot>=19?3:tot>=16?2:1;
   act(h,'develop',0);
-  fx(`🛠 ${who(h)}: ${bd} = <b>${tot}</b> · +${b} bonus`);
-  log(`${who(h)} 🛠 rolled ${bd} = ${tot}: bonus ${b}`,h.p);
+  fx(`🛠 ${who(h)} ${bd} = <b>${tot}</b> · <span style="color:#66bb6a">+${b} bonus</span>`);
+  log(`${who(h)} 🛠 rolled ${tk?'10 (taken)':r} +${tot-(tk?10:r)} = ${tot}: bonus ${b}`,h.p);
   if(op=='barrier'){
     if(!t.disc)return note('Barriers can only go on discovered tiles');
     if(t.bar){
-      if(barMine(t)){t.bar=Math.min(12,t.bar+b);log(`  builds own barrier at (${c}) up by ${b} to L${t.bar}`,h.p)}
+      if(barMineFor(t,h)){t.bar=Math.min(12,t.bar+b);log(`  builds own barrier at (${c}) up by ${b} to L${t.bar}`,h.p)}
       else{const nb=t.bar-b;
         if(nb<3){t.bar=0;t.barOwn=undefined;log(`  destroys opponent barrier at (${c}): it fell below L3`,h.p)}
         else{t.bar=nb;log(`  lowers opponent barrier at (${c}) by ${b} to L${t.bar}`,h.p)}}
     }
-    else{t.bar=Math.min(12,3+(b-1));t.barOwn=myIdx();log(`  creates barrier at (${c}) at L${t.bar}`,h.p)}
+    else{t.bar=Math.min(12,3+(b-1));t.barOwn=ac(h);log(`  creates barrier at (${c}) at L${t.bar}`,h.p)}
   }
   else if(op=='object'){G.objs.push({p:G.cur,c,s:{str:0,def:b,rng:0,int:0},dmg:0,alive:1});log(`  creates an object at (${c}) with Defense ${b}`,h.p)}
   else{tu.s[G.devSkill]=Math.min(5,tu.s[G.devSkill]+b);log(`  ${tu.k?who(tu):'object'} ${G.devSkill} +${b} → ${tu.s[G.devSkill]}`,h.p)}
@@ -422,7 +440,7 @@ const rollItems=()=>[{v:'roll',ic:'🎲',t:'Roll d20'},{v:'take',ic:'1️⃣',t:
 const buyItems=()=>{const p=G.pl[G.cur],mine=G.heroes.filter(h=>h.alive&&h.p==G.cur).length,bok=boardOK();return [['barrier','🛑','Barrier 5V',p.v<5||G.apoc||!bok],['obj','🧱','Object 5V',p.v<5||G.apoc||!bok||objCount(G.cur)>=3],['hero','👤','Hero 30V',p.v<30||mine>=3||!bok],['s:str','✊','STR +1',p.v<5||!bok],['s:def','🛡️','DEF +1',p.v<5||!bok],['s:rng','🏹','RNG +1',p.v<5||!bok],['s:int','🧠','INT +1',p.v<5||!bok]].map(([v,ic,t,dis])=>({v,ic,t,dis}))};
 
 // ---------- effects ----------
-function fx(html,cls){const d=document.createElement('div');d.className='fx '+(cls||'');d.innerHTML=html;$('fx').appendChild(d);vsify();setTimeout(()=>d.remove(),2700)}
+function fx(html,cls){const d=document.createElement('div');d.className='fx '+(cls||'');d.innerHTML=html;$('fx').appendChild(d);vsify();setTimeout(()=>d.remove(),3000)}
 const natFx=(ic,name)=>fx(`<span>NATURAL 20!</span> ${ic} ${name} available again`,'nat');
 
 // ---------- input helpers ----------
@@ -449,10 +467,10 @@ function drawBoard(){
   let o='<defs><marker id="ar" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 z" fill="#ffe066"/></marker></defs>';
   cands.forEach(c=>o+=`<polygon class="cand" data-k="${K(c)}" points="${hexPts(c)}" style="animation-delay:-${((performance.now()/1000)%2.4).toFixed(2)}s"/>`);
   Object.values(G.tiles).forEach(t=>{
-    // hextiles highlight only for barrier actions
-    const c=t.c,ok=valid(c)&&(G.mode=='barrier'||(G.mode=='develop'&&G.dev=='barrier')),fill=t.gz?GZF:t.disc?TC[t.sk]:NEUT,stroke=t.own>=0?COL[t.own]:'#c9a227';
+    // hextiles highlight only for barrier actions and removable tiles during Decline
+    const c=t.c,ok=valid(c)&&(G.mode=='barrier'||(G.mode=='develop'&&G.dev=='barrier')),rm=G.mode=='remove'&&valid(c),fill=t.gz?GZF:t.disc?TC[t.sk]:NEUT,stroke=t.own>=0?COL[t.own]:'#c9a227';
     const seen=t.disc||t.own==mi,lbl=t.gz?'⬡'+(t.bar?' 🛑'+t.bar:''):!seen?'?'+(t.bar?' 🛑'+t.bar:''):t.sk=='bar'?(t.bar?'🛑'+t.bar:'🛑'):ICON[t.sk]+(t.bar?' 🛑'+t.bar:'');
-    o+=`<polygon data-k="${K(c)}" class="${ok?'ok':''}${G.mode=='remove'&&valid(c)?' rm':''}" fill="${fill}" stroke="${stroke}" stroke-width="1.5" points="${hexPts(c)}"/>`;
+    o+=`<polygon data-k="${K(c)}" class="${ok?'ok':''}${rm?' rm':''}" fill="${fill}" stroke="${stroke}" stroke-width="1.5" points="${hexPts(c)}"/>`;
     o+=`<text class="${t.bar&&G.mode&&!ok?'mute':''}" x="${px(c)}" y="${py(c)-12}" font-size="10" fill="#eee">${lbl}</text>`;
   });
   G.heroes.forEach((h,hi)=>{
@@ -472,29 +490,31 @@ function drawBoard(){
       o+=`<g data-k="${K(ob.c)}" data-tip="${tip}"><circle cx="${x}" cy="${y}" r="7" fill="#2a0a0a" stroke="#ff3d3d" stroke-width="1.2"/><text x="${x}" y="${y+1}" font-size="9" fill="#ff3d3d">☢</text>${G.mode=='attack'||dh?`<circle class='ring-nk' cx='${x}' cy='${y}' r='10'/>`:''}</g>`;
       return;
     }
-    const own=heroesAt(ob.c).find(h=>h.p==ob.p),[hx,hy]=own?hpos(own):[px(ob.c),py(ob.c)+12];
-    const x=hx,y=hy+8;
+    // ordinary objects sit in a row across their tile, in the middle
+    const same=objsAt(ob.c).filter(x=>!x.nuke),i=same.indexOf(ob),n=same.length;
+    const x=px(ob.c)+(i-(n-1)/2)*13,y=py(ob.c)-1;
     const car=dh&&K(ob.c)==K(dh.c)&&ob.p==dh.p;
     o+=`<g class="${G.mode&&(G.mode=='buyskill'||G.mode=='develop')&&!uSel(ob)?'mute':''}" data-u="o${oi}" data-k="${K(ob.c)}" data-tip="${tip}"><rect x="${x-6}" y="${y-6}" width="12" height="12" rx="3" fill="${COL[ob.p]}" stroke="#0e0e12" stroke-width="1"/>${uSel(ob)||car?`<rect class='ring-o' x='${x-9}' y='${y-9}' width='18' height='18' rx='4'/>`:''}<text x="${x}" y="${y}" font-size="6">🛡️</text><text x="${x}" y="${y+2}" font-size="7" font-weight="bold" fill="#fff" stroke="#000" stroke-width="1" paint-order="stroke">${ob.s.def}</text></g>`;
   });
   if(G.drag&&G.drag.moved){const [hx,hy]=hpos(G.drag.h);o+=`<line x1="${hx}" y1="${hy}" x2="${G.drag.cx}" y2="${G.drag.cy}" stroke="#ffe066" stroke-width="2" stroke-dasharray="6 4" marker-end="url(#ar)" style="animation:march .5s linear infinite"/>`}
   svg.innerHTML=o;
   const p=G.pl[G.cur];
-  top.innerHTML=`<span class="badge" style="background:${COL[G.cur]}">${esc(p.name)}'s turn</span><span class="chip">Round ${G.rd} · ${phase()}</span><span class="versa">${p.v} V</span>${G.apoc?'<span class="alert">☢ Apocalypse</span>':''}${G.over?`<span class="alert">🏆 ${esc(G.over)}</span>`:''}
+  top.innerHTML=`<span class="badge" style="background:${COL[G.cur]}">${esc(p.name)}'s turn</span><span class="chip">Round ${G.rd} · ${phase()}</span>${G.apoc?'<span class="alert">☢ Apocalypse</span>':''}${G.over?`<span class="alert">🏆 ${esc(G.over)}</span>`:''}
     <span class="hint" id="hint"></span>
     <span style="flex:1"></span>
-    ${myTurn()?`<button class="endb" data-end="1" ${boardOK()?'':'disabled'}>➜ End Turn</button>`:''}
+    ${myTurn()?`<button class="endb" data-end="1" ${boardOK()&&!mcBlock()?'':'disabled'}>➜ End Turn</button>`:''}
     <button class="ghost" data-leave="1">Leave</button>
     ${G.pl.map((_,i)=>`<span class="pchip ${i==G.cur?'cur':''} ${alivePl(i)?'':'out'}" style="--c:${COL[i]}">${esc(G.pl[i].name)} · ${alivePl(i)?G.heroes.filter(h=>h.alive&&h.p==i).length+' heroes':'out'}</span>`).join('')}`;
   logEl.innerHTML=G.log.slice(0,60).map(l=>`<div style="color:${l.p>=0?COL[l.p]:'#9a9ab0'}">${esc(l.t)}</div>`).join('');
   const hm=G.pl[mi]?.hand||[];
   hand.innerHTML=mi<0?'<span class="muted">Spectating</span>':`<div class="sec">Traversal hand · ${hm.length} card${hm.length==1?'':'s'}</div>`+(hm.map((c,i)=>`<div class="card-t"><button data-card="${i}" class="cbtn"><span class="cicon">${c=='v'?'💰':ICON[c]}</span><small>${c=='v'?'+5V':'+1 '+NAME[c]}</small></button><button class="dc" data-disc="${i}">Sell 2V</button></div>`).join('')||'<span class="muted small">No cards. Move a hero to draw one.</span>');
+  const vp=G.pl[mi>=0?mi:G.cur];
   bs.style.display='flex';
-  bs.innerHTML=myTurn()?'<div class="sec">Buy</div>'+buyItems().map(i=>`<button class="opt2 ${buyOn(i.v)?'on':''}" data-bi="${i.v}" ${i.dis?'disabled':''}>${i.ic} ${i.t}</button>`).join(''):'<span class="muted small">Buying is available on your turn.</span>';
+  bs.innerHTML=`<div class="vside">${vp.v} V</div>`+(myTurn()?'<div class="sec">Buy</div>'+buyItems().map(i=>`<button class="opt2 ${buyOn(i.v)?'on':''}" data-bi="${i.v}" ${i.dis?'disabled':''}>${i.ic} ${i.t}</button>`).join(''):'<span class="muted small">Buying is available on your turn.</span>');
   if(G.wheel){
     const w=G.wheel,[x,y]=w.xy||scr(w.c),n=w.items.length;
     wh.style.left=x+'px';wh.style.top=y+'px';wh.style.display='block';
-    wh.innerHTML=w.items.map((it,i)=>{const a=-Math.PI/2+i*2*Math.PI/n;return `<button class="wbtn" data-w="${it.v}" ${it.dis?'disabled':''} style="left:calc(${Math.cos(a).toFixed(3)} * var(--r));top:calc(${Math.sin(a).toFixed(3)} * var(--r))"><span class="wi">${it.ic}</span><small>${it.t}</small></button>`}).join('')+'<button class="wbtn wx" data-w="x">✕</button>';
+    wh.innerHTML=w.items.map((it,i)=>{const a=-Math.PI/2+i*2*Math.PI/n;return `<button class="wbtn ${it.on?'on':''}" data-w="${it.v}" ${it.dis?'disabled':''} style="left:calc(${Math.cos(a).toFixed(3)} * var(--r));top:calc(${Math.sin(a).toFixed(3)} * var(--r))"><span class="wi">${it.ic}</span><small>${it.t}</small></button>`}).join('')+'<button class="wbtn wx" data-w="x">✕</button>';
   }else{wh.style.display='none';wh.innerHTML=''}
   // round ✕ to cancel the current mode, shown like the wheel's close button
   if(G.mode&&G.mode!='place'&&G.mode!='remove'&&!G.wheel){cx.style.display='block';cx.style.top=(top.offsetHeight+8)+'px';cx.innerHTML='<button class="xbtn" data-cancel="1">✕</button>'}
@@ -506,7 +526,8 @@ function hintText(){
   if(G.msg)return G.msg;
   if(ctrlActive())return 'You control a ceded hero this turn. Drag it to act with it.';
   if(!myTurn())return `Waiting for ${G.pl[G.cur].name}…`;
-  if(!boardOK())return G.rd<=5?'Place a tile: click a dashed spot, then choose its skill.':'Decline: click one of your tiles with no hero on it.';
+  if(!boardOK())return G.rd<=5?'Place a tile: click a dashed spot, then choose its skill.':'Decline: click one of the marching tiles with no hero on it.';
+  if(mcBlock())return 'A Mind Controlled hero still has actions. Use or cede them before ending your turn.';
   if(G.mode=='develop')return G.dev?HINT_DEV[G.dev=='skill'?'skill':G.dev]:'Pick a develop option, then a target.';
   return HINT[G.mode]||'Drag your hero to move or attack. Click it to develop. Drag a card onto a hero.';
 }
@@ -522,7 +543,7 @@ function drawModal(){
   const ni=$('nameIn');if(ni)ni.value=UNAME;
 }
 // Out of options only when no hero can act, Versa is under 5 and no Traversal cards remain
-const noOpts=()=>!G.over&&boardOK()&&!G.heroes.some(h=>h.alive&&h.p==G.cur&&h.acts>0&&(canAct(h,'move')||canAct(h,'attack')||canAct(h,'develop')))&&G.pl[G.cur].v<5&&G.pl[G.cur].hand.length==0;
+const noOpts=()=>!G.over&&boardOK()&&!mcBlock()&&!G.heroes.some(h=>h.alive&&h.p==G.cur&&h.acts>0&&(canAct(h,'move')||canAct(h,'attack')||canAct(h,'develop')))&&G.pl[G.cur].v<5&&G.pl[G.cur].hand.length==0;
 function vsify(){[...['top','log','hand','fx','modal','wheel','tip','carry','buyside'].map(i=>$(i)),...document.querySelectorAll('.ghostc')].forEach(root=>{if(!root)return;const w=document.createTreeWalker(root,NodeFilter.SHOW_TEXT),nodes=[];while(w.nextNode())nodes.push(w.currentNode);nodes.forEach(n=>{if(!/\d ?V\b/.test(n.nodeValue))return;const parts=n.nodeValue.split(/(\d+ ?)V\b/),frag=document.createDocumentFragment();parts.forEach((p,i)=>{if(i%2){frag.append(p);const s=document.createElement('span');s.className='vs';s.textContent='V';frag.append(s)}else if(p)frag.append(p)});n.replaceWith(frag)})})}
 function render(){
   if(G&&G.mode=='develop'&&!G.dev&&!G.wheel)G.mode='';
@@ -547,8 +568,8 @@ $('svg').addEventListener('pointerdown',e=>{
 function dragLabel(d){
   const cl=$('carry'),a=d.h,aO=objFor(a),e=d.hover;
   if(!e){cl.textContent=carryText(a);return}
-  const eO=objFor(e),bon=(o,k)=>o?` +${o.s[k]} obj`:'';
-  cl.innerHTML=`⚔ ${esc(who(a))}: STR ${a.s.str}${bon(aO,'str')} · INT ${a.s.int}${bon(aO,'int')}<br>🛡 ${esc(who(e))}: STR ${e.s.str}${bon(eO,'str')} · DEF ${e.s.def}${bon(eO,'def')} · INT ${e.s.int}${bon(eO,'int')}`;
+  const eO=objFor(e),bon2=(o,k)=>o?` +${o.s[k]} obj`:'';
+  cl.innerHTML=`⚔ ${esc(who(a))}: STR ${a.s.str}${bon2(aO,'str')} · INT ${a.s.int}${bon2(aO,'int')}<br>🛡 ${esc(who(e))}: STR ${e.s.str}${bon2(eO,'str')} · DEF ${e.s.def}${bon2(eO,'def')} · INT ${e.s.int}${bon2(eO,'int')}`;
 }
 addEventListener('pointermove',e=>{
   if(PAN){
@@ -599,6 +620,7 @@ addEventListener('pointerup',e=>{
     else G.wheel={c:tgt,kind:'atkchoice',a:d.h,d:en,items:[{v:'atk',ic:'⚔️',t:'Combat',dis:!atkOk},{v:'mind',ic:'🧠',t:'Mind Control',dis:!mindOk}]};
   }
   else if(nk&&!canAct(d.h,'move')){
+    // the Nuke is only attacked when the hero has no move left to take
     if(canNukeHit(d.h)&&dist(d.h.c,tgt)<=d.h.s.rng)attackNuke(d.h,nk);else note('Nuke attack needs range and an attack action left');
   }
   else{
@@ -664,9 +686,15 @@ function click(k,u){
 }
 function wheelPick(v){
   const w=G.wheel;
-  if(!w||v=='x'){if(w&&w.kind=='discover')return;if(w&&w.kind=='nuke')G.pm=null;G.wheel=null;return render()}
+  if(!w||v=='x'){if(w&&w.kind=='discover')return;if(w&&w.kind=='carry')G.pm=null;G.wheel=null;return render()}
   if(w.kind=='place'){G.wheel=null;place(w.c,v);return render()}
-  if(w.kind=='nuke'){G.wheel=null;const pm=G.pm;G.pm=null;if(pm)move(pm.h,pm.c,v=='take');return render()}
+  if(w.kind=='carry'){
+    const pm=G.pm;
+    if(v=='go'){G.wheel=null;G.pm=null;if(pm)move(pm.h,pm.c,pm.sel);return render()}
+    const o=G.objs[+v.slice(1)],i=pm.sel.indexOf(o);
+    if(i>=0)pm.sel.splice(i,1);else pm.sel.push(o);
+    G.wheel={c:pm.h.c,kind:'carry',items:carryItems()};return render();
+  }
   if(w.kind=='atkchoice'){
     G.wheel=null;G.mode='';
     if(v=='atk'){if(canAct(w.a,'attack')&&dist(w.a.c,w.d.c)<=w.a.s.rng)attack(w.a,w.d);else note('Combat not available')}
@@ -689,7 +717,7 @@ function buyPick(v){if(v.startsWith('s:')){G.devSkill=v.slice(2);G.mode='buyskil
 function cancelMode(){if(G.mode!='place'&&G.mode!='remove'){G.mode='';G.dev=null}G.wheel=null;G.pm=null;G.msg='';render()}
 $('top').onclick=e=>{
   if(!G)return;const t=e.target.closest('button');if(!t)return;const d=t.dataset;
-  if(d.end!==undefined){if(!myTurn())return;if(boardOK())endTurn();else note('Finish your board step first');return render()}
+  if(d.end!==undefined){if(!myTurn())return;if(!boardOK())note('Finish your board step first');else if(mcBlock())note('Use or cede your Mind Controlled hero\'s actions first');else endTurn();return render()}
   if(d.leave!==undefined){leaveRoom();return}
 };
 $('buyside').onclick=e=>{const b=e.target.closest('[data-bi]');if(b&&!b.disabled)buyPick(b.dataset.bi)};
@@ -723,7 +751,7 @@ addEventListener('pointerdown',e=>{
   if(t.closest('#wheel,#modal,#top button,#hand button,#buyside,#cx,#cx button'))return;
   if(t.closest('#svg')){
     const kk=t.closest('[data-k]');
-    OUT=!(t.closest('polygon.ok,polygon.cand')||(G.mode&&kk&&valid(P(kk.dataset.k)))||t.closest('g[data-u]')?.querySelector('[class^="ring-"]')||t.closest('g[data-k]')?.querySelector('[class^="ring-"]'));
+    OUT=!(t.closest('polygon.ok,polygon.cand,polygon.rm')||(G.mode&&kk&&valid(P(kk.dataset.k)))||t.closest('g[data-u]')?.querySelector('[class^="ring-"]')||t.closest('g[data-k]')?.querySelector('[class^="ring-"]'));
     return;
   }
   if(backOne())render();
@@ -731,7 +759,7 @@ addEventListener('pointerdown',e=>{
 function backOne(){
   const w=G.wheel;
   if(w&&w.kind=='discover')return false;
-  if(w&&(G.mode=='develop'||w.kind=='nuke')){G.wheel=null;G.pm=null;if(G.mode=='develop'){G.mode='';G.dev=null}G.msg='';return true}
+  if(w&&(G.mode=='develop'||w.kind=='carry')){G.wheel=null;G.pm=null;if(G.mode=='develop'){G.mode='';G.dev=null}G.msg='';return true}
   if(w){G.wheel=(G.wstack||[]).pop()||null;if(G.mode=='develop'&&!G.dev)G.mode='';G.msg='';return true}
   if(G.mode=='develop'){G.mode='';G.dev=null;G.msg='';return true}
   if(G.mode&&G.mode!='place'&&G.mode!='remove'){G.mode='';G.dev=null;G.msg='';return true}
@@ -746,7 +774,7 @@ $('modal').onclick=e=>{
   if(d.join!==undefined){const c=($('codeIn')?.value||'').trim().toUpperCase();if(c)joinRoom(c);return}
   if(d.start!==undefined)return startGame();
   if(d.leave!==undefined)return leaveRoom();
-  if(d.end!==undefined){if(boardOK())endTurn();return render()}
+  if(d.end!==undefined){if(boardOK()&&!mcBlock())endTurn();return render()}
 };
 
 // ---------- boot ----------
