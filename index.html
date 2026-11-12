@@ -428,11 +428,11 @@
   const isControllingOpponent = () => !!G && G.started && !G.over && G.cur !== myIndex()
     && G.heroes.some(h => h.alive && h.p === G.cur && h.mc && h.mc.ceded && h.mc.by === myIndex());
 
-  // Mind Control cannot target a hero released in this round or the last
-  const canBeMindControlled = (hero, controller) => hero.alive
-    && (!hero.mc || hero.mc.by === controller)
+  // a hero can be targeted unless it was released in this round or the last.
+  // A hero controlled by another player can still be contested: its owner rolls to free it.
+  const canBeMindControlled = hero => hero.alive
     && !(hero.mcCooldown !== undefined && (G.rd === hero.mcCooldown || G.rd === hero.mcCooldown + 1));
-
+    
   const hasControlledHeroWithActions = () =>
     G.heroes.some(h => h.alive && h.p === G.cur && h.mc && h.acts > 0);
 
@@ -854,18 +854,6 @@
     if (ui.mode === 'remove' && !needsRemoval()) ui.mode = '';
   }
 
-  // a Mind Controlled hero with no actions left goes back to its owner.
-  // Only the controlling player's browser applies this, so it happens once.
-  function releaseSpentControls() {
-    if (!G || !G.started || G.over) return;
-    G.heroes.forEach(h => {
-      if (h.alive && h.mc && h.mc.ceded && h.mc.by === myIndex() && h.acts <= 0) {
-        addLog(`${G.pl[h.mc.by].name} releases control of ${heroLabel(h)}; it has no actions left`, h.mc.by);
-        h.mc = null;
-        h.mcCooldown = G.rd;
-      }
-    });
-  }
 
   /* =============================================================
      12. LOG, MESSAGES AND SPENDING
@@ -1179,19 +1167,33 @@
     checkWinner();
   }
 
+   // Mind Control attack. If the hero is already controlled by someone else, its owner
+  // rolls to free it: the owner wins ties and the hero is released; otherwise the attacker takes control.
   function mindControlRoll(hero, target) {
-    const heroObject = objectFor(hero), targetObject = objectFor(target);
     const roll1 = rollD20(), roll2 = rollD20();
-    const heroTotal = hero.s.int + gzBonus(hero) + (heroObject ? heroObject.s.int : 0);
-    const targetTotal = target.s.int + (tileAt(target.c).bar || 0) + (targetObject ? targetObject.s.int : 0);
-    const attack = roll1 + heroTotal, defense = roll2 + targetTotal, success = attack > defense;
+    const heroObject = objectFor(hero);
+    const attack = roll1 + hero.s.int + gzBonus(hero) + (heroObject ? heroObject.s.int : 0);
 
-    spendAction(hero, 'mind', !success);
-    showFloat(`🧠 ${heroLabel(hero)} ${dieHtml(roll1, 0)} ${bonusHtml('🧠+' + heroTotal, .35)} = <b>${attack}</b><br>vs ${heroLabel(target)} ${dieHtml(roll2, .9)} ${bonusHtml('🧠+' + targetTotal + ' / 🛑', 1.25)} = <b>${defense}</b> · ${success ? '<span style="color:#66bb6a">CONTROLLED</span>' : '<span style="color:#ff7b7b">RESISTED</span>'}`);
+    const contested = !!target.mc && target.mc.by !== hero.p;
+    const defenderPlayer = contested ? target.p : actingPlayer(target);
+    const defenderObject = G.objs.find(o => o.alive && !o.nuke && o.p === defenderPlayer && sameTile(o.c, target.c));
+    const defense = roll2 + target.s.int + (tileAt(target.c).bar || 0) + (defenderObject ? defenderObject.s.int : 0);
 
-    if (success) {
+    const attackerWins = contested ? defense < attack : attack > defense;
+    spendAction(hero, 'mind', !attackerWins);
+
+    const outcome = attackerWins ? 'CONTROLLED' : contested ? 'FREED' : 'RESISTED';
+    const colour = attackerWins ? '#66bb6a' : '#ff7b7b';
+    showFloat(`🧠 ${heroLabel(hero)} ${dieHtml(roll1, 0)} ${bonusHtml('🧠+' + (attack - roll1), .35)} = <b>${attack}</b><br>vs ${heroLabel(target)} ${dieHtml(roll2, .9)} ${bonusHtml('🧠+' + (defense - roll2) + ' / 🛑', 1.25)} = <b>${defense}</b> · <span style="color:${colour}">${outcome}</span>`);
+
+    if (attackerWins) {
       target.mc = { by: hero.p, ceded: false, kept: true };
-      addLog(`${heroLabel(hero)} 🧠 Mind Controls ${heroLabel(target)} (${attack} vs ${defense})`, hero.p);
+      addLog(`${heroLabel(hero)} 🧠 ${contested ? 'takes control of' : 'Mind Controls'} ${heroLabel(target)} (${attack} vs ${defense})`, hero.p);
+    } else if (contested) {
+      // the owner freed the hero: it is released and cannot be controlled until the next round
+      addLog(`${G.pl[target.p].name} breaks free: ${heroLabel(target)} is released from ${G.pl[target.mc.by].name} (${defense} vs ${attack})`, target.p);
+      target.mc = null;
+      target.mcCooldown = G.rd;
     } else {
       addLog(`${heroLabel(hero)} 🧠 failed to control ${heroLabel(target)} (${attack} vs ${defense})`, hero.p);
       if (target.mc && target.mc.by === hero.p) {
@@ -2315,7 +2317,6 @@
 
   function render() {
     if (G) {
-      releaseSpentControls();
       syncModeWithRules();
     }
     drawBoard();
