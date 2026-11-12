@@ -135,6 +135,7 @@
     .card-t small { font-size: min(7cqh, 11cqw); color: #9a9ab0; white-space: nowrap; overflow: hidden; max-width: 100%; line-height: 1.15; }
     .cicon { font-size: clamp(1.2em, 26cqh, 2.6em); line-height: 1; }
     .ghostc { position: fixed; pointer-events: none; z-index: 30; transform: translate(-50%, -50%); background: #24243a; border: 1px solid #ffe066; border-radius: .6em; padding: .4em .7em; font-size: 1.2em; opacity: .9; }
+    .card-t .dc { font-size: min(6cqh, 9cqw); padding: .1em .3em; line-height: 1.1; max-width: 100%; text-align: center; }
 
     /* =========================================================
        WHEEL MENU
@@ -1407,6 +1408,17 @@
     addLog('Played a 5V card: +5V', G.cur);
   }
 
+    // a 5V card sells for 5V; every skill card sells for 2V
+  function sellCard(index) {
+    const player = G.pl[G.cur];
+    const card = player.hand[index];
+    if (card === undefined) return;
+    const value = card === 'v' ? RULES.cardVersa : RULES.sellValue;
+    player.hand.splice(index, 1);
+    player.v += value;
+    addLog(`Sold a ${card === 'v' ? '5V' : SKILL_NAME[card]} card for ${value}V`, G.cur);
+  }
+
   function applySkillCard(index, unit) {
     const player = G.pl[G.cur], card = player.hand[index];
     if (card === 'v') return playVersaCard(index);
@@ -1853,10 +1865,13 @@
     render();
   }
 
-  function onHandClick(event) {
+    function onHandClick(event) {
     if (suppressHandClick || !G || !isMyTurn()) return;
+    const sell = event.target.closest('[data-sell]');
     const card = event.target.closest('[data-card]');
-    if (card) {
+    if (sell) {
+      sellCard(+sell.dataset.sell);
+    } else if (card) {
       const index = +card.dataset.card;
       if (G.pl[G.cur].hand[index] === 'v') playVersaCard(index);
       else setMessage('Drag a skill card onto a hero or object');
@@ -2108,7 +2123,8 @@
       const full = card === 'v' ? '+5V' : '+1 ' + SKILL_NAME[card];
       const short = card === 'v' ? '+5V' : '+1 ' + SKILL_SHORT[card];
       return `<div class="card-t">
-        <button class="cbtn" data-card="${i}"><span class="cicon">${icon}</span><small class="fit" data-full="${full}" data-short="${short}" data-symbol="${icon}">${full}</small></button>
+               <button class="cbtn" data-card="${i}"><span class="cicon">${icon}</span><small class="fit" data-full="${full}" data-short="${short}" data-symbol="${icon}">${full}</small></button>
+        <button class="dc" data-sell="${i}">${card === 'v' ? 'Sell for 5V' : 'Sell for 2V'}</button>
       </div>`;
     }).join('');
     hand.innerHTML = cardHtml || '<span class="muted small">No cards. Move a hero to draw one.</span>';
