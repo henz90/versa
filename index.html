@@ -96,6 +96,8 @@
     /* =========================================================
        BOARD
        ========================================================= */
+    #svg.apoc-flash { animation: apocFlash 1.6s ease-out; }
+    @keyframes apocFlash { 0% { background: #ffffff; } 20% { background: #ff3d3d; } 100% { background: #4a1d1d; } }
     polygon { cursor: pointer; }
     polygon.ok { stroke: #ffe066 !important; stroke-width: 1.5 !important; }
     polygon.rm { stroke: #ff9f6e !important; stroke-width: 2 !important; stroke-dasharray: 6 4; animation: march 2.4s linear infinite; }
@@ -131,7 +133,6 @@
     .card-t { width: clamp(4.5em, 30cqh, 9em); overflow: hidden; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2cqh; padding: 3cqh 2cqh; background: #24243a; border: 1px solid #454558; border-radius: .7em; }
     .cbtn { border: 0; background: none; padding: 0; display: flex; flex-direction: column; align-items: center; gap: 2cqh; min-width: 0; width: 100%; color: inherit; cursor: grab; }
     .card-t small { font-size: min(7cqh, 11cqw); color: #9a9ab0; white-space: nowrap; overflow: hidden; max-width: 100%; line-height: 1.15; }
-    .card-t .dc { font-size: min(6cqh, 9cqw); padding: .1em .3em; line-height: 1.1; max-width: 100%; text-align: center; }
     .cicon { font-size: clamp(1.2em, 26cqh, 2.6em); line-height: 1; }
     .ghostc { position: fixed; pointer-events: none; z-index: 30; transform: translate(-50%, -50%); background: #24243a; border: 1px solid #ffe066; border-radius: .6em; padding: .4em .7em; font-size: 1.2em; opacity: .9; }
 
@@ -239,6 +240,7 @@
   const GROUND_ZERO_FILL = '#4d4118';
   const UNOWNED_STROKE = '#c9a227';
   const UNOCCUPIED_BARRIER = '#9a9a9a';
+  const APOCALYPSE_RED = '#4a1d1d';          // same red as the top bar's Apocalypse alert
 
   const SKILLS = ['str', 'def', 'rng', 'int'];
   const SKILL_ICON = { str: '✊', def: '🛡️', rng: '🏹', int: '🧠', bar: '🛑' };
@@ -256,11 +258,14 @@
   const NUKE_OFFSET = 21;
   const NUKE_RADIUS = 7;
 
+  // the giant Nuke behind Ground Zero after the Apocalypse is about 11 tiles wide
+  const APOCALYPSE_SYMBOL_SIZE = Math.round(11 * Math.sqrt(3) * HEX_RADIUS);
+
   const ROUND = { placementEnds: 5, attacksFrom: 4, declineFrom: 7 };
   const RULES = {
     maxPlayers: 6, maxHeroes: 3, maxObjects: 3, maxSkill: 5,
     minBarrier: 3, maxBarrier: 12, nukeHits: 3,
-    startVersa: 5, heroCost: 30, actionCost: 5, sellValue: 2, cardVersa: 5,
+    startVersa: 5, heroCost: 30, actionCost: 5, cardVersa: 5,
     heroActions: 2, offlineLimitMs: 60000, logLimit: 80,
     newObjectRange: 0,
   };
@@ -350,6 +355,9 @@
   let offlineSince = {};
   const seenTodo = new Set();
 
+  // wheels that must be answered; they cannot be dismissed
+  const MUST_CHOOSE = ['discovery', 'discoveryObject'];
+
   const ui = {
     mode: '',            // '', place, remove, develop, barrier, hero, obj, buyskill
     selected: null,      // hero performing the current action
@@ -410,7 +418,7 @@
     return hero ? PLAYER_COLORS[hero.p] : UNOCCUPIED_BARRIER;
   };
 
-  // this browser may move or attack with a hero: its own on its turn, or a ceded one it controls
+  // this browser may move, attack or develop with a hero: its own on its turn, or a ceded one it controls
   const canControlHero = hero => {
     if (!G || !G.started || G.over || !hero || !hero.alive || hero.p !== G.cur) return false;
     if (hero.p === myIndex()) return isMyTurn() && !hero.mc;
@@ -529,6 +537,8 @@
 
   // replaces the local game state with the state received from the database
   function applyRemoteState(state) {
+    const hadGame = !!G;
+    const wasApocalypse = hadGame && !!G.apoc;
     const priv = PRIV || { pool: [], hand: [], deck: [], sks: {} };
     const me = state.pl.findIndex(p => p.uid === ME);
     G = {
@@ -548,6 +558,7 @@
     lastPrivate = JSON.stringify(priv);
     revealHiddenTiles(me, priv);
     clearWeakBarriers();
+    if (hadGame && !wasApocalypse && G.apoc) playApocalypseAnimation();
     if (isMyTurn() && !boardStepDone() && !ui.mode) ui.mode = G.rd <= ROUND.placementEnds ? 'place' : 'remove';
     render();
   }
@@ -802,12 +813,25 @@
       return;
     }
     const apocalypse = (G.n >= 3 && alive.length === 2) || (G.n === 2 && G.nd);
-    if (apocalypse && !G.apoc) {
-      G.apoc = 1;
-      Object.values(G.tiles).forEach(t => { t.bar = 0; t.barOwn = undefined; });
-      G.objs.forEach(o => { o.alive = 0; });
-      addLog('☢ APOCALYPSE: barriers and objects destroyed');
-    }
+    if (apocalypse && !G.apoc) startApocalypse();
+  }
+
+  function startApocalypse() {
+    G.apoc = 1;
+    Object.values(G.tiles).forEach(t => { t.bar = 0; t.barOwn = undefined; });
+    G.objs.forEach(o => { o.alive = 0; });
+    addLog('☢ APOCALYPSE: barriers and objects destroyed');
+    playApocalypseAnimation();
+  }
+
+  // flashes the board red and shows a banner; restarts cleanly if it plays twice
+  function playApocalypseAnimation() {
+    const svg = el('svg');
+    svg.classList.remove('apoc-flash');
+    void svg.offsetWidth;
+    svg.classList.add('apoc-flash');
+    setTimeout(() => svg.classList.remove('apoc-flash'), 1700);
+    showFloat('<span>☢ APOCALYPSE</span> barriers and objects are destroyed', 'nat');
   }
 
   function killHero(hero, reason) {
@@ -828,6 +852,19 @@
   function syncModeWithRules() {
     if (ui.mode === 'place' && !needsPlacement()) ui.mode = '';
     if (ui.mode === 'remove' && !needsRemoval()) ui.mode = '';
+  }
+
+  // a Mind Controlled hero with no actions left goes back to its owner.
+  // Only the controlling player's browser applies this, so it happens once.
+  function releaseSpentControls() {
+    if (!G || !G.started || G.over) return;
+    G.heroes.forEach(h => {
+      if (h.alive && h.mc && h.mc.ceded && h.mc.by === myIndex() && h.acts <= 0) {
+        addLog(`${G.pl[h.mc.by].name} releases control of ${heroLabel(h)}; it has no actions left`, h.mc.by);
+        h.mc = null;
+        h.mcCooldown = G.rd;
+      }
+    });
   }
 
   /* =============================================================
@@ -1012,9 +1049,14 @@
       else addLog('  Barrier HexTile: no barrier (Apocalypse)', hero.p);
       return;
     }
-    if (carried.length) {
-      // with an object along, the player chooses whether the hero or the object gets the bonus
-      ui.pendingDiscovery = { hero, skill: tile.sk };
+    // the Nuke is never offered for upgrades; only other objects taken along can be
+    const upgradable = carried.filter(o => !o.nuke);
+    if (upgradable.length) {
+      ui.pendingDiscovery = {
+        heroIndex: G.heroes.indexOf(hero),
+        skill: tile.sk,
+        objectIndexes: upgradable.map(o => G.objs.indexOf(o)),
+      };
       openWheel({
         cube: hero.c, kind: 'discovery',
         items: [{ v: 'hero', ic: '👤', t: 'Hero' }, { v: 'obj', ic: '🧱', t: 'Object' }],
@@ -1025,14 +1067,32 @@
     addLog(`  Discovered ${tile.sk} HexTile: +1`, hero.p);
   }
 
-  function finishDiscovery(choice) {
+  // the player picks the hero or an object to receive the discovery bonus
+  function chooseDiscoveryTarget(choice) {
     const pending = ui.pendingDiscovery;
-    ui.pendingDiscovery = null;
     if (!pending) return;
-    const target = choice === 'obj' ? objectFor(pending.hero) : pending.hero;
-    if (!target) return setMessage('No object here to receive the bonus');
-    target.s[pending.skill] = Math.min(RULES.maxSkill, target.s[pending.skill] + 1);
-    addLog(`  ${target.k ? heroLabel(target) : 'Object'} +1 ${pending.skill} from discovery`, pending.hero.p);
+    const hero = G.heroes[pending.heroIndex];
+    if (choice === 'hero') {
+      ui.pendingDiscovery = null;
+      return improveUnit(hero, pending.skill, hero.p);
+    }
+    if (pending.objectIndexes.length === 1) {
+      ui.pendingDiscovery = null;
+      return improveUnit(G.objs[pending.objectIndexes[0]], pending.skill, hero.p);
+    }
+    openWheel({
+      cube: hero.c, kind: 'discoveryObject',
+      items: pending.objectIndexes.map(i => {
+        const obj = G.objs[i];
+        return { v: 'o' + i, ic: obj.sym || '🧱', t: 'DEF ' + obj.s.def };
+      }),
+    });
+  }
+
+  // +1 to a skill for a hero or an object
+  function improveUnit(unit, skill, logPlayer) {
+    unit.s[skill] = Math.min(RULES.maxSkill, unit.s[skill] + 1);
+    addLog(`  ${unit.k ? heroLabel(unit) : 'Object'} +1 ${skill} from discovery`, logPlayer);
   }
 
   /* =============================================================
@@ -1152,6 +1212,7 @@
 
   /* =============================================================
      16. DEVELOP AND PURCHASES
+     Mind Controlled heroes develop too; their new objects belong to the controller.
      ============================================================= */
 
   // develop roll: 10 or more succeeds, and the total sets the bonus size
@@ -1200,7 +1261,8 @@
   function applyDevelopEffect(hero, cube, unit, bonus) {
     if (ui.devType === 'barrier') return developBarrier(hero, cube, bonus);
     if (ui.devType === 'object') {
-      newObject(G.cur, cube, bonus);
+      // the controller of a Mind Controlled hero owns the new object
+      newObject(actingPlayer(hero), cube, bonus);
       return addLog(`  creates an object at (${cube}) with Defense ${bonus}`, hero.p);
     }
     unit.s[ui.devSkill] = Math.min(RULES.maxSkill, unit.s[ui.devSkill] + bonus);
@@ -1343,13 +1405,6 @@
     addLog('Played a 5V card: +5V', G.cur);
   }
 
-  function sellCard(index) {
-    const player = G.pl[G.cur];
-    player.hand.splice(index, 1);
-    player.v += RULES.sellValue;
-    addLog('Sold a card for 2V', G.cur);
-  }
-
   function applySkillCard(index, unit) {
     const player = G.pl[G.cur], card = player.hand[index];
     if (card === 'v') return playVersaCard(index);
@@ -1380,8 +1435,10 @@
   function openWheel(wheel) { ui.wheel = wheel; }
   function closeWheel() { ui.wheel = null; }
 
-  // closes any open menu and leaves develop or purchase modes; placing and removing must be finished
+  // closes any open menu and leaves develop or purchase modes; placing and removing must be finished.
+  // A wheel that must be answered stays open.
   function dismissMenus() {
+    if (ui.wheel && MUST_CHOOSE.includes(ui.wheel.kind)) return;
     closeWheel();
     ui.carry = null;
     ui.devType = null;
@@ -1545,7 +1602,7 @@
     const node = event.target.closest('[data-k]');
     if (!node) {
       // a click on empty board leaves menus and develop or purchase modes
-      if (ui.wheel && ui.wheel.kind !== 'discovery') { dismissMenus(); render(); }
+      if (ui.wheel && !MUST_CHOOSE.includes(ui.wheel.kind)) { dismissMenus(); render(); }
       return;
     }
     handleBoardClick(node.dataset.k, node.dataset.hero, node.dataset.obj, node.dataset.nuke === '1');
@@ -1554,7 +1611,7 @@
   function handleBoardClick(keyText, heroIndex, objectIndex, clickedNuke) {
     setMessage('');
     if (ui.wheel) {
-      if (ui.wheel.kind === 'discovery') return render();
+      if (MUST_CHOOSE.includes(ui.wheel.kind)) return render();
       dismissMenus();
       return render();
     }
@@ -1572,9 +1629,12 @@
       return render();
     }
 
-    // a ceded hero I control: clicking it offers to skip its remaining actions
+    // a ceded hero I control: develop it, or skip its remaining actions
     if (hero && hero.p !== myIndex() && canControlHero(hero)) {
-      openWheel({ cube: hero.c, kind: 'skip', hero, items: [{ v: 'skip', ic: '⏭', t: 'Skip rest' }] });
+      openWheel({
+        cube: hero.c, kind: 'controlled', hero,
+        items: [{ v: 'develop', ic: '🛠', t: 'Develop' }, { v: 'skip', ic: '⏭', t: 'Skip rest' }],
+      });
       return render();
     }
 
@@ -1639,8 +1699,8 @@
       return render();
     }
 
-    // no mode: clicking my own hero opens its develop menu
-    if (hero && hero.p === myIndex() && isMyTurn()) {
+    // no mode: clicking my own hero (not one that is Mind Controlled) opens its develop menu
+    if (hero && hero.p === myIndex() && !hero.mc && isMyTurn()) {
       if (!canAct(hero, 'develop')) {
         setMessage(hero.acts < 1 ? 'No actions left for this hero this turn' : 'This hero already used Develop this turn');
       } else {
@@ -1679,7 +1739,7 @@
     const wheel = ui.wheel;
     if (!wheel) return render();
     if (value === 'x') {
-      if (wheel.kind !== 'discovery') dismissMenus();
+      dismissMenus();
       return render();
     }
 
@@ -1701,9 +1761,18 @@
         wheel.hero.mc.ceded = true;
         addLog(`${G.pl[G.cur].name} cedes ${heroLabel(wheel.hero)} to ${G.pl[wheel.hero.mc.by].name}`, G.cur);
       },
-      skip: () => {
-        wheel.hero.acts = 0;
-        addLog(`${G.pl[wheel.hero.p].name}'s ${heroLabel(wheel.hero)} skips its remaining actions (controlled by ${G.pl[myIndex()].name})`, myIndex());
+      controlled: () => {
+        const hero = wheel.hero;
+        if (value === 'skip') {
+          hero.acts = 0;
+          addLog(`${G.pl[hero.p].name}'s ${heroLabel(hero)} skips its remaining actions (controlled by ${G.pl[myIndex()].name})`, myIndex());
+          return;
+        }
+        if (!canAct(hero, 'develop')) return setMessage('This hero has no develop action left');
+        ui.mode = 'develop';
+        ui.devType = null;
+        ui.selected = hero;
+        openWheel({ cube: hero.c, kind: 'developType', items: developTypeItems() });
       },
       developType: () => {
         ui.devType = value;
@@ -1718,7 +1787,12 @@
         ui.take = value === 'take';
         developHero(ui.selected, wheel.cube, wheel.unit || null);
       },
-      discovery: () => finishDiscovery(value),
+      discovery: () => chooseDiscoveryTarget(value),
+      discoveryObject: () => {
+        const pending = ui.pendingDiscovery;
+        ui.pendingDiscovery = null;
+        if (pending) improveUnit(G.objs[+value.slice(1)], pending.skill, G.heroes[pending.heroIndex].p);
+      },
     };
 
     // the wheel is closed before the handler runs, so a finished menu never stays open
@@ -1730,8 +1804,7 @@
 
   /* =============================================================
      21. HAND (traversal cards)
-     Click a 5V card to play it, drag a skill card onto a unit,
-     or sell any card for 2V.
+     Click a 5V card to play it, or drag a skill card onto a unit.
      ============================================================= */
 
   function onHandPointerDown(event) {
@@ -1780,10 +1853,8 @@
 
   function onHandClick(event) {
     if (suppressHandClick || !G || !isMyTurn()) return;
-    const sell = event.target.closest('[data-sell]');
     const card = event.target.closest('[data-card]');
-    if (sell) sellCard(+sell.dataset.sell);
-    else if (card) {
+    if (card) {
       const index = +card.dataset.card;
       if (G.pl[G.cur].hand[index] === 'v') playVersaCard(index);
       else setMessage('Drag a skill card onto a hero or object');
@@ -1961,14 +2032,21 @@
       + ring + `</g>`;
   }
 
+  // the giant Nuke behind Ground Zero, drawn only after the Apocalypse
+  function apocalypseSymbol() {
+    return `<text x="0" y="0" font-size="${APOCALYPSE_SYMBOL_SIZE}" fill="#ff3d3d" opacity=".22">☢</text>`;
+  }
+
   function drawBoard() {
     const svg = el('svg');
     tooltips = {};
+    svg.style.background = G && G.apoc ? APOCALYPSE_RED : '';
     if (!G) { svg.innerHTML = ''; return; }
     setViewBox();
     const mine = myIndex();
     let out = '<defs><marker id="arrow" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 z" fill="#ffe066"/></marker></defs>';
 
+    if (G.apoc) out += apocalypseSymbol();
     if (ui.mode === 'place') {
       placementCandidates().forEach(c => { out += `<polygon class="cand" data-k="${cubeKey(c)}" points="${hexPoints(c)}"/>`; });
     }
@@ -1998,7 +2076,7 @@
     const endButton = isMyTurn()
       ? `<button class="endb" data-action="end-turn" ${boardStepDone() && !endTurnBlocked() ? '' : 'disabled'}>➜ End Turn</button>`
       : '';
-    const finalNote = G.over && gameOverDismissed ? '<button class="endb" data-action="leave">Back to lobby</button>' : '';
+    const reviewButton = G.over && gameOverDismissed ? '<button class="endb" data-action="leave">Back to lobby</button>' : '';
     el('top').innerHTML = `
       <span class="badge" style="background:${PLAYER_COLORS[G.cur]}">${escapeHtml(player.name)}'s turn</span>
       <span class="chip">Round ${G.rd} · ${phaseName()}</span>
@@ -2007,7 +2085,7 @@
       ${offlineBadges()}
       <span style="flex:1"></span>
       ${endButton}
-      ${finalNote}
+      ${reviewButton}
       <button class="ghost" data-action="leave">Leave</button>
       ${chips}`;
     el('defeated').style.display = isDefeated() && !G.over ? 'block' : 'none';
@@ -2029,7 +2107,6 @@
       const short = card === 'v' ? '+5V' : '+1 ' + SKILL_SHORT[card];
       return `<div class="card-t">
         <button class="cbtn" data-card="${i}"><span class="cicon">${icon}</span><small class="fit" data-full="${full}" data-short="${short}" data-symbol="${icon}">${full}</small></button>
-        <button class="dc" data-sell="${i}">Sell 2V</button>
       </div>`;
     }).join('');
     hand.innerHTML = cardHtml || '<span class="muted small">No cards. Move a hero to draw one.</span>';
@@ -2091,7 +2168,7 @@
         style="left:calc(${Math.cos(angle).toFixed(3)} * var(--r));top:calc(${Math.sin(angle).toFixed(3)} * var(--r))">
         <span class="wi">${item.ic}</span>${item.t ? `<small>${markV(item.t)}</small>` : ''}</button>`;
     }).join('');
-    const closeButton = wheel.kind === 'discovery' ? '' : '<button class="wbtn wx" data-w="x">✕</button>';
+    const closeButton = MUST_CHOOSE.includes(wheel.kind) ? '' : '<button class="wbtn wx" data-w="x">✕</button>';
     wheelEl.innerHTML = buttons + closeButton;
   }
 
@@ -2237,7 +2314,10 @@
      ============================================================= */
 
   function render() {
-    if (G) syncModeWithRules();
+    if (G) {
+      releaseSpentControls();
+      syncModeWithRules();
+    }
     drawBoard();
     if (G) {
       drawTop();
@@ -2262,7 +2342,7 @@
       el('todo').innerHTML = '';
     }
     drawModal();
-    document.body.classList.toggle('wait', !!G && (!isMyTurn() && !isControllingOpponent()) || isDefeated());
+    document.body.classList.toggle('wait', (!!G && !isMyTurn() && !isControllingOpponent()) || isDefeated());
     publishChanges();
   }
 
