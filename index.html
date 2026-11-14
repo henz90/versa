@@ -501,18 +501,11 @@
      8. DATABASE SYNC
      ============================================================= */
 
-  // loads this player's private data, or creates it the first time
-  async function ensurePrivateData() {
-    if (PRIV) return;
-    if (!privateLoad) {
-      privateLoad = (async () => {
-        const { data } = await db.from('hands').select('data').eq('room_code', ROOM).eq('uid', ME).maybeSingle();
-        if (data) { PRIV = data.data; return; }
-        PRIV = { pool: ['str', 'def', 'rng', 'int', 'bar'], deck: makeTraversalDeck(), hand: [], sks: {} };
-        await db.from('hands').upsert({ room_code: ROOM, uid: ME, data: PRIV });
-      })();
-    }
-    return privateLoad;
+  // loads this player's hand and pool from the private table
+  async function loadMyPrivateData() {
+    const { data } = await db.from('player_private').select('pool, hand')
+      .eq('room_code', ROOM).eq('uid', ME).maybeSingle();
+    PRIV = { pool: data?.pool || [], hand: data?.hand || [], deck: [], sks: {} };
   }
 
   // when another player's hero finds my hidden tile, I reveal it and the bonus goes to that hero
@@ -563,32 +556,16 @@
     if (isMyTurn() && !boardStepDone() && !ui.mode) ui.mode = G.rd <= ROUND.placementEnds ? 'place' : 'remove';
     render();
   }
-
-  // sends local changes to the database; only changed data is sent
-  function publishChanges() {
-    if (!G || !ROOM || !G.started) return;
-    const snapshot = publicSnapshot();
-    if (snapshot !== lastPublished) {
-      lastPublished = snapshot;
-      G.seq = (G.seq || 0) + 1;
-      db.from('rooms').update({ state: { ...JSON.parse(snapshot), seq: G.seq } }).eq('code', ROOM)
-        .then(({ error }) => { if (error) toast(error.message); });
-    }
-    if (PRIV && myIndex() >= 0) {
-      const privateJson = JSON.stringify(PRIV);
-      if (privateJson !== lastPrivate) {
-        lastPrivate = privateJson;
-        db.from('hands').upsert({ room_code: ROOM, uid: ME, data: PRIV }).then(() => {});
-      }
-    }
-  }
+    
+  // the browser no longer writes game state; the server does
+  function publishChanges() {}
 
   function onRoomUpdate(row) {
     ROOM_ROW = row;
     if (!row.state) { G = null; render(); return; }
     // ignore updates older than the state already on screen
     if (G && row.state.seq <= (G.seq || 0)) return;
-    ensurePrivateData().then(() => applyRemoteState(row.state));
+    loadMyPrivateData().then(() => applyRemoteState(row.state));
   }
 
   /* =============================================================
@@ -678,8 +655,6 @@
     openRoomChannel(code);
     const { data, error } = await db.from('rooms').select('*').eq('code', code).maybeSingle();
     if (error || !data) { toast('Room not found'); leaveRoom(); return; }
-    const { data: hand } = await db.from('hands').select('data').eq('room_code', code).eq('uid', ME).maybeSingle();
-    if (hand) PRIV = hand.data;
     roomLoading = false;
     onRoomUpdate(data);
   }
@@ -705,10 +680,7 @@
   }
 
   async function startGame() {
-    if (!ROOM_ROW || ROOM_ROW.host !== ME || ROOM_ROW.players.length < 2 || ROOM_ROW.state) return;
-    await ensurePrivateData();
-    const state = { ...makeNewGame(ROOM_ROW.players), seq: 1 };
-    const { error } = await db.from('rooms').update({ state }).eq('code', ROOM);
+    const { error } = await db.rpc('start_game', { p_room: ROOM });
     if (error) toast(error.message);
   }
 
@@ -776,25 +748,8 @@
     return order;
   }
 
-  function endTurn() {
-    if (!boardStepDone() || endTurnBlocked()) return;
-    // Mind Control lapses unless the controller renewed it this turn
-    G.heroes.forEach(h => {
-      if (!h.alive) return;
-      if (h.mc && h.mc.by === G.cur && !h.mc.kept) {
-        addLog(`${G.pl[G.cur].name} did not renew Mind Control of ${heroLabel(h)}; control ends`, G.cur);
-        h.mc = null;
-        h.mcCooldown = G.rd;
-      }
-      if (h.mc && h.p === G.cur && h.mc.ceded) h.mc.ceded = false;
-    });
-    resetUi();
-    do {
-      G.cur = (G.cur + 1) % G.n;
-      if (!G.cur) G.rd++;
-    } while (!isAlive(G.cur));
-    checkWinner();
-    if (!G.over) beginTurn();
+    function endTurn() {
+    submitAction({ type: 'end_turn' });
   }
 
   function endTurnClick() {
@@ -889,13 +844,7 @@
      ============================================================= */
 
   function placeTile(cube, skill) {
-    const player = G.pl[G.cur];
-    player.pool.splice(player.pool.indexOf(skill), 1);
-    PRIV.sks[cubeKey(cube)] = skill;
-    G.tiles[cubeKey(cube)] = { c: cube, own: G.cur, sk: skill, disc: 0, bar: 0 };
-    G.done = true;
-    ui.mode = '';
-    addLog(`${G.pl[G.cur].name} places a face-down HexTile at (${cube})`, G.cur);
+    submitAction({ type: 'place', cube, skill });
   }
 
   // each owner in the removal order loses one tile
@@ -966,15 +915,16 @@
      14. MOVEMENT AND DISCOVERY
      ============================================================= */
 
+  // sends one intent to the server; the server decides the result and the new state arrives by realtime
+  async function submitAction(action) {
+    const { error } = await db.rpc('submit_action', { p_room: ROOM, p_action: action });
+    if (error) setMessage(error.message);
+    render();
+  }
+    
   // dropping on an empty tile: move directly, or choose objects to take first
   function moveTo(hero, cube) {
-    if (!canAct(hero, 'move')) {
-      return setMessage(hero.acts < 1 ? 'No actions left for this hero this turn' : 'This hero has already moved this turn');
-    }
-    const distance = cubeDistance(hero.c, cube);
-    if (distance < 1 || distance > reach(hero)) return setMessage('Out of range');
-    if (carryable(hero).length) return openCarryWheel(hero, cube);
-    performMove(hero, cube, []);
+    submitAction({ type: 'move', hero: G.heroes.indexOf(hero), to: cube });
   }
 
   function openCarryWheel(hero, cube) {
