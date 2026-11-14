@@ -299,7 +299,9 @@
   const neighbours = cube => DIRECTIONS.map(d => [cube[0] + d[0], cube[1] + d[1], cube[2] + d[2]]);
   const hexX = cube => Math.sqrt(3) * HEX_RADIUS * (cube[0] + cube[2] / 2);
   const hexY = cube => 1.5 * HEX_RADIUS * cube[2];
-  const nukePoint = cube => [hexX(cube) + NUKE_OFFSET, hexY(cube) + NUKE_OFFSET];
+  
+    // the Nuke marker sits in the tile's lower-left corner, clear of the barrier level label
+  const nukePoint = cube => [hexX(cube) - NUKE_OFFSET, hexY(cube) + NUKE_OFFSET];
 
   // corners of a pointy-top hexagon, optionally at a smaller radius
   function hexPoints(cube, radius = HEX_RADIUS - 4) {
@@ -656,7 +658,7 @@
     submitAction({ type: 'remove_tile', cube });
   }
 
-  // is this cube a legal target for the current board mode?
+   // is this cube a legal target for the current board mode?
   function isValidTarget(cube) {
     const tile = tileAt(cube);
     const hero = selectedHero();
@@ -669,10 +671,11 @@
       case 'develop':
         if (!tile || !hero || cubeDistance(hero.c, cube) > 1) return false;
         if (ui.devType === 'barrier') return !G.apoc && tile.disc;
-        if (ui.devType === 'object') return !G.apoc && objectCount(G.cur) < RULES.maxObjects;
+        // objects can only go on discovered tiles
+        if (ui.devType === 'object') return !G.apoc && !!tile.disc && objectCount(G.cur) < RULES.maxObjects;
         return false;
       case 'obj':
-        return !G.apoc && objectCount(myIndex()) < RULES.maxObjects
+        return !G.apoc && !!tile && !!tile.disc && objectCount(myIndex()) < RULES.maxObjects
           && G.heroes.some(h => h.alive && h.p === myIndex() && sameTile(h.c, cube));
       default:
         return false;
@@ -906,6 +909,7 @@
 
   function onBoardPointerDown(event) {
     if (!G || G.over || event.button !== 0) return;
+    if (event.target.closest('[data-nuke]')) return;   // let the click reach the Nuke
     const heroNode = event.target.closest('[data-hero]');
     const hero = heroNode ? G.heroes[+heroNode.dataset.hero] : null;
     const canDrag = hero && isMine(hero) && !ui.mode && boardStepDone()
@@ -1342,12 +1346,13 @@
       + `</g>`;
   }
 
-  // a small marker in the tile's lower-right corner; drawn before heroes so heroes stay on top
+  // the Nuke marker has a larger invisible hit area so it is easy to click, even with heroes nearby
   function nukeSvg(nuke) {
     const [x, y] = nukePoint(nuke.c);
     tooltips.nuke = nukeTooltip(nuke);
     const ring = drag && drag.moved ? `<circle class="ring-nk" cx="${x}" cy="${y}" r="${NUKE_RADIUS + 3}"/>` : '';
     return `<g data-k="${cubeKey(nuke.c)}" data-nuke="1" data-tip="nuke">`
+      + `<circle cx="${x}" cy="${y}" r="13" fill="transparent"/>`
       + `<circle cx="${x}" cy="${y}" r="${NUKE_RADIUS}" fill="#2a0a0a" stroke="#ff3d3d" stroke-width="1.2"/>`
       + `<text x="${x}" y="${y}" font-size="8" fill="#ff3d3d">☢</text>`
       + ring + `</g>`;
@@ -1372,10 +1377,10 @@
       placementCandidates().forEach(c => { out += `<polygon class="cand" data-k="${cubeKey(c)}" points="${hexPoints(c)}"/>`; });
     }
     Object.values(G.tiles).forEach(tile => { out += tileSvg(tile, mine); });
-    const nuke = G.objs.find(o => o.alive && o.nuke);
-    if (nuke) out += nukeSvg(nuke);
     G.heroes.forEach((hero, i) => { if (hero.alive) out += heroSvg(hero, i); });
     G.objs.forEach((obj, i) => { if (obj.alive && !obj.nuke) out += objectSvg(obj, i); });
+    const nuke = G.objs.find(o => o.alive && o.nuke);
+    if (nuke) out += nukeSvg(nuke);
     if (drag && drag.moved && drag.point) {
       const [hx, hy] = heroPosition(G.heroes[drag.heroIdx]);
       out += `<line x1="${hx}" y1="${hy}" x2="${drag.point.x}" y2="${drag.point.y}" stroke="#ffe066" stroke-width="2" stroke-dasharray="6 4" marker-end="url(#arrow)"/>`;
