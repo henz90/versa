@@ -500,13 +500,19 @@
      8. DATABASE SYNC
      ============================================================= */
 
-  // loads this player's hand and pool from the private table
+  // loads this player's hand and pool; keeps the last good copy if the read fails
   async function loadMyPrivateData() {
     const { data, error } = await db.from('player_private').select('pool, hand')
       .eq('room_code', ROOM).eq('uid', ME).maybeSingle();
-    if (error) console.error('private data failed to load:', error.message);
-    if (!data) console.warn('no private row found for this player in room', ROOM);
-    PRIV = { pool: data?.pool || [], hand: data?.hand || [], deck: [], sks: {} };
+    if (error) {
+      console.error('private data failed to load:', error.message);
+      return;
+    }
+    if (!data) {
+      console.warn('no private row for this player in room', ROOM);
+      return;
+    }
+    PRIV = { pool: data.pool || [], hand: data.hand || [], deck: [], sks: PRIV?.sks || {} };
   }
 
   // when another player's hero finds my hidden tile, I reveal it and the bonus goes to that hero
@@ -1641,12 +1647,11 @@
       else openWheel({ cube: unit.c, kind: 'developSkill', unit, items: skillItems() });
       return render();
     }
-       if (mode === 'place') {
+    if (mode === 'place') {
       if (isValidTarget(cube)) {
         if (!PRIV || !PRIV.pool.length) {
-          // the private pool has not arrived yet: load it, then the player can click again
+          setMessage('Your tiles could not be loaded. Check the console and refresh.');
           loadMyPrivateData().then(render);
-          setMessage('Loading your tiles…');
           return render();
         }
         openWheel({
