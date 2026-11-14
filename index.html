@@ -938,7 +938,8 @@
     
   // dropping on an empty tile: move directly, or choose objects to take first
   function moveTo(hero, cube) {
-    submitAction({ type: 'move', hero: G.heroes.indexOf(hero), to: cube });
+    if (carryable(hero).length) return openCarryWheel(hero, cube);
+    submitAction({ type: 'move', hero: G.heroes.indexOf(hero), to: cube, carry: [] });
   }
 
   function openCarryWheel(hero, cube) {
@@ -967,11 +968,12 @@
   function confirmCarry() {
     const { hero, cube, selected } = ui.carry;
     ui.carry = null;
-    if (cubeDistance(hero.c, cube) > maxRangeWith(hero, selected)) {
-      setMessage('Too far for its own range: take an object with range along');
-      return;
-    }
-    performMove(hero, cube, selected);
+    submitAction({
+      type: 'move',
+      hero: G.heroes.indexOf(hero),
+      to: cube,
+      carry: selected.map(o => G.objs.indexOf(o)),
+    });
   }
 
   function performMove(hero, cube, carried) {
@@ -1305,10 +1307,7 @@
   }
 
   function buyObject(cube) {
-    if (objectCount(G.cur) >= RULES.maxObjects) return setMessage('Max 3 objects');
-    if (!spendVersa(RULES.actionCost)) return;
-    newObject(G.cur, cube, 1);
-    addLog(`${G.pl[G.cur].name} places an object at (${cube}) for 5V`, G.cur);
+    submitAction({ type: 'buy_object', cube });
   }
 
   function buySkill(unit) {
