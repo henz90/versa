@@ -678,15 +678,8 @@
   }
 
   async function joinRoom(code) {
-    const { data, error } = await db.from('rooms').select('*').eq('code', code).maybeSingle();
-    if (error || !data) return toast('Room not found');
-    const players = data.players;
-    if (players.some(p => p.uid === ME)) return enterRoom(code);
-    if (data.state) return toast('That game has already started');
-    if (players.length >= RULES.maxPlayers) return toast('Room full (6 players max)');
-    if (players.some(p => p.name.toLowerCase() === username.toLowerCase())) return toast('That username is already used in this room');
-    const { error: joinError } = await db.from('rooms').update({ players: [...players, { uid: ME, name: username }] }).eq('code', code);
-    if (joinError) return toast(joinError.message);
+    const { error } = await db.rpc('join_room', { p_room: code, p_name: username });
+    if (error) return toast(error.message);
     enterRoom(code);
   }
 
