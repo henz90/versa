@@ -55,7 +55,6 @@
     .endb { background: linear-gradient(135deg, #ff2e7e, #ff9500); border: none; color: #fff; font-weight: 800; box-shadow: 0 0 14px #ff2e7e99; }
     .ghost { background: transparent; }
     .sbtn { font-size: .85em; padding: .25em .6em; white-space: nowrap; }
-    .xbtn { width: clamp(34px, 4vmin, 44px); height: clamp(34px, 4vmin, 44px); border-radius: 50%; background: #3a2a2a; padding: 0; font-size: 1.1em; }
     .wait #hand button, .wait #buyside button, .wait #top .endb { pointer-events: none; opacity: .6; }
     .muted { color: #8a8aa0; }
     .roomcode { font-family: ui-monospace, monospace; font-size: 1.6em; letter-spacing: .15em; font-weight: 800; color: #ffe8a3; background: #17171f; border-color: #ffe8a3; padding: .2em .6em; }
@@ -236,6 +235,7 @@
   const UNOWNED_STROKE = '#c9a227';
   const UNOCCUPIED_BARRIER = '#9a9a9a';
   const APOCALYPSE_RED = '#4a1d1d';
+  const OFFLINE_LIMIT_MS = 60000;
 
   const SKILLS = ['str', 'def', 'rng', 'int'];
   const SKILL_ICON = { str: '✊', def: '🛡️', rng: '🏹', int: '🧠', bar: '🛑' };
@@ -248,7 +248,7 @@
   const DIRECTIONS = [[1, -1, 0], [1, 0, -1], [0, 1, -1], [-1, 1, 0], [-1, 0, 1], [0, -1, 1]];
   const HEX_RADIUS = 36;
 
-  // the Nuke marker sits in the tile's lower-right corner so heroes on the tile stay clickable
+  // the Nuke marker sits in the tile's lower-left corner, clear of the barrier level label
   const NUKE_OFFSET = 21;
   const NUKE_RADIUS = 7;
 
@@ -299,8 +299,6 @@
   const neighbours = cube => DIRECTIONS.map(d => [cube[0] + d[0], cube[1] + d[1], cube[2] + d[2]]);
   const hexX = cube => Math.sqrt(3) * HEX_RADIUS * (cube[0] + cube[2] / 2);
   const hexY = cube => 1.5 * HEX_RADIUS * cube[2];
-  
-    // the Nuke marker sits in the tile's lower-left corner, clear of the barrier level label
   const nukePoint = cube => [hexX(cube) - NUKE_OFFSET, hexY(cube) + NUKE_OFFSET];
 
   // corners of a pointy-top hexagon, optionally at a smaller radius
@@ -336,12 +334,14 @@
   let onlineUsers = new Set();
   let presenceReady = false;
   let offlineSince = {};
+  let lastAnimatedSeq = null;    // the latest action whose events have been shown
+  const seenTodo = new Set();    // to-do lines already struck through
 
   const ui = {
-    mode: '',              // '', place, remove, develop, obj
+    mode: '',              // '', place, remove, develop, obj, barrier, buyskill
     selectedIndex: null,   // index into G.heroes of the hero performing the current action
     devType: null,         // develop choice: barrier | object | skill
-    devSkill: 'str',       // skill raised by develop
+    devSkill: 'str',       // skill bought or raised
     wheel: null,           // the open wheel menu
     carry: null,           // move in progress: {heroIndex, cube, objectIndexes}
     message: '',
@@ -443,15 +443,6 @@
     };
   }
 
-    // the event lines from the latest action, shown as floating messages with dice
-  let lastAnimatedSeq = null;
-
-  function playEvents(events) {
-    events.forEach((event, index) => {
-      setTimeout(() => showFloat(eventHtml(event.t), 'roll'), index * 900);
-    });
-  }
-
   // turns "rolled 4+3" into two dice, and escapes everything else
   function eventHtml(text) {
     const escaped = escapeHtml(text).replace(/rolled (\d+)\+(\d+)/, (match, a, b) =>
@@ -459,6 +450,14 @@
     return markV(escaped);
   }
 
+  // shows each event line of the latest action, one after another, so the rolls are seen when they happen
+  function playEvents(events) {
+    events.forEach((event, index) => {
+      setTimeout(() => showFloat(eventHtml(event.t), 'roll'), index * 900);
+    });
+  }
+
+  // replaces the local game state with the state the server published
   function applyRemoteState(state) {
     if (G && state.seq <= (G.seq || 0)) return;   // ignore an update older than the one on screen
     const hadGame = !!G;
@@ -486,16 +485,6 @@
       lastAnimatedSeq = state.seq;
       playEvents(G.events);
     }
-    if (hadGame && !wasApocalypse && G.apoc) playApocalypseAnimation();
-    render();
-  }
-
-    // my own face-down tiles show their type only to me
-    Object.values(G.tiles).forEach(tile => {
-      const key = cubeKey(tile.c);
-      if (tile.own === me && !tile.disc && priv.secretSkills[key]) tile.sk = priv.secretSkills[key];
-    });
-
     if (hadGame && !wasApocalypse && G.apoc) playApocalypseAnimation();
     render();
   }
@@ -539,11 +528,10 @@
     return Object.keys(offlineSince).map(uid => {
       const i = G.pl.findIndex(p => p.uid === uid);
       if (i < 0 || !isAlive(i)) return '';
-      const secondsLeft = Math.max(0, Math.ceil((RULES_OFFLINE_MS - (now - offlineSince[uid])) / 1000));
+      const secondsLeft = Math.max(0, Math.ceil((OFFLINE_LIMIT_MS - (now - offlineSince[uid])) / 1000));
       return `<span class="alert">⏱ ${escapeHtml(G.pl[i].name)} offline: ${secondsLeft}s</span>`;
     }).join('');
   }
-  const RULES_OFFLINE_MS = 60000;
 
   // floats an emoji above a hero for everyone in the room
   function showEmoji({ uid, k, e }) {
@@ -677,7 +665,7 @@
   }
 
   /* =============================================================
-     11. PLACEMENT AND DECLINE REMOVAL
+     11. PLACEMENT, DECLINE REMOVAL AND VALID TARGETS
      ============================================================= */
 
   function placeTile(cube, skill) {
@@ -688,7 +676,7 @@
     submitAction({ type: 'remove_tile', cube });
   }
 
-   // is this cube a legal target for the current board mode?
+  // is this cube a legal target for the current board mode?
   function isValidTarget(cube) {
     const tile = tileAt(cube);
     const hero = selectedHero();
@@ -700,13 +688,16 @@
         return needsRemoval() && !!tile && !tile.gz && tile.own === currentRemovalOwner() && !heroesAt(cube).length;
       case 'develop':
         if (!tile || !hero || cubeDistance(hero.c, cube) > 1) return false;
-        if (ui.devType === 'barrier') return !G.apoc && tile.disc;
+        if (ui.devType === 'barrier') return !G.apoc && !!tile.disc;
         // objects can only go on discovered tiles
         if (ui.devType === 'object') return !G.apoc && !!tile.disc && objectCount(G.cur) < RULES.maxObjects;
         return false;
       case 'obj':
         return !G.apoc && !!tile && !!tile.disc && objectCount(myIndex()) < RULES.maxObjects
           && G.heroes.some(h => h.alive && h.p === myIndex() && sameTile(h.c, cube));
+      case 'barrier':
+        return !G.apoc && !!tile && !!tile.disc && tile.bar < RULES.maxBarrier
+          && G.heroes.some(h => h.alive && h.p === myIndex() && cubeDistance(h.c, cube) <= 1);
       default:
         return false;
     }
@@ -816,10 +807,9 @@
   async function sendDevelop(wheel, take) {
     const hero = selectedHero();
     if (!hero) return setMessage('Select a hero first');
-    const heroIdx = heroIndex(hero);
     const { data, message } = await submitAction({
       type: 'develop',
-      hero: heroIdx,
+      hero: heroIndex(hero),
       mode: ui.devType,
       cube: wheel.cube || null,
       unit: wheel.unit || null,
@@ -860,25 +850,22 @@
     ];
   }
 
-  // a buy button starts a purchase mode; only object purchase is on the server so far
   function buyObject(cube) {
     submitAction({ type: 'buy_object', cube });
   }
 
-  function lowerBarrier(cube) {
-    submitAction({ type: 'lower_barrier', cube });
+  function buyBarrier(cube) {
+    submitAction({ type: 'buy_barrier', cube });
   }
 
   function buySkillOn(unit) {
     submitAction({ type: 'buy_skill', skill: ui.devSkill, unit: unitRef(unit) });
   }
-  
+
   function buyOptions() {
     const mine = myIndex();
     const player = G.pl[mine >= 0 ? mine : G.cur];
-    const myTurn = isMyTurn();
-    const boardDone = boardStepDone();
-    const ready = myTurn && boardDone && !G.apoc;
+    const ready = isMyTurn() && boardStepDone() && !G.apoc;
     const canAfford = player.v >= RULES.actionCost;
     const objectsFull = objectCount(mine) >= RULES.maxObjects;
     return [
@@ -892,6 +879,7 @@
     ];
   }
 
+  // a buy button starts a purchase mode; pressing the same one again cancels it
   function pickBuy(key) {
     setMessage('');
     closeWheel();
@@ -899,8 +887,9 @@
       ui.mode = ui.mode === key ? '' : key;
       ui.devType = null;
     } else if (key.startsWith('skill:')) {
-      ui.mode = ui.mode === 'buyskill' && ui.devSkill === key.slice(6) ? '' : 'buyskill';
-      ui.devSkill = key.slice(6);
+      const skill = key.slice(6);
+      ui.mode = ui.mode === 'buyskill' && ui.devSkill === skill ? '' : 'buyskill';
+      ui.devSkill = skill;
     }
     render();
   }
@@ -1092,6 +1081,14 @@
         if (isValidTarget(cube)) { buyObject(cube); ui.mode = ''; }
         else setMessage('Click a tile with one of your heroes');
         return render();
+      case 'barrier':
+        if (isValidTarget(cube)) { buyBarrier(cube); ui.mode = ''; }
+        else setMessage('Click a discovered tile next to one of your heroes');
+        return render();
+      case 'buyskill':
+        if (!unit || !isMine(unit)) setMessage('Pick one of your own heroes or objects');
+        else { buySkillOn(unit); ui.mode = ''; }
+        return render();
       case 'place':
         if (isValidTarget(cube)) openPlacementWheel(cube);
         return render();
@@ -1099,9 +1096,7 @@
         if (isValidTarget(cube)) removeTile(cube);
         return render();
       case 'develop':
-        return handleDevelopClick(cube, object || null, unitOfKind(hero, object));
-      case 'barrier':
-        return !G.apoc && !!tile && !!tile.disc && G.heroes.some(h => h.alive && h.p === G.cur && cubeDistance(h.c, cube) <= 1);
+        return handleDevelopClick(cube, unit);
       default:
         break;
     }
@@ -1120,13 +1115,6 @@
     render();
   }
 
-  // the hero or object clicked, as a reference the develop step can use
-  function unitOfKind(hero, object) {
-    if (hero) return unitRef(hero);
-    if (object) return unitRef(object);
-    return null;
-  }
-
   function openPlacementWheel(cube) {
     if (!PRIV || !PRIV.pool.length) {
       setMessage('Your tiles are still loading. Try again in a moment.');
@@ -1139,13 +1127,13 @@
     });
   }
 
-  function handleDevelopClick(cube, object, unit) {
+  // develop: a click on a skill target picks the skill's unit; a click on a tile picks the barrier or object target
+  function handleDevelopClick(cube, unit) {
     if (ui.devType === 'skill') {
       const hero = selectedHero();
-      const isTarget = unit && hero && (unit.kind === 'h' || unit.kind === 'o')
-        && unitFromRef(unit).p === hero.p && cubeDistance(unitFromRef(unit).c, hero.c) <= 1;
+      const isTarget = unit && hero && isMine(unit) && cubeDistance(unit.c, hero.c) <= 1;
       if (!isTarget) return setMessage('Click one of the highlighted heroes or objects');
-      openWheel({ cube: unitFromRef(unit).c, kind: 'developSkill', unit, items: skillItems() });
+      openWheel({ cube: unit.c, kind: 'developSkill', unit: unitRef(unit), items: skillItems() });
       return render();
     }
     if (!isValidTarget(cube)) {
@@ -1174,7 +1162,7 @@
 
     const handlers = {
       emoji: () => sendEmoji(G.heroes[wheel.heroIndex], value),
-      place: () => placeTile(wheel.cube, value),
+      place: () => submitAction({ type: 'place', cube: wheel.cube, skill: value }),
       buildDir: () => openWheel({ cube: wheel.cube, kind: 'roll', dir: value, unit: null, items: rollItems() }),
       carry: () => (value === 'go' ? confirmCarry() : toggleCarry(value)),
       developType: () => {
@@ -1194,7 +1182,6 @@
       },
     };
 
-    // a develop type or skill choice keeps its mode; the handler decides what opens next
     closeWheel();
     const handler = handlers[wheel.kind];
     if (handler) handler();
@@ -1211,7 +1198,7 @@
     const cards = G.pl[mine].hand;
     hand.innerHTML = cards.length
       ? cards.map(card => `<span class="card-chip">${card === 'v' ? '+5V' : '+1 ' + SKILL_NAME[card]}</span>`).join('')
-      : '<span class="muted small">No traversal cards yet. Cards move to the server in the next stage.</span>';
+      : '<span class="muted small">No traversal cards yet. Cards move to the server in a later stage.</span>';
   }
 
   /* =============================================================
@@ -1314,15 +1301,11 @@
      Everything here reads state; nothing changes it.
      ============================================================= */
 
-  function placementHighlightOk(cube) {
-    return isValidTarget(cube);
-  }
-
   function tileSvg(tile, mine) {
     const cube = tile.c, key = cubeKey(cube);
     const seen = knowsTileType(tile, mine);
     const valid = isValidTarget(cube);
-    const highlight = valid && (ui.mode === 'develop' || ui.mode === 'obj');
+    const highlight = valid && (ui.mode === 'develop' || ui.mode === 'obj' || ui.mode === 'barrier');
     const removable = valid && ui.mode === 'remove';
     const fill = tile.gz ? GROUND_ZERO_FILL : tile.disc ? TILE_COLORS[tile.sk] : NEUTRAL_FILL;
     const stroke = tile.own >= 0 ? PLAYER_COLORS[tile.own] : UNOWNED_STROKE;
@@ -1474,7 +1457,7 @@
     const mine = myIndex();
     const viewer = G.pl[mine >= 0 ? mine : G.cur];
     const items = buyOptions();
-        const isActive = item => item.key === ui.mode
+    const isActive = item => item.key === ui.mode
       || (item.key.startsWith('skill:') && ui.mode === 'buyskill' && ui.devSkill === item.key.slice(6));
     const button = item => `<button class="opt2 ${isActive(item) ? 'on' : ''}" data-buy="${item.key}" ${item.disabled ? 'disabled' : ''}>${item.icon} ${item.label}<small>${markV(item.cost)}</small></button>`;
     const body = isMyTurn()
@@ -1590,8 +1573,6 @@
     const children = (item.children || []).map(child => todoLineHtml(child, depth + 1)).join('');
     return `<div class="${classes}">${mark} ${textWithV(item.text)}</div>${children}`;
   }
-
-  const seenTodo = new Set();
 
   function drawTodo() {
     el('todo').innerHTML = '<b>To do</b>' + todoItems().map(item => todoLineHtml(item, 0)).join('');
