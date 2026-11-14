@@ -1913,8 +1913,12 @@
     };
   }
 
+  // a tile's type is known only once it is discovered, or to its owner after it was placed
+  // with the type recorded on the client. The server keeps the type secret until discovery.
+  const knowsTileType = (tile, mine) => !!tile.disc || (tile.own === mine && tile.sk != null);
+  
   function tileTooltip(tile) {
-    const seen = tile.disc || tile.own === myIndex();
+    const seen = knowsTileType(tile, myIndex());
     const title = tile.gz ? '⬡ Ground Zero'
       : !seen ? '? Hidden HexTile'
       : tile.sk === 'bar' ? '🛑 Barrier HexTile'
@@ -1950,13 +1954,13 @@
 
   function tileSvg(tile, mine) {
     const cube = tile.c, key = cubeKey(cube);
-    const seen = tile.disc || tile.own === mine;
+    const seen = knowsTileType(tile, mine);
     const valid = isValidTarget(cube);
     const barrierTarget = valid && (ui.mode === 'barrier' || (ui.mode === 'develop' && ui.devType === 'barrier'));
     const removable = valid && ui.mode === 'remove';
     const fill = tile.gz ? GROUND_ZERO_FILL : tile.disc ? TILE_COLORS[tile.sk] : NEUTRAL_FILL;
     const stroke = tile.own >= 0 ? PLAYER_COLORS[tile.own] : UNOWNED_STROKE;
-    const symbol = tile.gz ? '⬡' : !seen ? '?' : tile.sk === 'bar' ? '🛑' : SKILL_ICON[tile.sk];
+    const symbol = tile.gz ? '⬡' : !seen ? '?' : tile.sk === 'bar' ? '🛑' : (SKILL_ICON[tile.sk] || '?');
     const label = tile.bar && seen && tile.sk === 'bar' ? '🛑' + tile.bar : symbol;
     const cls = [barrierTarget ? 'ok' : '', removable ? 'rm' : ''].join(' ');
     tooltips['t' + key] = tileTooltip(tile);
