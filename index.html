@@ -505,6 +505,7 @@
     const { data, error } = await db.from('player_private').select('pool, hand')
       .eq('room_code', ROOM).eq('uid', ME).maybeSingle();
     if (error) console.error('private data failed to load:', error.message);
+    if (!data) console.warn('no private row found for this player in room', ROOM);
     PRIV = { pool: data?.pool || [], hand: data?.hand || [], deck: [], sks: {} };
   }
 
@@ -553,7 +554,6 @@
     revealHiddenTiles(me, priv);
     clearWeakBarriers();
     if (hadGame && !wasApocalypse && G.apoc) playApocalypseAnimation();
-    if (isMyTurn() && !boardStepDone() && !ui.mode) ui.mode = G.rd <= ROUND.placementEnds ? 'place' : 'remove';
     render();
   }
     
@@ -804,10 +804,20 @@
     });
   }
 
-  // drops a board mode once it has nothing left to do
+  // recomputes the board mode from the server's public state on every update,
+  // so a stale mode from an earlier turn cannot hide the placement hexes
   function syncModeWithRules() {
-    if (ui.mode === 'place' && !needsPlacement()) ui.mode = '';
-    if (ui.mode === 'remove' && !needsRemoval()) ui.mode = '';
+    if (!G) return;
+    const myTurnNow = isMyTurn() && !G.over;
+    if (!myTurnNow) {
+      if (ui.mode === 'place' || ui.mode === 'remove') ui.mode = '';
+      return;
+    }
+    if (!boardStepDone()) {
+      ui.mode = G.rd <= ROUND.placementEnds ? 'place' : 'remove';
+    } else if (ui.mode === 'place' || ui.mode === 'remove') {
+      ui.mode = '';
+    }
   }
 
 
