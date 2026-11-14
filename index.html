@@ -565,6 +565,7 @@
     if (!row.state) { G = null; render(); return; }
     // ignore updates older than the state already on screen
     if (G && row.state.seq <= (G.seq || 0)) return;
+    // the server changes private rows on every action, so reload them with each new state
     loadMyPrivateData().then(() => applyRemoteState(row.state));
   }
 
@@ -1640,9 +1641,18 @@
       else openWheel({ cube: unit.c, kind: 'developSkill', unit, items: skillItems() });
       return render();
     }
-    if (mode === 'place') {
+       if (mode === 'place') {
       if (isValidTarget(cube)) {
-                openWheel({ cube, kind: 'place', items: (PRIV?.pool || []).map(s => ({ v: s, ic: SKILL_ICON[s], t: SKILL_NAME[s] })) });
+        if (!PRIV || !PRIV.pool.length) {
+          // the private pool has not arrived yet: load it, then the player can click again
+          loadMyPrivateData().then(render);
+          setMessage('Loading your tiles…');
+          return render();
+        }
+        openWheel({
+          cube, kind: 'place',
+          items: PRIV.pool.map(s => ({ v: s, ic: SKILL_ICON[s], t: SKILL_NAME[s] })),
+        });
       }
       return render();
     }
