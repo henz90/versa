@@ -1551,7 +1551,7 @@
     const nuke = nukeAt(cube);
     const [nx, ny] = nukePoint(cube);
     if (nuke && Math.hypot(nx - point.x, ny - point.y) < NUKE_RADIUS + 4) {
-      if (canHitNuke(hero) && cubeDistance(hero.c, cube) <= reach(hero)) attackNuke(hero, nuke);
+            if (canHitNuke(hero) && cubeDistance(hero.c, cube) <= reach(hero)) submitAction({ type: 'attack_nuke', hero: G.heroes.indexOf(hero) });
       else setMessage('Nuke attack needs range and an attack action left');
       return;
     }
@@ -1627,7 +1627,7 @@
       const nuke = nukeAt(cube);
       const attacker = ui.selected;
       if (nuke && attacker && canControlHero(attacker) && canHitNuke(attacker) && cubeDistance(attacker.c, cube) <= reach(attacker)) {
-        attackNuke(attacker, nuke);
+        submitAction({ type: 'attack_nuke', hero: G.heroes.indexOf(attacker) });
         ui.selected = null;
       }
       return render();
@@ -1740,8 +1740,11 @@
       carry: () => (value === 'go' ? confirmCarry() : toggleCarry(value)),
       attackChoice: () => {
         ui.mode = '';
-        if (value === 'atk') attackHero(wheel.attacker, wheel.defender);
-        else mindControlRoll(wheel.attacker, wheel.defender);
+        if (value === 'atk') {
+          submitAction({ type: 'attack', hero: G.heroes.indexOf(wheel.attacker), target: G.heroes.indexOf(wheel.defender) });
+        } else {
+          mindControlRoll(wheel.attacker, wheel.defender);
+        }
       },
       cede: () => {
         wheel.hero.mc.ceded = true;
