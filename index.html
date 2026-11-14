@@ -158,8 +158,7 @@
     .fx .retry { font-size: .8em; color: #ffe8a3; font-weight: 600; }
     .fx.nat { border-color: #ffd54f; background: #2a2100f0; font-size: 1.6em; box-shadow: 0 0 50px #ffd54f88; animation: natin .6s ease-out, fxout .4s ease-in 2.8s forwards; }
     .fx.nat > span:first-child { color: #ffd54f; animation: spin .8s ease-out both; }
-    .emo { position: absolute; font-size: 22px; transform: translate(-50%, -50%); pointer-events: none; z-index: 7; animation: emofloat 2.2s ease-out forwards; }
-    @keyframes emofloat { 0% { opacity: 0; margin-top: 0; } 15% { opacity: 1; } 100% { opacity: 0; margin-top: -40px; } }
+    .emo { position: absolute; font-size: 22px; line-height: 1; padding: 3px; border-radius: 50%; background: #000c; filter: drop-shadow(0 0 2px #000) drop-shadow(0 0 4px #000); transform: translate(-50%, -50%); pointer-events: none; z-index: 7; animation: emofloat 2.2s ease-out forwards; }    @keyframes emofloat { 0% { opacity: 0; margin-top: 0; } 15% { opacity: 1; } 100% { opacity: 0; margin-top: -40px; } }
     @keyframes fxin { from { opacity: 0; transform: translateY(14px) scale(.9); } to { opacity: 1; transform: none; } }
     @keyframes fxout { to { opacity: 0; transform: translateY(-12px); } }
     @keyframes pop { from { opacity: 0; transform: scale(.3); } to { opacity: 1; transform: none; } }
@@ -448,7 +447,7 @@
   // the next owner in the removal order who has a tile that can be removed
   const currentRemovalOwner = () => G.remOrder.find(ownerHasRemovableTile);
   const needsRemoval = () => G.rd >= ROUND.declineFrom && currentRemovalOwner() !== undefined;
-  const needsPlacement = () => G.rd <= ROUND.placementEnds && G.pl[G.cur].pool.length > 0;
+  const needsPlacement = () => G.rd <= ROUND.placementEnds && G.pl[G.cur].poolN > 0;
   const needsBoardStep = () => (G.rd <= ROUND.placementEnds ? needsPlacement() : needsRemoval());
   const boardStepDone = () => G.done || !needsBoardStep();
 
@@ -503,8 +502,9 @@
 
   // loads this player's hand and pool from the private table
   async function loadMyPrivateData() {
-    const { data } = await db.from('player_private').select('pool, hand')
+    const { data, error } = await db.from('player_private').select('pool, hand')
       .eq('room_code', ROOM).eq('uid', ME).maybeSingle();
+    if (error) console.error('private data failed to load:', error.message);
     PRIV = { pool: data?.pool || [], hand: data?.hand || [], deck: [], sks: {} };
   }
 
@@ -880,7 +880,7 @@
     const hero = ui.selected;
     switch (ui.mode) {
       case 'place':
-        return G.rd <= ROUND.placementEnds && !G.done && G.pl[G.cur].pool.length > 0 && !tile
+        return G.rd <= ROUND.placementEnds && !G.done && G.pl[G.cur].poolN > 0 && !tile
           && neighbours(cube).some(n => { const t = tileAt(n); return t && (t.gz || t.own === G.cur); });
       case 'remove':
         return needsRemoval() && !!tile && !tile.gz && tile.own === currentRemovalOwner() && !heroesAt(cube).length;
@@ -1632,7 +1632,7 @@
     }
     if (mode === 'place') {
       if (isValidTarget(cube)) {
-        openWheel({ cube, kind: 'place', items: G.pl[G.cur].pool.map(s => ({ v: s, ic: SKILL_ICON[s], t: SKILL_NAME[s] })) });
+                openWheel({ cube, kind: 'place', items: (PRIV?.pool || []).map(s => ({ v: s, ic: SKILL_ICON[s], t: SKILL_NAME[s] })) });
       }
       return render();
     }
