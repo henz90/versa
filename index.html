@@ -443,7 +443,22 @@
     };
   }
 
-  // replaces the local game state with the state the server published
+    // the event lines from the latest action, shown as floating messages with dice
+  let lastAnimatedSeq = null;
+
+  function playEvents(events) {
+    events.forEach((event, index) => {
+      setTimeout(() => showFloat(eventHtml(event.t), 'roll'), index * 900);
+    });
+  }
+
+  // turns "rolled 4+3" into two dice, and escapes everything else
+  function eventHtml(text) {
+    const escaped = escapeHtml(text).replace(/rolled (\d+)\+(\d+)/, (match, a, b) =>
+      `rolled ${dieHtml(a, 0)}${dieHtml(b, 0.2)}`);
+    return markV(escaped);
+  }
+
   function applyRemoteState(state) {
     if (G && state.seq <= (G.seq || 0)) return;   // ignore an update older than the one on screen
     const hadGame = !!G;
@@ -459,6 +474,21 @@
         hand: i === me ? priv.hand : Array(p.handN).fill('?'),
       })),
     };
+
+    // my own face-down tiles show their type only to me
+    Object.values(G.tiles).forEach(tile => {
+      const key = cubeKey(tile.c);
+      if (tile.own === me && !tile.disc && priv.secretSkills[key]) tile.sk = priv.secretSkills[key];
+    });
+
+    // animate only the latest action, and not the first state a browser loads
+    if (hadGame && state.seq !== lastAnimatedSeq && G.events && G.events.length) {
+      lastAnimatedSeq = state.seq;
+      playEvents(G.events);
+    }
+    if (hadGame && !wasApocalypse && G.apoc) playApocalypseAnimation();
+    render();
+  }
 
     // my own face-down tiles show their type only to me
     Object.values(G.tiles).forEach(tile => {
@@ -484,12 +514,6 @@
     const { data, error } = await db.rpc('submit_action', { p_room: ROOM, p_action: action });
     const message = error ? error.message : '';
     if (message && !message.includes(DISCOVERY_CHOICE)) setMessage(message);
-    if (!message && G && G.log.length) {
-      const latest = G.log[0];
-      if (latest && /rolled|develops|hit|attacks|moved to/.test(latest.t)) {
-        showFloat(textWithV(latest.t), 'nat');
-      }
-    }
     render();
     return { data, message };
   }
@@ -1049,6 +1073,7 @@
     const cube = keyToCube(keyText);
     const hero = heroIndexText !== undefined ? G.heroes[+heroIndexText] : null;
     const object = objectIndexText !== undefined ? G.objs[+objectIndexText] : null;
+    const unit = hero || object;
 
     // off my turn, clicking one of my heroes sends an emoji
     if (!isMyTurn()) {
