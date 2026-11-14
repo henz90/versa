@@ -484,6 +484,12 @@
     const { data, error } = await db.rpc('submit_action', { p_room: ROOM, p_action: action });
     const message = error ? error.message : '';
     if (message && !message.includes(DISCOVERY_CHOICE)) setMessage(message);
+    if (!message && G && G.log.length) {
+      const latest = G.log[0];
+      if (latest && /rolled|develops|hit|attacks|moved to/.test(latest.t)) {
+        showFloat(textWithV(latest.t), 'nat');
+      }
+    }
     render();
     return { data, message };
   }
@@ -846,17 +852,19 @@
   function buyOptions() {
     const mine = myIndex();
     const player = G.pl[mine >= 0 ? mine : G.cur];
-    const ready = isMyTurn() && boardStepDone() && !G.apoc;
+    const myTurn = isMyTurn();
+    const boardDone = boardStepDone();
+    const ready = myTurn && boardDone && !G.apoc;
+    const canAfford = player.v >= RULES.actionCost;
     const objectsFull = objectCount(mine) >= RULES.maxObjects;
-    const canAfford = player.v >= RULES.actionCost && ready;
     return [
-      { key: 'barrier', icon: '🛑', label: 'Barrier', cost: '5V', disabled: !canAfford },
-      { key: 'obj', icon: '🔮', label: 'Object', cost: '5V', disabled: !canAfford || objectsFull },
+      { key: 'barrier', icon: '🛑', label: 'Barrier', cost: '5V', disabled: !(ready && canAfford) },
+      { key: 'obj', icon: '🔮', label: 'Object', cost: '5V', disabled: !(ready && canAfford) || objectsFull },
       { key: 'hero', icon: '👤', label: 'Hero', cost: '30V', disabled: true },
-      { key: 'skill:str', icon: '✊', label: 'STR', cost: '5V', disabled: !canAfford },
-      { key: 'skill:def', icon: '🛡️', label: 'DEF', cost: '5V', disabled: !canAfford },
-      { key: 'skill:rng', icon: '🏹', label: 'RNG', cost: '5V', disabled: !canAfford },
-      { key: 'skill:int', icon: '🧠', label: 'INT', cost: '5V', disabled: !canAfford },
+      { key: 'skill:str', icon: '✊', label: 'STR', cost: '5V', disabled: !(ready && canAfford) },
+      { key: 'skill:def', icon: '🛡️', label: 'DEF', cost: '5V', disabled: !(ready && canAfford) },
+      { key: 'skill:rng', icon: '🏹', label: 'RNG', cost: '5V', disabled: !(ready && canAfford) },
+      { key: 'skill:int', icon: '🧠', label: 'INT', cost: '5V', disabled: !(ready && canAfford) },
     ];
   }
 
