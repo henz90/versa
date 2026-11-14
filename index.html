@@ -499,20 +499,24 @@
   /* =============================================================
      8. DATABASE SYNC
      ============================================================= */
-
-  // loads this player's hand and pool; keeps the last good copy if the read fails
+    
+  // loads my hand, pool, and the types of the tiles I placed (both reads run in parallel)
   async function loadMyPrivateData() {
-    const { data, error } = await db.from('player_private').select('pool, hand')
-      .eq('room_code', ROOM).eq('uid', ME).maybeSingle();
-    if (error) {
-      console.error('private data failed to load:', error.message);
-      return;
-    }
-    if (!data) {
-      console.warn('no private row for this player in room', ROOM);
-      return;
-    }
-    PRIV = { pool: data.pool || [], hand: data.hand || [], deck: [], sks: PRIV?.sks || {} };
+    const [mine, secrets] = await Promise.all([
+      db.from('player_private').select('pool, hand').eq('room_code', ROOM).eq('uid', ME).maybeSingle(),
+      db.from('tile_secrets').select('cube_key, skill').eq('room_code', ROOM).eq('owner', ME),
+    ]);
+    if (mine.error) console.error('private data failed to load:', mine.error.message);
+    if (secrets.error) console.error('tile secrets failed to load:', secrets.error.message);
+    if (mine.error || secrets.error) return;
+
+    const sks = Object.fromEntries((secrets.data || []).map(row => [row.cube_key, row.skill]));
+    PRIV = {
+      pool: mine.data?.pool || [],
+      hand: mine.data?.hand || [],
+      deck: [],
+      sks,
+    };
   }
 
   // when another player's hero finds my hidden tile, I reveal it and the bonus goes to that hero
@@ -1928,7 +1932,8 @@
       ? `<div class="tsub">🛑 Barrier L${tile.bar}${tile.barOwn != null && G.pl[tile.barOwn] ? ' · held by ' + escapeHtml(G.pl[tile.barOwn].name) : ''}</div>`
       : '';
     const status = tile.gz ? 'Ground Zero: +1 to d20 rolls for heroes on it'
-      : seen ? 'Discovered'
+      : tile.disc ? 'Discovered'
+      : tile.own === myIndex() ? 'Yours, face down: only you can see its type'
       : 'Undiscovered: its type is hidden until its owner reveals it';
     return {
       kind: 'tile', color: tile.own >= 0 ? PLAYER_COLORS[tile.own] : UNOWNED_STROKE,
