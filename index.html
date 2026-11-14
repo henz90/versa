@@ -356,7 +356,7 @@
   const seenTodo = new Set();
 
   // wheels that must be answered; they cannot be dismissed
-  const MUST_CHOOSE = ['discovery', 'discoveryObject'];
+  const MUST_CHOOSE = ['discovery', 'discoveryObject', 'moveBonus'];
 
   const ui = {
     mode: '',            // '', place, remove, develop, barrier, hero, obj, buyskill
@@ -931,15 +931,16 @@
 
   // sends one intent to the server; the server decides the result and the new state arrives by realtime
   async function submitAction(action) {
-    const { error } = await db.rpc('submit_action', { p_room: ROOM, p_action: action });
-    if (error) setMessage(error.message);
+    const { data, error } = await db.rpc('submit_action', { p_room: ROOM, p_action: action });
+    if (error && !error.message.includes('DISCOVERY_CHOICE')) setMessage(error.message);
     render();
+    return { data, error: error ? error.message : '' };
   }
     
   // dropping on an empty tile: move directly, or choose objects to take first
   function moveTo(hero, cube) {
     if (carryable(hero).length) return openCarryWheel(hero, cube);
-    submitAction({ type: 'move', hero: G.heroes.indexOf(hero), to: cube, carry: [] });
+    sendMove(hero, cube, [], null);
   }
 
   function openCarryWheel(hero, cube) {
@@ -965,15 +966,30 @@
     openWheel({ cube: ui.carry.hero.c, kind: 'carry', items: carryItems() });
   }
 
-  function confirmCarry() {
+function confirmCarry() {
     const { hero, cube, selected } = ui.carry;
     ui.carry = null;
-    submitAction({
+    sendMove(hero, cube, selected, null);
+  }
+
+  // sends a move; if the server needs a discovery choice, it asks which carried object or the hero gets the bonus
+  async function sendMove(hero, cube, carry, bonus) {
+    const { error } = await submitAction({
       type: 'move',
       hero: G.heroes.indexOf(hero),
       to: cube,
-      carry: selected.map(o => G.objs.indexOf(o)),
+      carry: carry.map(o => G.objs.indexOf(o)),
+      bonus: bonus ? bonus.mode : null,
+      bonusObj: bonus && bonus.mode === 'obj' ? bonus.index : null,
     });
+    if (error.includes('DISCOVERY_CHOICE')) {
+      openWheel({
+        cube: hero.c, target: cube, hero, carry, kind: 'moveBonus',
+        items: [{ v: 'hero', ic: '👤', t: 'Hero' },
+                ...carry.filter(o => !o.nuke).map(o => ({ v: 'o' + G.objs.indexOf(o), ic: o.sym || '🧱', t: 'DEF ' + o.s.def }))],
+      });
+      render();
+    }
   }
 
   function performMove(hero, cube, carried) {
@@ -1184,27 +1200,38 @@
      Mind Controlled heroes develop too; their new objects belong to the controller.
      ============================================================= */
 
-  // develop roll: 10 or more succeeds, and the total sets the bonus size
-  function developHero(hero, cube, unit) {
-    const take = ui.take;
-    const roll = take ? 0 : rollD20();
-    const gz = gzBonus(hero);
-    const object = objectFor(hero), objectInt = object ? object.s.int : 0;
-    const total = take ? 10 : roll + hero.s.int + gz + objectInt;
-    const rollText = take
-      ? bonusHtml('take 10', 0)
-      : `${dieHtml(roll, 0)} ${bonusHtml('🧠+' + hero.s.int, .35)}${gz ? bonusHtml('⬡+1', .5) : ''}${objectInt ? bonusHtml('🧱+' + objectInt, .65) : ''}`;
-    const rollLabel = take ? '10 (taken)' : `${roll} +${total - roll}`;
+      // a reference that tells the server which hero or object is meant
+  const unitRef = unit => (G.heroes.includes(unit)
+    ? { kind: 'h', i: G.heroes.indexOf(unit) }
+    : { kind: 'o', i: G.objs.indexOf(unit) });
 
-    ui.take = false;
-    if (total < 10) {
-      spendAction(hero, 'develop', true);
-      showFloat(`🛠 ${heroLabel(hero)} ${rollText} = <b>${total}</b> · <span style="color:#ff7b7b">FAILED</span>`);
-      addLog(`${heroLabel(hero)} 🛠 rolled ${rollLabel} = ${total}: failed`, hero.p);
-      setMessage(`Develop rolled ${total}: needed 10 or more`);
-      return;
+  async function sendDevelop(hero, cube, unit, take) {
+    const { data, error } = await submitAction({
+      type: 'develop',
+      hero: G.heroes.indexOf(hero),
+      mode: ui.devType,
+      cube: cube || null,
+      unit: unit ? unitRef(unit) : null,
+      skill: ui.devSkill,
+      take,
+      dir: ui.buildDir || 'up',
+    });
+    ui.buildDir = null;
+    if (error) return;
+    if (data && data.nat20) {
+      // a natural 20 reopens the full develop menu
+      ui.mode = 'develop';
+      ui.devType = null;
+      ui.selected = hero;
+      openWheel({ cube: hero.c, kind: 'developType', items: developTypeItems() });
+    } else {
+      ui.mode = '';
+      ui.devType = null;
+      ui.selected = null;
     }
-
+    render();
+  }
+    
     const bonus = total >= 19 ? 3 : total >= 16 ? 2 : 1;
     spendAction(hero, 'develop', false);
     showFloat(`🛠 ${heroLabel(hero)} ${rollText} = <b>${total}</b> · <span style="color:#66bb6a">+${bonus} bonus</span>`);
@@ -1224,41 +1251,6 @@
       ui.mode = '';
       ui.devType = null;
       ui.selected = null;
-    }
-  }
-
-  function applyDevelopEffect(hero, cube, unit, bonus) {
-    if (ui.devType === 'barrier') return developBarrier(hero, cube, bonus);
-    if (ui.devType === 'object') {
-      // the controller of a Mind Controlled hero owns the new object
-      newObject(actingPlayer(hero), cube, bonus);
-      return addLog(`  creates an object at (${cube}) with Defense ${bonus}`, hero.p);
-    }
-    unit.s[ui.devSkill] = Math.min(RULES.maxSkill, unit.s[ui.devSkill] + bonus);
-    addLog(`  ${unit.k ? heroLabel(unit) : 'Object'} ${ui.devSkill} +${bonus} → ${unit.s[ui.devSkill]}`, hero.p);
-  }
-
-  function developBarrier(hero, cube, bonus) {
-    const tile = tileAt(cube);
-    if (!tile.disc) return setMessage('Barriers can only go on discovered tiles');
-    if (ui.buildDir !== 'down') {
-      if (tile.bar) {
-        tile.bar = Math.min(RULES.maxBarrier, tile.bar + bonus);
-        addLog(`  builds barrier at (${cube}) up by ${bonus} to L${tile.bar}`, hero.p);
-      } else {
-        tile.bar = Math.min(RULES.maxBarrier, RULES.minBarrier + bonus - 1);
-        tile.barOwn = actingPlayer(hero);
-        addLog(`  creates barrier at (${cube}) at L${tile.bar}`, hero.p);
-      }
-      return;
-    }
-    tile.bar -= bonus;
-    if (tile.bar < RULES.minBarrier) {
-      tile.bar = 0;
-      tile.barOwn = undefined;
-      addLog(`  destroys barrier at (${cube}): it fell below L3`, hero.p);
-    } else {
-      addLog(`  lowers barrier at (${cube}) by ${bonus} to L${tile.bar}`, hero.p);
     }
   }
 
@@ -1771,15 +1763,16 @@
         ui.devSkill = value;
         openWheel({ cube: wheel.unit.c, kind: 'roll', unit: wheel.unit, items: rollItems() });
       },
-      roll: () => {
-        ui.take = value === 'take';
-        developHero(ui.selected, wheel.cube, wheel.unit || null);
-      },
+      roll: () => sendDevelop(ui.selected, wheel.cube, wheel.unit || null, value === 'take'),
       discovery: () => chooseDiscoveryTarget(value),
       discoveryObject: () => {
         const pending = ui.pendingDiscovery;
         ui.pendingDiscovery = null;
         if (pending) improveUnit(G.objs[+value.slice(1)], pending.skill, G.heroes[pending.heroIndex].p);
+      },
+      moveBonus: () => {
+        const bonus = value === 'hero' ? { mode: 'hero' } : { mode: 'obj', index: +value.slice(1) };
+        sendMove(wheel.hero, wheel.target, wheel.carry, bonus);
       },
     };
 
