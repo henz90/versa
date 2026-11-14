@@ -820,7 +820,7 @@
   const skillItems = () => SKILLS.map(k => ({ v: k, ic: SKILL_ICON[k], t: SKILL_NAME[k] }));
   const rollItems = () => [{ v: 'roll', ic: '🎲', t: 'Roll d20' }, { v: 'take', ic: '1️⃣', t: 'Take 1 pt' }];
 
-  // Up / Down choices for a barrier; only the legal direction is enabled
+  // Up / Down choices for a barrier: you raise your own barriers and lower others'
   function buildDirItems(cube) {
     const tile = tileAt(cube), hero = selectedHero();
     const mine = !tile.bar || (hero && barrierIsMine(tile, hero));
@@ -835,29 +835,41 @@
     submitAction({ type: 'buy_object', cube });
   }
 
+  function lowerBarrier(cube) {
+    submitAction({ type: 'lower_barrier', cube });
+  }
+
+  function buySkillOn(unit) {
+    submitAction({ type: 'buy_skill', skill: ui.devSkill, unit: unitRef(unit) });
+  }
+  
   function buyOptions() {
     const mine = myIndex();
     const player = G.pl[mine >= 0 ? mine : G.cur];
-    const objectsFull = objectCount(mine) >= RULES.maxObjects;
     const ready = isMyTurn() && boardStepDone() && !G.apoc;
-    const soon = (icon, label) => ({ key: label, icon, label, cost: 'soon', disabled: true });
+    const objectsFull = objectCount(mine) >= RULES.maxObjects;
+    const canAfford = player.v >= RULES.actionCost && ready;
     return [
-      soon('🛑', 'Barrier'),
-      { key: 'obj', icon: '🔮', label: 'Object', cost: '5V', disabled: !ready || objectsFull || player.v < RULES.actionCost },
-      soon('👤', 'Hero'),
-      soon('✊', 'STR'),
-      soon('🛡️', 'DEF'),
-      soon('🏹', 'RNG'),
-      soon('🧠', 'INT'),
+      { key: 'barrier', icon: '🛑', label: 'Barrier', cost: '5V', disabled: !canAfford },
+      { key: 'obj', icon: '🔮', label: 'Object', cost: '5V', disabled: !canAfford || objectsFull },
+      { key: 'hero', icon: '👤', label: 'Hero', cost: '30V', disabled: true },
+      { key: 'skill:str', icon: '✊', label: 'STR', cost: '5V', disabled: !canAfford },
+      { key: 'skill:def', icon: '🛡️', label: 'DEF', cost: '5V', disabled: !canAfford },
+      { key: 'skill:rng', icon: '🏹', label: 'RNG', cost: '5V', disabled: !canAfford },
+      { key: 'skill:int', icon: '🧠', label: 'INT', cost: '5V', disabled: !canAfford },
     ];
   }
 
   function pickBuy(key) {
-    if (key !== 'obj') return;
     setMessage('');
     closeWheel();
-    ui.mode = ui.mode === 'obj' ? '' : 'obj';
-    ui.devType = null;
+    if (key === 'obj' || key === 'barrier') {
+      ui.mode = ui.mode === key ? '' : key;
+      ui.devType = null;
+    } else if (key.startsWith('skill:')) {
+      ui.mode = ui.mode === 'buyskill' && ui.devSkill === key.slice(6) ? '' : 'buyskill';
+      ui.devSkill = key.slice(6);
+    }
     render();
   }
 
@@ -1055,6 +1067,8 @@
         return render();
       case 'develop':
         return handleDevelopClick(cube, object || null, unitOfKind(hero, object));
+      case 'barrier':
+        return !G.apoc && !!tile && !!tile.disc && G.heroes.some(h => h.alive && h.p === G.cur && cubeDistance(h.c, cube) <= 1);
       default:
         break;
     }
@@ -1427,7 +1441,9 @@
     const mine = myIndex();
     const viewer = G.pl[mine >= 0 ? mine : G.cur];
     const items = buyOptions();
-    const button = item => `<button class="opt2 ${ui.mode === item.key.toLowerCase() || (item.key === 'obj' && ui.mode === 'obj') ? 'on' : ''}" data-buy="${item.key}" ${item.disabled ? 'disabled' : ''}>${item.icon} ${item.label}<small>${markV(item.cost)}</small></button>`;
+        const isActive = item => item.key === ui.mode
+      || (item.key.startsWith('skill:') && ui.mode === 'buyskill' && ui.devSkill === item.key.slice(6));
+    const button = item => `<button class="opt2 ${isActive(item) ? 'on' : ''}" data-buy="${item.key}" ${item.disabled ? 'disabled' : ''}>${item.icon} ${item.label}<small>${markV(item.cost)}</small></button>`;
     const body = isMyTurn()
       ? `<div class="bcol">
            <div class="brow" style="grid-template-columns:repeat(3,1fr)">${items.slice(0, 3).map(button).join('')}</div>
