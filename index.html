@@ -159,6 +159,12 @@
     @keyframes roll { 0% { transform: rotate(-720deg) scale(.3); opacity: 0; } 70% { transform: rotate(15deg) scale(1.15); opacity: 1; } 100% { transform: none; opacity: 1; } }
     @keyframes natin { 0% { opacity: 0; transform: scale(.3) rotate(-8deg); } 60% { transform: scale(1.12); } 100% { opacity: 1; transform: none; } }
     @keyframes spin { from { transform: rotate(-360deg) scale(.2); } to { transform: none; } }
+    .fx.event { min-width: 14em; font-size: 1em; font-weight: 600; }
+    .event-card { padding: .2em .1em; }
+    .event-dice { margin-top: .3em; }
+    .event-card.tone-good { border-left: 4px solid #66bb6a; padding-left: .5em; }
+    .event-card.tone-bad { border-left: 4px solid #ff5252; padding-left: .5em; }
+    .event-card.tone-info { border-left: 4px solid #8ab4ff; padding-left: .5em; }
 
     /* =========================================================
        TOOLTIPS: each kind of entity has its own look
@@ -442,18 +448,20 @@
       secretSkills: Object.fromEntries((secrets.data || []).map(row => [row.cube_key, row.skill])),
     };
   }
-
-  // turns "rolled 4+3" into two dice, and escapes everything else
-  function eventHtml(text) {
-    const escaped = escapeHtml(text).replace(/rolled (\d+)\+(\d+)/, (match, a, b) =>
-      `rolled ${dieHtml(a, 0)}${dieHtml(b, 0.2)}`);
-    return markV(escaped);
+    
+  // one card per event: a headline, then the dice (if any) shown as tiles
+  function eventCardHtml(event) {
+    const dice = (event.dice || []).map((value, i) => dieHtml(value, i * 0.15)).join(' ');
+    return `<div class="event-card tone-${event.tone || 'info'}">
+      <div>${textWithV(event.headline)}</div>
+      ${dice ? `<div class="event-dice">${dice}</div>` : ''}
+    </div>`;
   }
 
-  // shows each event line of the latest action, one after another, so the rolls are seen when they happen
+  // shows the events of the latest action one after another
   function playEvents(events) {
     events.forEach((event, index) => {
-      setTimeout(() => showFloat(eventHtml(event.t), 'roll'), index * 900);
+      setTimeout(() => showFloat(eventCardHtml(event), 'event'), index * 1400);
     });
   }
 
