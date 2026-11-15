@@ -453,16 +453,18 @@
   function eventCardHtml(event) {
     const dice = (event.dice || []).map((value, i) => dieHtml(value, i * 0.15)).join(' ');
     return `<div class="event-card tone-${event.tone || 'info'}">
-      <div>${textWithV(event.headline)}</div>
+      <div>${textWithV(event.headline || 'Something happened')}</div>
       ${dice ? `<div class="event-dice">${dice}</div>` : ''}
     </div>`;
   }
 
-  // shows the events of the latest action one after another
+  // shows the events of the latest action one after another; skips anything without a headline
   function playEvents(events) {
-    events.forEach((event, index) => {
-      setTimeout(() => showFloat(eventCardHtml(event), 'event'), index * 1400);
-    });
+    events
+      .filter(event => event && event.headline)
+      .forEach((event, index) => {
+        setTimeout(() => showFloat(eventCardHtml(event), 'event'), index * 1400);
+      });
   }
 
   // replaces the local game state with the state the server published
