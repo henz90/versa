@@ -397,6 +397,9 @@
     (isMine(hero) && isMyTurn() && !hero.mc)
     || (!!hero.mc && hero.mc.ceded && hero.mc.by === myIndex() && hero.p === G.cur));
 
+  // Combat and Mind Control share one action per hero per turn; returns the one already used, if any
+  const combatLock = hero => (hero.t.find(x => x.type === 'attack' || x.type === 'mind') || {}).type || null;
+
   const phaseName = () => {
     if (G.rd <= 3) return 'Peace · Growth';
     if (G.rd <= ROUND.placementEnds) return 'War · Growth';
@@ -836,16 +839,20 @@
   /* =============================================================
      13. COMBAT AND MIND CONTROL (server-side)
      Dropping a hero on an enemy offers Combat or Mind Control.
+     A hero may use only one of them per turn, and only the one it
+     started with (a failed attempt may be retried).
      ============================================================= */
 
-  // Combat or Mind Control, whichever the hero can use on that target
+  // Combat or Mind Control, whichever the hero can still use on that target
   function openAttackChoice(attackerIdx, defenderIdx) {
     const attacker = G.heroes[attackerIdx], defender = G.heroes[defenderIdx];
     const inRange = inRangeOf(attacker, defender);
     const ownedByMe = !!defender.mc && defender.mc.by === myIndex();
-    const attackOk = inRange && !ownedByMe && canAct(attacker, 'attack');
-    const mindOk = canMindControl(attacker, defender);
+    const lock = combatLock(attacker);
+    const attackOk = inRange && !ownedByMe && canAct(attacker, 'attack') && (!lock || lock === 'attack');
+    const mindOk = canMindControl(attacker, defender) && (!lock || lock === 'mind');
     if (!attackOk && !mindOk) {
+      if (lock) return setMessage(`This hero already used ${lock === 'mind' ? 'Mind Control' : 'Combat'} this turn`);
       if (!inRange) return setMessage('Out of range');
       if (G.rd < ROUND.attacksFrom) return setMessage('Attacks and Mind Control unlock in round 4');
       return setMessage('No attack or Mind Control available to this hero on that target');
@@ -1074,7 +1081,7 @@
     }
   }
 
-  // what a dropped hero does: attack the Nuke, attack or Mind Control an enemy, or move
+  // what a dropped hero does: attack the Nuke, offer Combat or Mind Control on an enemy, or move
   function handleDrop(heroIdx, point) {
     const hero = G.heroes[heroIdx];
     const cube = tileUnderPoint(point);
@@ -1707,7 +1714,7 @@
           done: hero.acts < 1,
           children: [
             { text: 'Move', done: used('move'), dim: !used('move') && !canAct(hero, 'move') },
-            { text: G.rd < ROUND.attacksFrom ? 'Attack (from round 4)' : 'Attack', done: used('attack'), dim: !used('attack') && !canAct(hero, 'attack') },
+            { text: G.rd < ROUND.attacksFrom ? 'Attack (from round 4)' : 'Attack or Mind Control', done: used('attack') || used('mind'), dim: !used('attack') && !used('mind') && !canAct(hero, 'attack') },
             { text: 'Develop', done: used('develop'), dim: !used('develop') && !canAct(hero, 'develop') },
           ],
         });
