@@ -145,13 +145,12 @@
     .wbtn.emoji-btn .wi { font-size: 1.9em; text-shadow: 0 0 3px #000, 0 0 6px #000; }
 
     /* =========================================================
-       FLOATING FEEDBACK (dice, banners, emoji, event cards)
+       FLOATING FEEDBACK (dice, banners, event cards, emoji)
        ========================================================= */
     .fx { background: #000d; border: 1px solid #8a8aff; border-radius: .7em; padding: .5em .9em; font-size: 1.15em; font-weight: 700; line-height: 1.7; text-align: center; animation: fxin .3s ease-out, fxout .4s ease-in 2.6s forwards; }
     .fx span { display: inline-block; animation: pop .35s both; animation-delay: var(--d, 0s); }
     .fx .die { display: inline-block; min-width: 1.7em; text-align: center; background: #f4f4f4; color: #111; border-radius: .3em; padding: .1em .3em; font-weight: 900; margin: 0 .15em; animation: roll .7s cubic-bezier(.2, .8, .3, 1) both; animation-delay: var(--d, 0s); }
     .fx .bon { display: inline-block; background: #24243a; border: 1px solid #556; border-radius: .4em; padding: 0 .35em; margin: 0 .15em; font-size: .9em; animation: pop .35s both; animation-delay: var(--d, 0s); }
-    .fx .retry { font-size: .8em; color: #ffe8a3; font-weight: 600; }
     .fx.nat { border-color: #ffd54f; background: #2a2100f0; font-size: 1.6em; box-shadow: 0 0 50px #ffd54f88; animation: natin .6s ease-out, fxout .4s ease-in 2.8s forwards; }
     .fx.nat > span:first-child { color: #ffd54f; animation: spin .8s ease-out both; }
     .fx.event { min-width: 14em; font-size: 1em; font-weight: 600; }
@@ -250,7 +249,6 @@
   const SKILLS = ['str', 'def', 'rng', 'int'];
   const SKILL_ICON = { str: '✊', def: '🛡️', rng: '🏹', int: '🧠', bar: '🛑' };
   const SKILL_NAME = { str: 'Strength', def: 'Defense', rng: 'Range', int: 'Intelligence', bar: 'Barrier' };
-  const SKILL_SHORT = { str: 'STR', def: 'DEF', rng: 'RNG', int: 'INT' };
   const OBJECT_SYMBOLS = ['🔮', '🗡️', '🏺', '📿', '🧿', '⚗️', '🪬', '🔑', '🪄', '🧭', '🕯️', '🏹'];
   const EMOJIS = ['😂', '👏', '😱', '🔥', '🤔', '💀', '🎯', '🙃'];
 
@@ -336,7 +334,7 @@
   let view = { cx: 0, cy: 0, zoom: 900 };
   let pan = null;                // board panning gesture
   let drag = null;               // hero drag gesture
-  let cardDrag = null;           // skill card drag gesture
+  let cardDrag = null;           // traversal card drag gesture
   let suppressClick = false;
   let botMinimized = false;
   let gameOverDismissed = false;
@@ -348,7 +346,7 @@
   const seenTodo = new Set();    // to-do lines already struck through
 
   const ui = {
-    mode: '',              // '', place, remove, develop, obj, barrier, buyskill, hero
+    mode: '',              // '', place, remove, develop, obj, barrier, hero, buyskill
     selectedIndex: null,   // index into G.heroes of the hero performing the current action
     devType: null,         // develop choice: barrier | object | skill
     devSkill: 'str',       // skill bought or raised
@@ -433,7 +431,7 @@
   const canHitNuke = hero => isMyTurn() && hero.alive && hero.p === G.cur && boardStepDone() && hero.acts > 0;
 
   /* =============================================================
-     7. SERVER STATE AND PRIVATE DATA
+     7. SERVER STATE, PRIVATE DATA AND EVENT CARDS
      ============================================================= */
 
   // loads my hand, pool, and the types of the tiles I placed (both reads run in parallel)
@@ -712,7 +710,8 @@
         return !G.apoc && !!tile && !!tile.disc && tile.bar < RULES.maxBarrier
           && G.heroes.some(h => h.alive && h.p === myIndex() && cubeDistance(h.c, cube) <= 1);
       case 'hero':
-        return !G.apoc && !!tile && !!tile.disc
+        // heroes can be bought after the Apocalypse
+        return !!tile && !!tile.disc
           && G.heroes.some(h => h.alive && h.p === myIndex() && sameTile(h.c, cube));
       default:
         return false;
@@ -867,32 +866,22 @@
     ];
   }
 
-  function buyObject(cube) {
-    submitAction({ type: 'buy_object', cube });
-  }
-
-  function buyBarrier(cube) {
-    submitAction({ type: 'buy_barrier', cube });
-  }
-
   function buySkillOn(unit) {
     submitAction({ type: 'buy_skill', skill: ui.devSkill, unit: unitRef(unit) });
   }
 
-  function buyHero(cube) {
-    submitAction({ type: 'buy_hero', cube });
-  }
-
+  // Barrier and Object stop at the Apocalypse; Hero and skill purchases continue
   function buyOptions() {
     const mine = myIndex();
     const player = G.pl[mine >= 0 ? mine : G.cur];
-    const ready = isMyTurn() && boardStepDone() && !G.apoc;
+    const ready = isMyTurn() && boardStepDone();
     const canAfford = player.v >= RULES.actionCost;
     const objectsFull = objectCount(mine) >= RULES.maxObjects;
+    const heroesFull = G.heroes.filter(h => h.alive && h.p === mine).length >= RULES.maxHeroes;
     return [
-      { key: 'barrier', icon: '🛑', label: 'Barrier', cost: '5V', disabled: !(ready && canAfford) },
-      { key: 'obj', icon: '🔮', label: 'Object', cost: '5V', disabled: !(ready && canAfford) || objectsFull },
-      { key: 'hero', icon: '👤', label: 'Hero', cost: '30V', disabled: !(ready && player.v >= RULES.heroCost) },
+      { key: 'barrier', icon: '🛑', label: 'Barrier', cost: '5V', disabled: !(ready && canAfford) || !!G.apoc },
+      { key: 'obj', icon: '🔮', label: 'Object', cost: '5V', disabled: !(ready && canAfford) || objectsFull || !!G.apoc },
+      { key: 'hero', icon: '👤', label: 'Hero', cost: '30V', disabled: !(ready && player.v >= RULES.heroCost) || heroesFull },
       { key: 'skill:str', icon: '✊', label: 'STR', cost: '5V', disabled: !(ready && canAfford) },
       { key: 'skill:def', icon: '🛡️', label: 'DEF', cost: '5V', disabled: !(ready && canAfford) },
       { key: 'skill:rng', icon: '🏹', label: 'RNG', cost: '5V', disabled: !(ready && canAfford) },
@@ -1061,8 +1050,9 @@
 
   /* =============================================================
      17. TRAVERSAL HAND
-     Play and Sell buttons on each card. Skill cards are dragged
-     onto a hero or object to apply them.
+     A 5V card is played by its Play button or by dragging it out
+     of the hand. Sell buttons sell any card. A skill card is
+     dragged onto a hero or object to apply it.
      ============================================================= */
 
   function drawHand() {
@@ -1097,13 +1087,13 @@
     else if (sell) submitAction({ type: 'sell_card', index: +sell.dataset.sell + 1 });
   }
 
-  // dragging a skill card: follow the pointer, then apply it to the unit under it
+  // starts a drag on any card face: 5V cards are played when dropped outside the hand,
+  // skill cards are applied when dropped on a hero or object
   function onCardPointerDown(event) {
-    if (!isMyTurn()) return;
+    if (!isMyTurn() || event.button !== 0) return;
     const face = event.target.closest('.hand-card-face');
     if (!face) return;
     const index = +face.closest('[data-card]').dataset.card;
-    if (G.pl[myIndex()].hand[index] === 'v') return;   // 5V cards are played, not dragged
     cardDrag = { index, startX: event.clientX, startY: event.clientY, moved: false, ghost: null };
   }
 
@@ -1114,20 +1104,30 @@
       cardDrag.ghost = document.createElement('div');
       cardDrag.ghost.className = 'ghostc';
       const card = G.pl[myIndex()].hand[cardDrag.index];
-      cardDrag.ghost.textContent = `${SKILL_ICON[card]} +1 ${SKILL_NAME[card]}`;
+      cardDrag.ghost.textContent = card === 'v' ? '💰 +5V' : `${SKILL_ICON[card]} +1 ${SKILL_NAME[card]}`;
       document.body.appendChild(cardDrag.ghost);
     }
     cardDrag.ghost.style.left = event.clientX + 'px';
     cardDrag.ghost.style.top = event.clientY + 'px';
   }
 
+  // on release: dropped back in the hand cancels; a 5V card dropped elsewhere is played;
+  // a skill card is applied to the hero or object under the pointer
   function onCardPointerUp(event) {
     const finished = cardDrag;
     cardDrag = null;
     if (finished.ghost) finished.ghost.remove();
     if (!finished.moved) return;
 
-    const target = document.elementFromPoint(event.clientX, event.clientY)?.closest('[data-hero],[data-obj]');
+    const under = document.elementFromPoint(event.clientX, event.clientY);
+    if (under && el('hand').contains(under)) return;   // dropped back in the hand
+
+    const card = G.pl[myIndex()].hand[finished.index];
+    if (card === 'v') {
+      return submitAction({ type: 'play_versa', index: finished.index + 1 });
+    }
+
+    const target = under?.closest('[data-hero],[data-obj]');
     if (!target) return setMessage('Drop a skill card on one of your heroes or objects');
     const unit = target.dataset.hero !== undefined
       ? { kind: 'h', i: +target.dataset.hero }
@@ -1177,15 +1177,15 @@
 
     switch (ui.mode) {
       case 'obj':
-        if (isValidTarget(cube)) { buyObject(cube); ui.mode = ''; }
-        else setMessage('Click a tile with one of your heroes');
+        if (isValidTarget(cube)) { submitAction({ type: 'buy_object', cube }); ui.mode = ''; }
+        else setMessage('Click a discovered tile with one of your heroes');
         return render();
       case 'barrier':
-        if (isValidTarget(cube)) { buyBarrier(cube); ui.mode = ''; }
+        if (isValidTarget(cube)) { submitAction({ type: 'buy_barrier', cube }); ui.mode = ''; }
         else setMessage('Click a discovered tile next to one of your heroes');
         return render();
       case 'hero':
-        if (isValidTarget(cube)) { buyHero(cube); ui.mode = ''; }
+        if (isValidTarget(cube)) { submitAction({ type: 'buy_hero', cube }); ui.mode = ''; }
         else setMessage('Click a discovered tile with one of your heroes');
         return render();
       case 'buyskill':
@@ -1390,7 +1390,7 @@
     const cube = tile.c, key = cubeKey(cube);
     const seen = knowsTileType(tile, mine);
     const valid = isValidTarget(cube);
-    const highlight = valid && (ui.mode === 'develop' || ui.mode === 'obj' || ui.mode === 'barrier' || ui.mode === 'hero');
+    const highlight = valid && ['develop', 'obj', 'barrier', 'hero'].includes(ui.mode);
     const removable = valid && ui.mode === 'remove';
     const fill = tile.gz ? GROUND_ZERO_FILL : tile.disc ? TILE_COLORS[tile.sk] : NEUTRAL_FILL;
     const stroke = tile.own >= 0 ? PLAYER_COLORS[tile.own] : UNOWNED_STROKE;
