@@ -82,7 +82,10 @@
     /* =========================================================
        HAND
        ========================================================= */
-    .card-chip { font-size: .85em; background: #24243a; border: 1px solid #454558; border-radius: .4em; padding: .2em .5em; }
+    .hand-card { display: flex; flex-direction: column; gap: .3em; background: #24243a; border: 1px solid #454558; border-radius: .5em; padding: .4em .5em; min-width: 9em; }
+    .hand-card-face { cursor: grab; font-weight: 600; }
+    .hand-card-buttons { display: flex; gap: .3em; flex-wrap: wrap; }
+    .hand-card-buttons button { font-size: .8em; padding: .2em .4em; }
 
     /* =========================================================
        TO-DO LIST
@@ -142,7 +145,7 @@
     .wbtn.emoji-btn .wi { font-size: 1.9em; text-shadow: 0 0 3px #000, 0 0 6px #000; }
 
     /* =========================================================
-       FLOATING FEEDBACK (dice, banners, emoji)
+       FLOATING FEEDBACK (dice, banners, emoji, event cards)
        ========================================================= */
     .fx { background: #000d; border: 1px solid #8a8aff; border-radius: .7em; padding: .5em .9em; font-size: 1.15em; font-weight: 700; line-height: 1.7; text-align: center; animation: fxin .3s ease-out, fxout .4s ease-in 2.6s forwards; }
     .fx span { display: inline-block; animation: pop .35s both; animation-delay: var(--d, 0s); }
@@ -151,7 +154,14 @@
     .fx .retry { font-size: .8em; color: #ffe8a3; font-weight: 600; }
     .fx.nat { border-color: #ffd54f; background: #2a2100f0; font-size: 1.6em; box-shadow: 0 0 50px #ffd54f88; animation: natin .6s ease-out, fxout .4s ease-in 2.8s forwards; }
     .fx.nat > span:first-child { color: #ffd54f; animation: spin .8s ease-out both; }
+    .fx.event { min-width: 14em; font-size: 1em; font-weight: 600; }
+    .event-card { padding: .2em .1em; }
+    .event-dice { margin-top: .3em; }
+    .event-card.tone-good { border-left: 4px solid #66bb6a; padding-left: .5em; }
+    .event-card.tone-bad { border-left: 4px solid #ff5252; padding-left: .5em; }
+    .event-card.tone-info { border-left: 4px solid #8ab4ff; padding-left: .5em; }
     .emo { position: absolute; font-size: 22px; line-height: 1; padding: 3px; border-radius: 50%; background: #000c; transform: translate(-50%, -50%); pointer-events: none; z-index: 7; animation: emofloat 2.2s ease-out forwards; }
+    .ghostc { position: fixed; pointer-events: none; z-index: 30; transform: translate(-50%, -50%); background: #24243a; border: 1px solid #ffe066; border-radius: .6em; padding: .4em .7em; font-size: 1.2em; opacity: .9; }
     @keyframes emofloat { 0% { opacity: 0; margin-top: 0; } 15% { opacity: 1; } 100% { opacity: 0; margin-top: -40px; } }
     @keyframes fxin { from { opacity: 0; transform: translateY(14px) scale(.9); } to { opacity: 1; transform: none; } }
     @keyframes fxout { to { opacity: 0; transform: translateY(-12px); } }
@@ -159,12 +169,6 @@
     @keyframes roll { 0% { transform: rotate(-720deg) scale(.3); opacity: 0; } 70% { transform: rotate(15deg) scale(1.15); opacity: 1; } 100% { transform: none; opacity: 1; } }
     @keyframes natin { 0% { opacity: 0; transform: scale(.3) rotate(-8deg); } 60% { transform: scale(1.12); } 100% { opacity: 1; transform: none; } }
     @keyframes spin { from { transform: rotate(-360deg) scale(.2); } to { transform: none; } }
-    .fx.event { min-width: 14em; font-size: 1em; font-weight: 600; }
-    .event-card { padding: .2em .1em; }
-    .event-dice { margin-top: .3em; }
-    .event-card.tone-good { border-left: 4px solid #66bb6a; padding-left: .5em; }
-    .event-card.tone-bad { border-left: 4px solid #ff5252; padding-left: .5em; }
-    .event-card.tone-info { border-left: 4px solid #8ab4ff; padding-left: .5em; }
 
     /* =========================================================
        TOOLTIPS: each kind of entity has its own look
@@ -265,7 +269,7 @@
   const RULES = {
     maxPlayers: 6, maxHeroes: 3, maxObjects: 3, maxSkill: 5,
     minBarrier: 3, maxBarrier: 12, nukeHits: 3,
-    startVersa: 5, actionCost: 5, heroActions: 2,
+    startVersa: 5, actionCost: 5, heroCost: 30, heroActions: 2,
     logLimit: 80,
   };
 
@@ -289,7 +293,6 @@
   const textWithV = text => markV(escapeHtml(text));
 
   const dieHtml = (value, delay) => `<span class="die" style="--d:${delay}s">${value}</span>`;
-  const bonusHtml = (text, delay) => `<span class="bon" style="--d:${delay}s">${text}</span>`;
 
   const isValidName = name => /^[A-Za-z0-9]{2,16}$/.test(name);
 
@@ -333,6 +336,7 @@
   let view = { cx: 0, cy: 0, zoom: 900 };
   let pan = null;                // board panning gesture
   let drag = null;               // hero drag gesture
+  let cardDrag = null;           // skill card drag gesture
   let suppressClick = false;
   let botMinimized = false;
   let gameOverDismissed = false;
@@ -344,7 +348,7 @@
   const seenTodo = new Set();    // to-do lines already struck through
 
   const ui = {
-    mode: '',              // '', place, remove, develop, obj, barrier, buyskill
+    mode: '',              // '', place, remove, develop, obj, barrier, buyskill, hero
     selectedIndex: null,   // index into G.heroes of the hero performing the current action
     devType: null,         // develop choice: barrier | object | skill
     devSkill: 'str',       // skill bought or raised
@@ -448,7 +452,7 @@
       secretSkills: Object.fromEntries((secrets.data || []).map(row => [row.cube_key, row.skill])),
     };
   }
-    
+
   // one card per event: a headline, then the dice (if any) shown as tiles
   function eventCardHtml(event) {
     const dice = (event.dice || []).map((value, i) => dieHtml(value, i * 0.15)).join(' ');
@@ -699,7 +703,6 @@
       case 'develop':
         if (!tile || !hero || cubeDistance(hero.c, cube) > 1) return false;
         if (ui.devType === 'barrier') return !G.apoc && !!tile.disc;
-        // objects can only go on discovered tiles
         if (ui.devType === 'object') return !G.apoc && !!tile.disc && objectCount(G.cur) < RULES.maxObjects;
         return false;
       case 'obj':
@@ -708,6 +711,9 @@
       case 'barrier':
         return !G.apoc && !!tile && !!tile.disc && tile.bar < RULES.maxBarrier
           && G.heroes.some(h => h.alive && h.p === myIndex() && cubeDistance(h.c, cube) <= 1);
+      case 'hero':
+        return !G.apoc && !!tile && !!tile.disc
+          && G.heroes.some(h => h.alive && h.p === myIndex() && sameTile(h.c, cube));
       default:
         return false;
     }
@@ -723,7 +729,8 @@
   /* =============================================================
      12. MOVEMENT
      The browser asks for objects to carry; the server rolls the dice,
-     moves the hero, and reveals any hidden tile it lands on.
+     moves the hero, draws the first card of the turn, and reveals any
+     hidden tile it lands on.
      ============================================================= */
 
   // dropping on an empty tile: move directly, or choose objects to take first
@@ -872,6 +879,10 @@
     submitAction({ type: 'buy_skill', skill: ui.devSkill, unit: unitRef(unit) });
   }
 
+  function buyHero(cube) {
+    submitAction({ type: 'buy_hero', cube });
+  }
+
   function buyOptions() {
     const mine = myIndex();
     const player = G.pl[mine >= 0 ? mine : G.cur];
@@ -881,7 +892,7 @@
     return [
       { key: 'barrier', icon: '🛑', label: 'Barrier', cost: '5V', disabled: !(ready && canAfford) },
       { key: 'obj', icon: '🔮', label: 'Object', cost: '5V', disabled: !(ready && canAfford) || objectsFull },
-      { key: 'hero', icon: '👤', label: 'Hero', cost: '30V', disabled: true },
+      { key: 'hero', icon: '👤', label: 'Hero', cost: '30V', disabled: !(ready && player.v >= RULES.heroCost) },
       { key: 'skill:str', icon: '✊', label: 'STR', cost: '5V', disabled: !(ready && canAfford) },
       { key: 'skill:def', icon: '🛡️', label: 'DEF', cost: '5V', disabled: !(ready && canAfford) },
       { key: 'skill:rng', icon: '🏹', label: 'RNG', cost: '5V', disabled: !(ready && canAfford) },
@@ -893,7 +904,7 @@
   function pickBuy(key) {
     setMessage('');
     closeWheel();
-    if (key === 'obj' || key === 'barrier') {
+    if (key === 'obj' || key === 'barrier' || key === 'hero') {
       ui.mode = ui.mode === key ? '' : key;
       ui.devType = null;
     } else if (key.startsWith('skill:')) {
@@ -965,6 +976,7 @@
   }
 
   function onPointerMove(event) {
+    if (cardDrag) return onCardPointerMove(event);
     if (pan) {
       const dx = event.clientX - pan.startX, dy = event.clientY - pan.startY;
       if (!pan.moved && Math.hypot(dx, dy) < 5) return;
@@ -991,6 +1003,7 @@
   }
 
   function onPointerUp(event) {
+    if (cardDrag) return onCardPointerUp(event);
     if (pan) {
       if (pan.moved) suppressClicksBriefly();
       pan = null;
@@ -1047,7 +1060,83 @@
   }
 
   /* =============================================================
-     17. BOARD CLICKS
+     17. TRAVERSAL HAND
+     Play and Sell buttons on each card. Skill cards are dragged
+     onto a hero or object to apply them.
+     ============================================================= */
+
+  function drawHand() {
+    const hand = el('hand'), mine = myIndex();
+    if (mine < 0) { hand.innerHTML = '<span class="muted">Spectating</span>'; return; }
+    const cards = G.pl[mine].hand;
+    if (!cards.length) {
+      hand.innerHTML = '<span class="muted small">No traversal cards yet. Move a hero to draw one.</span>';
+      return;
+    }
+    const myTurnNow = isMyTurn();
+    hand.innerHTML = cards.map((card, i) => {
+      const label = card === 'v' ? '+5V' : '+1 ' + SKILL_NAME[card];
+      const icon = card === 'v' ? '💰' : SKILL_ICON[card];
+      const sell = card === 'v' ? 'Sell for 5V' : 'Sell for 2V';
+      return `<div class="hand-card" data-card="${i}">
+        <div class="hand-card-face">${icon} ${label}</div>
+        <div class="hand-card-buttons">
+          ${card === 'v' ? `<button data-play="${i}" ${myTurnNow ? '' : 'disabled'}>Play</button>` : ''}
+          <button data-sell="${i}" ${myTurnNow ? '' : 'disabled'}>${sell}</button>
+        </div>
+      </div>`;
+    }).join('');
+  }
+
+  // Play and Sell buttons in the hand (the server checks the card and the turn)
+  function onHandClick(event) {
+    if (!isMyTurn()) return;
+    const play = event.target.closest('[data-play]');
+    const sell = event.target.closest('[data-sell]');
+    if (play) submitAction({ type: 'play_versa', index: +play.dataset.play + 1 });
+    else if (sell) submitAction({ type: 'sell_card', index: +sell.dataset.sell + 1 });
+  }
+
+  // dragging a skill card: follow the pointer, then apply it to the unit under it
+  function onCardPointerDown(event) {
+    if (!isMyTurn()) return;
+    const face = event.target.closest('.hand-card-face');
+    if (!face) return;
+    const index = +face.closest('[data-card]').dataset.card;
+    if (G.pl[myIndex()].hand[index] === 'v') return;   // 5V cards are played, not dragged
+    cardDrag = { index, startX: event.clientX, startY: event.clientY, moved: false, ghost: null };
+  }
+
+  function onCardPointerMove(event) {
+    if (!cardDrag.moved) {
+      if (Math.hypot(event.clientX - cardDrag.startX, event.clientY - cardDrag.startY) < 6) return;
+      cardDrag.moved = true;
+      cardDrag.ghost = document.createElement('div');
+      cardDrag.ghost.className = 'ghostc';
+      const card = G.pl[myIndex()].hand[cardDrag.index];
+      cardDrag.ghost.textContent = `${SKILL_ICON[card]} +1 ${SKILL_NAME[card]}`;
+      document.body.appendChild(cardDrag.ghost);
+    }
+    cardDrag.ghost.style.left = event.clientX + 'px';
+    cardDrag.ghost.style.top = event.clientY + 'px';
+  }
+
+  function onCardPointerUp(event) {
+    const finished = cardDrag;
+    cardDrag = null;
+    if (finished.ghost) finished.ghost.remove();
+    if (!finished.moved) return;
+
+    const target = document.elementFromPoint(event.clientX, event.clientY)?.closest('[data-hero],[data-obj]');
+    if (!target) return setMessage('Drop a skill card on one of your heroes or objects');
+    const unit = target.dataset.hero !== undefined
+      ? { kind: 'h', i: +target.dataset.hero }
+      : { kind: 'o', i: +target.dataset.obj };
+    submitAction({ type: 'apply_card', index: finished.index + 1, unit });
+  }
+
+  /* =============================================================
+     18. BOARD CLICKS
      A click opens a menu, picks a target for the current mode,
      or selects a hero.
      ============================================================= */
@@ -1094,6 +1183,10 @@
       case 'barrier':
         if (isValidTarget(cube)) { buyBarrier(cube); ui.mode = ''; }
         else setMessage('Click a discovered tile next to one of your heroes');
+        return render();
+      case 'hero':
+        if (isValidTarget(cube)) { buyHero(cube); ui.mode = ''; }
+        else setMessage('Click a discovered tile with one of your heroes');
         return render();
       case 'buyskill':
         if (!unit || !isMine(unit)) setMessage('Pick one of your own heroes or objects');
@@ -1157,7 +1250,7 @@
   }
 
   /* =============================================================
-     18. WHEEL MENU CHOICES
+     19. WHEEL MENU CHOICES
      Each choice closes the wheel first, then runs its handler.
      A handler opens the next wheel when the choice needs one.
      ============================================================= */
@@ -1172,7 +1265,7 @@
 
     const handlers = {
       emoji: () => sendEmoji(G.heroes[wheel.heroIndex], value),
-      place: () => submitAction({ type: 'place', cube: wheel.cube, skill: value }),
+      place: () => placeTile(wheel.cube, value),
       buildDir: () => openWheel({ cube: wheel.cube, kind: 'roll', dir: value, unit: null, items: rollItems() }),
       carry: () => (value === 'go' ? confirmCarry() : toggleCarry(value)),
       developType: () => {
@@ -1199,20 +1292,7 @@
   }
 
   /* =============================================================
-     19. TRAVERSAL HAND (view only in this stage)
-     ============================================================= */
-
-  function drawHand() {
-    const hand = el('hand'), mine = myIndex();
-    if (mine < 0) { hand.innerHTML = '<span class="muted">Spectating</span>'; return; }
-    const cards = G.pl[mine].hand;
-    hand.innerHTML = cards.length
-      ? cards.map(card => `<span class="card-chip">${card === 'v' ? '+5V' : '+1 ' + SKILL_NAME[card]}</span>`).join('')
-      : '<span class="muted small">No traversal cards yet. Cards move to the server in a later stage.</span>';
-  }
-
-  /* =============================================================
-     20. FLOATING FEEDBACK
+     20. FLOATING FEEDBACK AND TOOLTIPS
      ============================================================= */
 
   function showFloat(html, extraClass = '') {
@@ -1231,11 +1311,6 @@
     setTimeout(() => svg.classList.remove('apoc-flash'), 1700);
     showFloat('<span>☢ APOCALYPSE</span> barriers and objects are destroyed', 'nat');
   }
-
-  /* =============================================================
-     21. TOOLTIPS
-     One layout per kind of entity.
-     ============================================================= */
 
   const statGrid = stats => `<div class="tstats">${[
     ['✊', 'STR', stats.str], ['🛡️', 'DEF', stats.def], ['🏹', 'RNG', stats.rng], ['🧠', 'INT', stats.int],
@@ -1307,7 +1382,7 @@
   }
 
   /* =============================================================
-     22. BOARD DRAWING
+     21. BOARD DRAWING
      Everything here reads state; nothing changes it.
      ============================================================= */
 
@@ -1315,7 +1390,7 @@
     const cube = tile.c, key = cubeKey(cube);
     const seen = knowsTileType(tile, mine);
     const valid = isValidTarget(cube);
-    const highlight = valid && (ui.mode === 'develop' || ui.mode === 'obj' || ui.mode === 'barrier');
+    const highlight = valid && (ui.mode === 'develop' || ui.mode === 'obj' || ui.mode === 'barrier' || ui.mode === 'hero');
     const removable = valid && ui.mode === 'remove';
     const fill = tile.gz ? GROUND_ZERO_FILL : tile.disc ? TILE_COLORS[tile.sk] : NEUTRAL_FILL;
     const stroke = tile.own >= 0 ? PLAYER_COLORS[tile.own] : UNOWNED_STROKE;
@@ -1429,7 +1504,7 @@
   }
 
   /* =============================================================
-     23. PANELS
+     22. PANELS
      ============================================================= */
 
   function drawTop() {
@@ -1518,7 +1593,7 @@
   }
 
   /* =============================================================
-     24. TO-DO LIST
+     23. TO-DO LIST
      Phases first, then each hero with its remaining actions
      listed below it. Finished steps are struck through once.
      ============================================================= */
@@ -1589,7 +1664,7 @@
   }
 
   /* =============================================================
-     25. MODAL (name, lobby, waiting, game over)
+     24. MODAL (name, lobby, waiting, game over)
      ============================================================= */
 
   function drawModal() {
@@ -1635,7 +1710,7 @@
   }
 
   /* =============================================================
-     26. RENDER
+     25. RENDER
      Redraws the whole page from the current state. Rendering never
      changes game state.
      ============================================================= */
@@ -1675,7 +1750,7 @@
   }
 
   /* =============================================================
-     27. BUTTON ACTIONS
+     26. BUTTON ACTIONS
      Every element with data-action is routed through here.
      ============================================================= */
 
@@ -1712,7 +1787,7 @@
   }
 
   /* =============================================================
-     28. EVENT WIRING
+     27. EVENT WIRING
      ============================================================= */
 
   function wireEvents() {
@@ -1740,6 +1815,8 @@
       const button = event.target.closest('[data-buy]');
       if (button && !button.disabled) pickBuy(button.dataset.buy);
     });
+    el('hand').addEventListener('click', onHandClick);
+    el('hand').addEventListener('pointerdown', onCardPointerDown);
     document.addEventListener('click', event => {
       const button = event.target.closest('[data-action]');
       if (button && !button.disabled) runAction(button.dataset.action);
@@ -1747,7 +1824,7 @@
   }
 
   /* =============================================================
-     29. STARTUP
+     28. STARTUP
      ============================================================= */
 
   wireEvents();
