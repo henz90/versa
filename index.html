@@ -549,24 +549,24 @@
      60-second disconnect penalty itself.
      ============================================================= */
 
-  // records a player as offline or online on the server; failures are logged, not hidden
+    // records a player as offline or online on the server; failures are logged, not hidden
   async function reportPresence(uid, online) {
     const { error } = await db.rpc('set_presence', { p_room: ROOM, p_uid: uid, p_online: online });
     if (error) console.error('presence report failed:', error.message);
   }
 
+  // runs whenever the room's presence list changes; marks players who left and clears players who returned
   function onPresenceSync() {
+    if (!channel || !G) return;
     onlineUsers = new Set(Object.keys(channel.presenceState()));
     presenceReady = true;
-    const now = Date.now();
-    if (G) G.pl.forEach(p => {
-      const recorded = !!(G.offline && G.offline[p.uid] !== undefined);
+    G.pl.forEach(p => {
       if (onlineUsers.has(p.uid)) {
+        if (offlineSince[p.uid]) reportPresence(p.uid, true);
         delete offlineSince[p.uid];
-        if (recorded) reportPresence(p.uid, true);
-      } else {
-        if (!offlineSince[p.uid]) offlineSince[p.uid] = now;
-        if (!recorded) reportPresence(p.uid, false);
+      } else if (!offlineSince[p.uid]) {
+        offlineSince[p.uid] = Date.now();
+        reportPresence(p.uid, false);
       }
     });
     render();
@@ -1918,13 +1918,19 @@
      ============================================================= */
 
   wireEvents();
-
+    
+  // every second: refresh the countdown; every 5 seconds: check whether a penalty is due on the server
   setInterval(() => {
-    if (!G) return;
-    if (Object.keys(offlineSince).length) drawTop();
+    if (!G || !channel) return;
     presenceTick++;
-    const penaltyDue = Object.values(offlineSince).some(since => Date.now() - since > OFFLINE_LIMIT_MS + 5000);
-    if (presenceTick % 5 === 0 && penaltyDue) db.rpc('apply_disconnects', { p_room: ROOM });
+    if (presenceTick % 5 !== 0) return drawTop();
+    G.pl.forEach(p => {
+      if (!onlineUsers.has(p.uid) && p.uid !== ME) reportPresence(p.uid, false);
+    });
+    db.rpc('apply_disconnects', { p_room: ROOM }).then(({ error }) => {
+      if (error) console.error('disconnect check failed:', error.message);
+    });
+    drawTop();
   }, 1000);
 
   (async function boot() {
