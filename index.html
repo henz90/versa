@@ -549,9 +549,10 @@
      60-second disconnect penalty itself.
      ============================================================= */
 
-  // records a player as offline, or back online, on the server
-  function reportPresence(uid, online) {
-    db.rpc('set_presence', { p_room: ROOM, p_uid: uid, p_online: online });
+  // records a player as offline or online on the server; failures are logged, not hidden
+  async function reportPresence(uid, online) {
+    const { error } = await db.rpc('set_presence', { p_room: ROOM, p_uid: uid, p_online: online });
+    if (error) console.error('presence report failed:', error.message);
   }
 
   function onPresenceSync() {
