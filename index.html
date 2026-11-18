@@ -122,6 +122,7 @@
     .ring-o { stroke: #ffd54f; }
     .ring-nk { stroke: #ff3d3d; stroke-width: 1.5; }
     .ring-march { fill: none; stroke: #ffffffcc; stroke-width: 1; stroke-dasharray: 2 2; pointer-events: none; animation: march 1s linear infinite; }
+    .ring-mc { fill: none; stroke: #c77dff; stroke-width: 1.2; stroke-dasharray: 2 3; pointer-events: none; }
 
     /* =========================================================
        TOP BAR
@@ -279,7 +280,6 @@
 
   /* =============================================================
      2. UTILITIES
-     Helpers with no game state.
      ============================================================= */
 
   const el = id => document.getElementById(id);
@@ -341,9 +341,10 @@
   let tooltips = {};
   let onlineUsers = new Set();
   let presenceReady = false;
-  let offlineSince = {};
-  let lastAnimatedSeq = null;    // the latest action whose events have been shown
-  const seenTodo = new Set();    // to-do lines already struck through
+  let offlineSince = {};         // local clock: when each player was last seen offline
+  let presenceTick = 0;
+  let lastAnimatedSeq = null;
+  const seenTodo = new Set();
 
   const ui = {
     mode: '',              // '', place, remove, develop, obj, barrier, hero, buyskill
@@ -387,6 +388,15 @@
   const reach = hero => maxRangeWith(hero, carryable(hero));
   const gzBonus = hero => (tileAt(hero.c)?.gz ? 1 : 0);
 
+  // a player is controlling a hero of the player whose turn it is (the owner ceded it)
+  const isControllingNow = () => !!G && !G.over && G.cur !== myIndex()
+    && G.heroes.some(h => h.alive && h.p === G.cur && h.mc && h.mc.ceded && h.mc.by === myIndex());
+
+  // a hero I can act with right now: my own on my turn, or one ceded to me on its owner's turn
+  const actsForMe = hero => !!G && !G.over && hero.alive && (
+    (isMine(hero) && isMyTurn() && !hero.mc)
+    || (!!hero.mc && hero.mc.ceded && hero.mc.by === myIndex() && hero.p === G.cur));
+
   const phaseName = () => {
     if (G.rd <= 3) return 'Peace · Growth';
     if (G.rd <= ROUND.placementEnds) return 'War · Growth';
@@ -424,11 +434,22 @@
   // an action can be repeated only if it has not succeeded yet this turn
   const canRepeat = (hero, type) => !hero.t.some(x => x.type === type && !x.fail) || hero.ok[type];
 
-  const canAct = (hero, type) => isMyTurn() && hero.alive && hero.p === G.cur && boardStepDone()
+  const canAct = (hero, type) => actsForMe(hero) && boardStepDone()
     && hero.acts > 0 && canRepeat(hero, type) && (type !== 'attack' || G.rd >= ROUND.attacksFrom);
 
   // Nuke hits are allowed in every round and do not use up the one-successful-attack limit
-  const canHitNuke = hero => isMyTurn() && hero.alive && hero.p === G.cur && boardStepDone() && hero.acts > 0;
+  const canHitNuke = hero => actsForMe(hero) && boardStepDone() && hero.acts > 0;
+
+  // a hero can be targeted unless it was released in this round or the last
+  const canBeMindControlled = target => target.alive
+    && !(target.mcCooldown != null && (G.rd === target.mcCooldown || G.rd === target.mcCooldown + 1));
+
+  const inRangeOf = (attacker, target) => cubeDistance(attacker.c, target.c) <= reach(attacker);
+
+  const canMindControl = (attacker, target) => actsForMe(attacker) && boardStepDone()
+    && attacker.acts > 0 && G.rd >= ROUND.attacksFrom && !G.apoc
+    && canRepeat(attacker, 'mind') && inRangeOf(attacker, target)
+    && target.p !== myIndex() && canBeMindControlled(target);
 
   /* =============================================================
      7. SERVER STATE, PRIVATE DATA AND EVENT CARDS
@@ -460,7 +481,7 @@
     </div>`;
   }
 
-  // shows the events of the latest action one after another; skips anything without a headline
+  // shows each event of the latest action one after another; skips anything without a headline
   function playEvents(events) {
     events
       .filter(event => event && event.headline)
@@ -471,7 +492,7 @@
 
   // replaces the local game state with the state the server published
   function applyRemoteState(state) {
-    if (G && state.seq <= (G.seq || 0)) return;   // ignore an update older than the one on screen
+    if (G && state.seq <= (G.seq || 0)) return;
     const hadGame = !!G;
     const wasApocalypse = hadGame && !!G.apoc;
     const priv = PRIV || { pool: [], hand: [], secretSkills: {} };
@@ -521,20 +542,33 @@
 
   /* =============================================================
      8. PRESENCE AND EMOJI
+     Presence changes are reported to the server, which runs the
+     60-second disconnect penalty itself.
      ============================================================= */
+
+  // records a player as offline, or back online, on the server
+  function reportPresence(uid, online) {
+    db.rpc('set_presence', { p_room: ROOM, p_uid: uid, p_online: online });
+  }
 
   function onPresenceSync() {
     onlineUsers = new Set(Object.keys(channel.presenceState()));
     presenceReady = true;
     const now = Date.now();
     if (G) G.pl.forEach(p => {
-      if (onlineUsers.has(p.uid)) delete offlineSince[p.uid];
-      else if (!offlineSince[p.uid]) offlineSince[p.uid] = now;
+      const recorded = !!(G.offline && G.offline[p.uid] !== undefined);
+      if (onlineUsers.has(p.uid)) {
+        delete offlineSince[p.uid];
+        if (recorded) reportPresence(p.uid, true);
+      } else {
+        if (!offlineSince[p.uid]) offlineSince[p.uid] = now;
+        if (!recorded) reportPresence(p.uid, false);
+      }
     });
     render();
   }
 
-  // the offline countdown is shown; the penalty for a long disconnect is applied by the server in a later stage
+  // the countdown is shown here; the penalty itself is applied by the server
   function offlineBadges() {
     const now = Date.now();
     return Object.keys(offlineSince).map(uid => {
@@ -710,7 +744,7 @@
         return !G.apoc && !!tile && !!tile.disc && tile.bar < RULES.maxBarrier
           && G.heroes.some(h => h.alive && h.p === myIndex() && cubeDistance(h.c, cube) <= 1);
       case 'hero':
-        // heroes can be bought after the Apocalypse
+        // heroes can still be bought after the Apocalypse
         return !!tile && !!tile.disc
           && G.heroes.some(h => h.alive && h.p === myIndex() && sameTile(h.c, cube));
       default:
@@ -800,15 +834,29 @@
   }
 
   /* =============================================================
-     13. COMBAT (server-side)
+     13. COMBAT AND MIND CONTROL (server-side)
+     Dropping a hero on an enemy offers Combat or Mind Control.
      ============================================================= */
 
-  // dropping or clicking a hero on an enemy in range: the server rolls the attack
-  function attackEnemy(attackerIdx, defenderIdx) {
+  // Combat or Mind Control, whichever the hero can use on that target
+  function openAttackChoice(attackerIdx, defenderIdx) {
     const attacker = G.heroes[attackerIdx], defender = G.heroes[defenderIdx];
-    if (!canAct(attacker, 'attack')) return setMessage(G.rd < ROUND.attacksFrom ? 'Attacks unlock in round 4' : 'This hero cannot attack right now');
-    if (cubeDistance(attacker.c, defender.c) > reach(attacker)) return setMessage('Out of range');
-    submitAction({ type: 'attack', hero: attackerIdx, target: defenderIdx });
+    const inRange = inRangeOf(attacker, defender);
+    const ownedByMe = !!defender.mc && defender.mc.by === myIndex();
+    const attackOk = inRange && !ownedByMe && canAct(attacker, 'attack');
+    const mindOk = canMindControl(attacker, defender);
+    if (!attackOk && !mindOk) {
+      if (!inRange) return setMessage('Out of range');
+      if (G.rd < ROUND.attacksFrom) return setMessage('Attacks and Mind Control unlock in round 4');
+      return setMessage('No attack or Mind Control available to this hero on that target');
+    }
+    openWheel({
+      cube: defender.c, kind: 'attackChoice', heroIndex: attackerIdx, targetIndex: defenderIdx,
+      items: [
+        { v: 'atk', ic: '⚔️', t: 'Combat', dis: !attackOk },
+        { v: 'mind', ic: '🧠', t: 'Mind Control', dis: !mindOk },
+      ],
+    });
   }
 
   function attackNukeWith(heroIdx) {
@@ -866,9 +914,8 @@
     ];
   }
 
-  function buySkillOn(unit) {
-    submitAction({ type: 'buy_skill', skill: ui.devSkill, unit: unitRef(unit) });
-  }
+  // a hero or object that I can give a skill point to
+  const actingUnit = unit => ('k' in unit ? actsForMe(unit) : isMine(unit));
 
   // Barrier and Object stop at the Apocalypse; Hero and skill purchases continue
   function buyOptions() {
@@ -955,7 +1002,7 @@
     if (event.target.closest('[data-nuke]')) return;   // let the click reach the Nuke
     const heroNode = event.target.closest('[data-hero]');
     const hero = heroNode ? G.heroes[+heroNode.dataset.hero] : null;
-    const canDrag = hero && isMine(hero) && !ui.mode && boardStepDone()
+    const canDrag = hero && !ui.mode && boardStepDone()
       && (canAct(hero, 'move') || canAct(hero, 'attack') || canHitNuke(hero));
     if (canDrag) {
       drag = { heroIdx: heroIndex(hero), startX: event.clientX, startY: event.clientY, moved: false, point: null, hoverHero: null };
@@ -983,9 +1030,8 @@
       }
       el('tip').style.display = 'none';
       drag.point = svgPoint(event.clientX, event.clientY);
-      const dragged = G.heroes[drag.heroIdx];
       const cube = tileUnderPoint(drag.point);
-      drag.hoverHero = cube ? heroesAt(cube).find(h => h.p !== dragged.p) || null : null;
+      drag.hoverHero = cube ? heroesAt(cube).find(h => h.p !== myIndex()) || null : null;
       updateDragLabel(event);
       drawBoard();
     }
@@ -1028,7 +1074,7 @@
     }
   }
 
-  // what a dropped hero does: attack the Nuke, attack an enemy, or move
+  // what a dropped hero does: attack the Nuke, attack or Mind Control an enemy, or move
   function handleDrop(heroIdx, point) {
     const hero = G.heroes[heroIdx];
     const cube = tileUnderPoint(point);
@@ -1043,8 +1089,8 @@
       return;
     }
 
-    const enemyIdx = G.heroes.findIndex(h => h.alive && h.p !== hero.p && sameTile(h.c, cube));
-    if (enemyIdx >= 0) return attackEnemy(heroIdx, enemyIdx);
+    const enemyIdx = G.heroes.findIndex(h => h.alive && h.p !== myIndex() && sameTile(h.c, cube));
+    if (enemyIdx >= 0) return openAttackChoice(heroIdx, enemyIdx);
     moveTo(heroIdx, cube);
   }
 
@@ -1087,8 +1133,7 @@
     else if (sell) submitAction({ type: 'sell_card', index: +sell.dataset.sell + 1 });
   }
 
-  // starts a drag on any card face: 5V cards are played when dropped outside the hand,
-  // skill cards are applied when dropped on a hero or object
+  // starts a drag on any card face
   function onCardPointerDown(event) {
     if (!isMyTurn() || event.button !== 0) return;
     const face = event.target.closest('.hand-card-face');
@@ -1111,7 +1156,7 @@
     cardDrag.ghost.style.top = event.clientY + 'px';
   }
 
-  // on release: dropped back in the hand cancels; a 5V card dropped elsewhere is played;
+  // dropped back in the hand cancels; a 5V card dropped elsewhere is played;
   // a skill card is applied to the hero or object under the pointer
   function onCardPointerUp(event) {
     const finished = cardDrag;
@@ -1120,12 +1165,10 @@
     if (!finished.moved) return;
 
     const under = document.elementFromPoint(event.clientX, event.clientY);
-    if (under && el('hand').contains(under)) return;   // dropped back in the hand
+    if (under && el('hand').contains(under)) return;
 
     const card = G.pl[myIndex()].hand[finished.index];
-    if (card === 'v') {
-      return submitAction({ type: 'play_versa', index: finished.index + 1 });
-    }
+    if (card === 'v') return submitAction({ type: 'play_versa', index: finished.index + 1 });
 
     const target = under?.closest('[data-hero],[data-obj]');
     if (!target) return setMessage('Drop a skill card on one of your heroes or objects');
@@ -1138,7 +1181,7 @@
   /* =============================================================
      18. BOARD CLICKS
      A click opens a menu, picks a target for the current mode,
-     or selects a hero.
+     or selects a hero I can act with.
      ============================================================= */
 
   function onBoardClick(event) {
@@ -1159,13 +1202,29 @@
     }
 
     const cube = keyToCube(keyText);
-    const hero = heroIndexText !== undefined ? G.heroes[+heroIndexText] : null;
+    const heroIdx = heroIndexText !== undefined ? +heroIndexText : null;
+    const hero = heroIdx !== null ? G.heroes[heroIdx] : null;
     const object = objectIndexText !== undefined ? G.objs[+objectIndexText] : null;
     const unit = hero || object;
 
+    // my own hero under Mind Control: I may cede it on my turn
+    if (hero && isMine(hero) && hero.mc && !hero.mc.ceded && isMyTurn() && !ui.mode) {
+      openWheel({ cube: hero.c, kind: 'cede', heroIndex: heroIdx, items: [{ v: 'cede', ic: '🤝', t: 'Cede to ' + G.pl[hero.mc.by].name }] });
+      return render();
+    }
+
+    // a hero ceded to me: develop it, or skip its remaining actions
+    if (hero && hero.mc && actsForMe(hero) && !ui.mode) {
+      openWheel({
+        cube: hero.c, kind: 'controlled', heroIndex: heroIdx,
+        items: [{ v: 'develop', ic: '🛠', t: 'Develop' }, { v: 'skip', ic: '⏭', t: 'Skip rest' }],
+      });
+      return render();
+    }
+
     // off my turn, clicking one of my heroes sends an emoji
-    if (!isMyTurn()) {
-      if (hero && isMine(hero)) openWheel({ cube: hero.c, kind: 'emoji', heroIndex: heroIndex(hero), items: EMOJIS.map(e => ({ v: e, ic: e, t: '' })) });
+    if (!isMyTurn() && !isControllingNow()) {
+      if (hero && isMine(hero)) openWheel({ cube: hero.c, kind: 'emoji', heroIndex: heroIdx, items: EMOJIS.map(e => ({ v: e, ic: e, t: '' })) });
       return render();
     }
 
@@ -1189,8 +1248,8 @@
         else setMessage('Click a discovered tile with one of your heroes');
         return render();
       case 'buyskill':
-        if (!unit || !isMine(unit)) setMessage('Pick one of your own heroes or objects');
-        else { buySkillOn(unit); ui.mode = ''; }
+        if (!unit || !actingUnit(unit)) setMessage('Pick one of your own heroes or objects');
+        else { submitAction({ type: 'buy_skill', skill: ui.devSkill, unit: unitRef(unit) }); ui.mode = ''; }
         return render();
       case 'place':
         if (isValidTarget(cube)) openPlacementWheel(cube);
@@ -1204,9 +1263,9 @@
         break;
     }
 
-    // no mode: clicking one of my heroes selects it and opens its develop menu
-    if (hero && isMine(hero)) {
-      ui.selectedIndex = heroIndex(hero);
+    // no mode: clicking a hero I can act with selects it and opens its develop menu
+    if (hero && actsForMe(hero)) {
+      ui.selectedIndex = heroIdx;
       if (!canAct(hero, 'develop')) {
         setMessage(hero.acts < 1 ? 'No actions left for this hero this turn' : 'This hero cannot develop right now');
       } else {
@@ -1234,7 +1293,7 @@
   function handleDevelopClick(cube, unit) {
     if (ui.devType === 'skill') {
       const hero = selectedHero();
-      const isTarget = unit && hero && isMine(unit) && cubeDistance(unit.c, hero.c) <= 1;
+      const isTarget = unit && hero && actingUnit(unit) && cubeDistance(unit.c, hero.c) <= 1;
       if (!isTarget) return setMessage('Click one of the highlighted heroes or objects');
       openWheel({ cube: unit.c, kind: 'developSkill', unit: unitRef(unit), items: skillItems() });
       return render();
@@ -1268,6 +1327,20 @@
       place: () => placeTile(wheel.cube, value),
       buildDir: () => openWheel({ cube: wheel.cube, kind: 'roll', dir: value, unit: null, items: rollItems() }),
       carry: () => (value === 'go' ? confirmCarry() : toggleCarry(value)),
+      attackChoice: () => {
+        if (value === 'atk') submitAction({ type: 'attack', hero: wheel.heroIndex, target: wheel.targetIndex });
+        else submitAction({ type: 'mind_control', hero: wheel.heroIndex, target: wheel.targetIndex });
+      },
+      cede: () => submitAction({ type: 'cede', hero: wheel.heroIndex }),
+      controlled: () => {
+        if (value === 'skip') return submitAction({ type: 'skip_hero', hero: wheel.heroIndex });
+        const hero = G.heroes[wheel.heroIndex];
+        ui.selectedIndex = wheel.heroIndex;
+        if (!canAct(hero, 'develop')) return setMessage('This hero cannot develop right now');
+        ui.mode = 'develop';
+        ui.devType = null;
+        openWheel({ cube: hero.c, kind: 'developType', items: developTypeItems() });
+      },
       developType: () => {
         ui.devType = value;
         if (value === 'skill') setMessage('Click one of the highlighted heroes or objects to raise the chosen skill.');
@@ -1319,13 +1392,16 @@
   const damageBar = (damage, limit) => `<div class="tbar"><i style="width:${Math.min(100, damage / limit * 100)}%"></i></div>`;
 
   function heroTooltip(hero) {
-    const actions = isMine(hero) && isMyTurn()
+    const actions = actsForMe(hero)
       ? `<div class="tsub">Actions: ${'●'.repeat(hero.acts)}${'✕'.repeat(Math.max(0, 2 - hero.acts))}</div>`
+      : '';
+    const control = hero.mc
+      ? `<div class="tsub">🧠 Controlled by ${escapeHtml(G.pl[hero.mc.by].name)}${hero.mc.ceded ? ' · ceded' : ''}</div>`
       : '';
     return {
       kind: 'hero', color: PLAYER_COLORS[hero.p],
       html: `<div class="th">🧍 ${escapeHtml(heroLabel(hero))}</div>${statGrid(hero.s)}${damageBar(hero.dmg, hero.s.def)}
-        <div class="tsub">Damage ${hero.dmg} of ${hero.s.def}</div>${actions}`,
+        <div class="tsub">Damage ${hero.dmg} of ${hero.s.def}</div>${actions}${control}`,
     };
   }
 
@@ -1416,25 +1492,25 @@
   function isEnemyInDragReach(hero) {
     if (!drag || !drag.moved) return false;
     const dragged = G.heroes[drag.heroIdx];
-    return hero.p !== dragged.p && cubeDistance(dragged.c, hero.c) <= reach(dragged);
+    return hero.p !== myIndex() && cubeDistance(dragged.c, hero.c) <= reach(dragged);
   }
 
   // during develop, the highlighted units are the ones the skill can go to
   function isDevelopSkillTarget(unit) {
     const hero = selectedHero();
     return ui.mode === 'develop' && ui.devType === 'skill' && !!hero
-      && unit.p === hero.p && cubeDistance(unit.c, hero.c) <= 1;
+      && actingUnit(unit) && cubeDistance(unit.c, hero.c) <= 1;
   }
 
   function heroSvg(hero, index) {
     const [x, y] = heroPosition(hero);
-    const mine = isMine(hero) && isMyTurn();
-    const ready = mine && hero.acts > 0 && !ui.mode && !drag;
-    const march = ready ? `<circle class="ring-march" cx="${x}" cy="${y}" r="8"/>` : '';
+    const actable = actsForMe(hero);
+    const mc = hero.mc ? `<circle class="ring-mc" cx="${x}" cy="${y}" r="9"/>` : '';
+    const march = actable && hero.acts > 0 && !ui.mode && !drag ? `<circle class="ring-march" cx="${x}" cy="${y}" r="8"/>` : '';
     const attackRing = isEnemyInDragReach(hero) ? `<circle class="ring-atk" cx="${x}" cy="${y}" r="10"/>` : '';
     const skillRing = isDevelopSkillTarget(hero) ? `<circle class="ring-selh" cx="${x}" cy="${y}" r="10"/>` : '';
     const selected = ui.selectedIndex === index;
-    const dots = mine
+    const dots = actable
       ? `<text x="${x}" y="${y - 9}" font-size="6" fill="#ffe8a3" stroke="#000" stroke-width="1" paint-order="stroke">${'●'.repeat(hero.acts)}${'✕'.repeat(Math.max(0, 2 - hero.acts))}</text>`
       : '';
     const damage = hero.dmg ? `<text x="${x + 8}" y="${y - 6}" font-size="7" font-weight="bold" fill="#ff5252">-${hero.dmg}</text>` : '';
@@ -1442,7 +1518,7 @@
     tooltips['h' + index] = heroTooltip(hero);
     return `<g class="${muted}" data-hero="${index}" data-k="${cubeKey(hero.c)}" data-tip="h${index}">`
       + `<circle cx="${x}" cy="${y}" r="6" fill="${HERO_COLORS[index % HERO_COLORS.length]}" stroke="${PLAYER_COLORS[hero.p]}" stroke-width="${selected ? 2.5 : 1.5}"/>`
-      + march + attackRing + skillRing + dots + damage + `</g>`;
+      + mc + march + attackRing + skillRing + dots + damage + `</g>`;
   }
 
   function objectSvg(obj, index) {
@@ -1594,21 +1670,22 @@
 
   /* =============================================================
      23. TO-DO LIST
-     Phases first, then each hero with its remaining actions
-     listed below it. Finished steps are struck through once.
+     Phases first, then each hero I can act with and its remaining
+     actions. Finished steps are struck through once.
      ============================================================= */
 
   function todoItems() {
     if (G.over) return [{ text: G.over }];
     if (isDefeated()) return [{ text: 'You have been defeated. Watch the game.' }];
-    if (!isMyTurn()) return [{ text: `Waiting for ${G.pl[G.cur].name}…` }];
+    if (!isMyTurn() && !isControllingNow()) return [{ text: `Waiting for ${G.pl[G.cur].name}…` }];
+    const myTurn = isMyTurn();
     const items = [];
 
-    if (G.rd <= ROUND.placementEnds) {
+    if (myTurn && G.rd <= ROUND.placementEnds) {
       items.push({ text: 'Place a tile', done: boardStepDone() });
     }
 
-    if (G.rd >= ROUND.declineFrom && G.remPlan.length) {
+    if (myTurn && G.rd >= ROUND.declineFrom && G.remPlan.length) {
       items.push({
         text: 'Remove one tile per player',
         head: true,
@@ -1621,11 +1698,11 @@
     }
 
     if (boardStepDone()) {
-      const myHeroes = G.heroes.filter(h => h.alive && h.p === G.cur);
-      myHeroes.forEach(hero => {
+      G.heroes.filter(h => h.alive && actsForMe(h)).forEach(hero => {
         const used = type => hero.t.some(x => x.type === type && !x.fail);
+        const name = hero.mc ? `${heroLabel(hero)} (controlled)` : `H${hero.k}`;
         items.push({
-          text: `H${hero.k}: ${hero.acts} action${hero.acts === 1 ? '' : 's'} left`,
+          text: `${name}: ${hero.acts} action${hero.acts === 1 ? '' : 's'} left`,
           head: true,
           done: hero.acts < 1,
           children: [
@@ -1635,10 +1712,13 @@
           ],
         });
       });
-      if (!myHeroes.some(h => h.acts > 0)) items.push({ text: 'Hero actions: none left', done: true });
     }
 
-    if (boardStepDone() && !G.heroes.some(h => h.alive && h.p === G.cur && h.acts > 0)) {
+    if (myTurn && G.heroes.some(h => h.alive && isMine(h) && h.mc && !h.mc.ceded)) {
+      items.push({ text: 'Click a hero under Mind Control to cede it, or leave it with its controller' });
+    }
+
+    if (myTurn && boardStepDone() && !G.heroes.some(h => h.alive && actsForMe(h) && h.acts > 0)) {
       items.push({ text: 'Nothing left: end your turn', head: true });
     }
 
@@ -1746,7 +1826,7 @@
       ['top', 'log', 'hand', 'buyside', 'bar', 'todo'].forEach(id => { el(id).innerHTML = ''; });
     }
     drawModal();
-    document.body.classList.toggle('wait', (!!G && !isMyTurn()) || isDefeated());
+    document.body.classList.toggle('wait', (!!G && !isMyTurn() && !isControllingNow()) || isDefeated());
   }
 
   /* =============================================================
@@ -1825,13 +1905,18 @@
 
   /* =============================================================
      28. STARTUP
+     Once a second: refresh the offline countdown. Every five
+     seconds: ask the server to apply any penalty that is due.
      ============================================================= */
 
   wireEvents();
 
-  // once a second, refresh the offline countdown while someone is disconnected
   setInterval(() => {
-    if (G && Object.keys(offlineSince).length) drawTop();
+    if (!G) return;
+    if (Object.keys(offlineSince).length) drawTop();
+    presenceTick++;
+    const penaltyDue = Object.values(offlineSince).some(since => Date.now() - since > OFFLINE_LIMIT_MS + 5000);
+    if (presenceTick % 5 === 0 && penaltyDue) db.rpc('apply_disconnects', { p_room: ROOM });
   }, 1000);
 
   (async function boot() {
