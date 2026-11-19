@@ -198,12 +198,17 @@
     #modal .row { display: flex; gap: .5em; justify-content: center; flex-wrap: wrap; }
 
     /* =========================================================
-       PHONES: the hand gets the most width, the buy panel a
-       smaller share, and the log keeps a narrow column
+       PHONES
+       The log is a vertical tab on the left of the bottom panel.
+       Tapping it slides the log open to the right; tapping again closes it.
+       The hand gets most of the width and the buy panel a smaller share.
        ========================================================= */
     @media (max-width: 700px) {
       #bottom { height: clamp(260px, 42vh, 380px); }
-      #logcol { flex: 0 0 24%; width: auto; max-width: 24%; }
+      #logcol { flex: 0 0 auto; width: auto; max-width: none; border-right: 1px solid #2c2c3e; }
+      #logcol .sec-head { width: auto; height: 100%; writing-mode: vertical-rl; transform: rotate(180deg); padding: .6em .35em; border-right: 1px solid #2c2c3e; }
+      #log { display: none; width: 40vw; border-right: 1px solid #2c2c3e; }
+      #logcol.open #log { display: block; }
       #handcol { flex: 1 1 0; min-width: 0; }
       #buycol { flex: 0 0 36%; width: 36%; min-width: 0; margin-left: .3em; }
       #buyside { padding: .3em; }
@@ -229,7 +234,7 @@
       <div id="bar"></div>
       <div id="panels">
         <div class="col" id="logcol">
-          <button class="sec-head" data-action="show-log">📜 Log</button>
+          <button class="sec-head" data-action="toggle-log">📜 Log</button>
           <div id="log"></div>
         </div>
         <div class="col" id="handcol">
@@ -357,6 +362,7 @@
   let cardDrag = null;           // traversal card drag gesture
   let suppressClick = false;
   let botMinimized = false;
+  let logOpen = false;           // phones: whether the log tab is slid open
   let gameOverDismissed = false;
   let tooltips = {};
   let onlineUsers = new Set();
@@ -496,13 +502,11 @@
 
   // Event card: the headline is the result (largest), then the detail, then dice for rolls.
   // Events from the older server format have no headline field and only text, so they show the text.
-  // Tone sets the border colour: good (green), bad (red), info (blue), gold for special events.
   function eventCardHtml(event) {
     const headline = event.headline || event.t || 'Something happened';
     const detail = event.detail ? `<div class="event-detail">${textWithV(event.detail)}</div>` : '';
     const dice = (event.dice || []).map((value, i) => dieHtml(value, i * 0.15)).join(' ');
     const diceRow = dice ? `<div class="event-dice">${dice}</div>` : '';
-    const tone = ['good', 'bad', 'info', 'gold'].includes(event.tone) ? event.tone : 'info';
     return `<div class="event-card">
       <div class="event-headline">${textWithV(headline)}</div>
       ${detail}
@@ -791,8 +795,7 @@
   /* =============================================================
      12. MOVEMENT
      The browser asks for objects to carry; the server rolls the dice,
-     moves the hero, draws the first card of the turn, and reveals any
-     hidden tile it lands on.
+     moves the hero, and reveals any hidden tile it lands on.
      ============================================================= */
 
   // dropping on an empty tile: move directly, or choose objects to take first
@@ -1698,6 +1701,8 @@
     el('log').innerHTML = G.log.slice(0, 60)
       .map(line => `<div style="color:${line.p >= 0 ? PLAYER_COLORS[line.p] : '#9a9ab0'}">${textWithV(line.t)}</div>`)
       .join('');
+    el('logcol').classList.toggle('open', logOpen);
+    el('logcol').querySelector('.sec-head').textContent = logOpen ? '📜 Log ◂' : '📜 Log ▸';
   }
 
   function drawBuySide() {
@@ -1723,7 +1728,6 @@
       <span class="msg">${textWithV(ui.message)}</span>
       <button class="sbtn" data-action="minimize">${botMinimized ? '▴ Expand' : '▾ Minimize'}</button>`;
     const handSize = myIndex() >= 0 ? G.pl[myIndex()].hand.length : 0;
-    el('logcol').querySelector('.sec-head').textContent = '📜 Log';
     el('handcol').querySelector('.sec-head').textContent = `🃏 Hand (${handSize})`;
     el('buycol').querySelector('.sec-head').textContent = '🛒 Buy';
   }
@@ -1945,7 +1949,7 @@
       case 'cancel': return cancelMode();
       case 'review-board': gameOverDismissed = true; return render();
       case 'minimize': botMinimized = !botMinimized; return render();
-      case 'show-log':
+      case 'toggle-log': logOpen = !logOpen; return render();
       case 'show-hand':
       case 'show-buy': botMinimized = false; return render();
       default: return undefined;
