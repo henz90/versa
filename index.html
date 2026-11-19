@@ -192,6 +192,24 @@
     #modal .card { background: #1c1c28; border: 1px solid #2c2c3e; border-radius: .8em; width: min(92vw, 40em); max-height: 90vh; overflow: auto; padding: 1.6em; display: flex; flex-direction: column; gap: 1em; font-size: 1.15em; text-align: center; }
     #modal input { font-size: 1em; padding: .5em; border-radius: .4em; border: 1px solid #556; background: #0e0e12; color: inherit; text-align: center; }
     #modal .row { display: flex; gap: .5em; justify-content: center; flex-wrap: wrap; }
+
+    /* =========================================================
+       PHONES: the hand gets the most width, the buy panel a
+       smaller share, and the log keeps a narrow column
+       ========================================================= */
+    @media (max-width: 700px) {
+      #bottom { height: clamp(260px, 42vh, 380px); }
+      #logcol { flex: 0 0 24%; width: auto; max-width: 24%; }
+      #handcol { flex: 1 1 0; min-width: 0; }
+      #buycol { flex: 0 0 36%; width: 36%; min-width: 0; margin-left: .3em; }
+      #buyside { padding: .3em; }
+      .vside { font-size: 1.1em; padding: .2em; }
+      .bcol { flex: none; }
+      .brow { flex: none; }
+      .opt2 { font-size: 10px; padding: .25em .1em; }
+      .hand-card { min-width: 0; width: 100%; padding: .3em .4em; }
+      .hand-card-face { font-size: .9em; }
+    }
   </style>
 </head>
 <body>
