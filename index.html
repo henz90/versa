@@ -146,7 +146,9 @@
     .wbtn.emoji-btn .wi { font-size: 1.9em; text-shadow: 0 0 3px #000, 0 0 6px #000; }
 
     /* =========================================================
-       FLOATING FEEDBACK (dice, banners, event cards, emoji)
+       FLOATING FEEDBACK (event cards, dice, banners, emoji)
+       Each event card: headline (largest), detail (small), then dice.
+       Border colour shows the tone: green gain, red loss, blue neutral, gold special.
        ========================================================= */
     .fx { background: #000d; border: 1px solid #8a8aff; border-radius: .7em; padding: .5em .9em; font-size: 1.15em; font-weight: 700; line-height: 1.7; text-align: center; animation: fxin .3s ease-out, fxout .4s ease-in 2.6s forwards; }
     .fx span { display: inline-block; animation: pop .35s both; animation-delay: var(--d, 0s); }
@@ -154,12 +156,14 @@
     .fx .bon { display: inline-block; background: #24243a; border: 1px solid #556; border-radius: .4em; padding: 0 .35em; margin: 0 .15em; font-size: .9em; animation: pop .35s both; animation-delay: var(--d, 0s); }
     .fx.nat { border-color: #ffd54f; background: #2a2100f0; font-size: 1.6em; box-shadow: 0 0 50px #ffd54f88; animation: natin .6s ease-out, fxout .4s ease-in 2.8s forwards; }
     .fx.nat > span:first-child { color: #ffd54f; animation: spin .8s ease-out both; }
-    .fx.event { min-width: 14em; font-size: 1em; font-weight: 600; }
-    .event-card { padding: .2em .1em; }
-    .event-dice { margin-top: .3em; }
-    .event-card.tone-good { border-left: 4px solid #66bb6a; padding-left: .5em; }
-    .event-card.tone-bad { border-left: 4px solid #ff5252; padding-left: .5em; }
-    .event-card.tone-info { border-left: 4px solid #8ab4ff; padding-left: .5em; }
+    .fx.event { min-width: 11em; padding: .6em .9em; font-size: 1em; font-weight: 600; border-width: 1px 1px 1px 5px; }
+    .fx.event.tone-good { border-left-color: #66bb6a; }
+    .fx.event.tone-bad { border-left-color: #ff5252; }
+    .fx.event.tone-info { border-left-color: #8ab4ff; }
+    .fx.event.tone-gold { border-left-color: #ffd54f; }
+    .event-headline { font-size: 1.7em; font-weight: 900; line-height: 1.1; letter-spacing: .02em; }
+    .event-detail { font-size: .8em; font-weight: 500; color: #b8b8c8; margin-top: .15em; }
+    .event-dice { margin-top: .35em; }
     .emo { position: absolute; font-size: 22px; line-height: 1; padding: 3px; border-radius: 50%; background: #000c; transform: translate(-50%, -50%); pointer-events: none; z-index: 7; animation: emofloat 2.2s ease-out forwards; }
     .ghostc { position: fixed; pointer-events: none; z-index: 30; transform: translate(-50%, -50%); background: #24243a; border: 1px solid #ffe066; border-radius: .6em; padding: .4em .7em; font-size: 1.2em; opacity: .9; }
     @keyframes emofloat { 0% { opacity: 0; margin-top: 0; } 15% { opacity: 1; } 100% { opacity: 0; margin-top: -40px; } }
@@ -490,21 +494,29 @@
     };
   }
 
-  // one card per event: a headline, then the dice (if any) shown as tiles
+  // Event card: the headline is the result (largest), then the detail, then dice for rolls.
+  // Events from the older server format have no headline field and only text, so they show the text.
+  // Tone sets the border colour: good (green), bad (red), info (blue), gold for special events.
   function eventCardHtml(event) {
+    const headline = event.headline || event.t || 'Something happened';
+    const detail = event.detail ? `<div class="event-detail">${textWithV(event.detail)}</div>` : '';
     const dice = (event.dice || []).map((value, i) => dieHtml(value, i * 0.15)).join(' ');
-    return `<div class="event-card tone-${event.tone || 'info'}">
-      <div>${textWithV(event.headline || 'Something happened')}</div>
-      ${dice ? `<div class="event-dice">${dice}</div>` : ''}
+    const diceRow = dice ? `<div class="event-dice">${dice}</div>` : '';
+    const tone = ['good', 'bad', 'info', 'gold'].includes(event.tone) ? event.tone : 'info';
+    return `<div class="event-card">
+      <div class="event-headline">${textWithV(headline)}</div>
+      ${detail}
+      ${diceRow}
     </div>`;
   }
 
-  // shows each event of the latest action one after another; skips anything without a headline
+  // shows each event of the latest action one after another, each for at least 1.4 seconds
   function playEvents(events) {
     events
-      .filter(event => event && event.headline)
+      .filter(event => event && (event.headline || event.t))
       .forEach((event, index) => {
-        setTimeout(() => showFloat(eventCardHtml(event), 'event'), index * 1400);
+        const tone = ['good', 'bad', 'info', 'gold'].includes(event.tone) ? event.tone : 'info';
+        setTimeout(() => showFloat(eventCardHtml(event), `event tone-${tone}`), index * 1400);
       });
   }
 
