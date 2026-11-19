@@ -229,8 +229,8 @@
   <script>
   /* =============================================================
      1. CONFIGURATION
-     Constants shared by the whole page. Rules live on the server;
-     these values only control what the page shows and offers.
+     Constants the page uses. Rules live on the server; these values
+     only control what the page shows and offers.
      ============================================================= */
 
   const SUPABASE_URL = 'https://jbdfcqqobtatxmmhmipa.supabase.co';
@@ -250,7 +250,6 @@
   const SKILLS = ['str', 'def', 'rng', 'int'];
   const SKILL_ICON = { str: '✊', def: '🛡️', rng: '🏹', int: '🧠', bar: '🛑' };
   const SKILL_NAME = { str: 'Strength', def: 'Defense', rng: 'Range', int: 'Intelligence', bar: 'Barrier' };
-  const OBJECT_SYMBOLS = ['🔮', '🗡️', '🏺', '📿', '🧿', '⚗️', '🪬', '🔑', '🪄', '🧭', '🕯️', '🏹'];
   const EMOJIS = ['😂', '👏', '😱', '🔥', '🤔', '💀', '🎯', '🙃'];
 
   // six neighbouring directions in cube coordinates
@@ -264,13 +263,12 @@
   // the giant Nuke behind Ground Zero after the Apocalypse is about 11 tiles wide
   const APOCALYPSE_SYMBOL_SIZE = Math.round(11 * Math.sqrt(3) * HEX_RADIUS);
 
+  // zoom limits for the board, in board units across the visible width
+  const ZOOM_MIN = 380;
+  const ZOOM_MAX = 1800;
+
   const ROUND = { placementEnds: 5, attacksFrom: 4, declineFrom: 7 };
-  const RULES = {
-    maxPlayers: 6, maxHeroes: 3, maxObjects: 3, maxSkill: 5,
-    minBarrier: 3, maxBarrier: 12, nukeHits: 3,
-    startVersa: 5, actionCost: 5, heroCost: 30, heroActions: 2,
-    logLimit: 80,
-  };
+  const RULES = { maxHeroes: 3, maxObjects: 3, maxSkill: 5, maxBarrier: 12, actionCost: 5, heroCost: 30 };
 
   // wheels that must be answered before anything else can happen
   const MUST_CHOOSE = ['moveBonus'];
@@ -340,11 +338,14 @@
   let gameOverDismissed = false;
   let tooltips = {};
   let onlineUsers = new Set();
-  let presenceReady = false;
   let offlineSince = {};         // local clock: when each player was last seen offline
   let presenceTick = 0;
   let lastAnimatedSeq = null;
   const seenTodo = new Set();
+
+  // touch pointers on the board, for two-finger pinch zoom
+  const touches = new Map();     // pointerId -> {x, y}
+  let pinch = null;              // {startDist, startZoom} while two fingers are down
 
   const ui = {
     mode: '',              // '', place, remove, develop, obj, barrier, hero, buyskill
@@ -377,16 +378,12 @@
   const unitRef = unit => (G.heroes.includes(unit) ? { kind: 'h', i: G.heroes.indexOf(unit) } : { kind: 'o', i: G.objs.indexOf(unit) });
   const unitFromRef = ref => (ref.kind === 'h' ? G.heroes[ref.i] : G.objs[ref.i]);
 
-  // the object a hero fights and develops with: its own object on its tile
-  const objectFor = hero => G.objs.find(o => o.alive && !o.nuke && o.p === hero.p && sameTile(o.c, hero.c));
-
   // anything on the hero's tile may be taken along: own or opponent objects, and the Nuke
   const carryable = hero => objectsAt(hero.c);
 
   // objects extend range, but a hero only gets that range by taking them along
   const maxRangeWith = (hero, objects) => hero.s.rng + Math.max(0, ...objects.map(o => o.s.rng || 0));
   const reach = hero => maxRangeWith(hero, carryable(hero));
-  const gzBonus = hero => (tileAt(hero.c)?.gz ? 1 : 0);
 
   // a player is controlling a hero of the player whose turn it is (the owner ceded it)
   const isControllingNow = () => !!G && !G.over && G.cur !== myIndex()
@@ -549,7 +546,7 @@
      60-second disconnect penalty itself.
      ============================================================= */
 
-    // records a player as offline or online on the server; failures are logged, not hidden
+  // records a player as offline or online on the server; failures are logged, not hidden
   async function reportPresence(uid, online) {
     const { error } = await db.rpc('set_presence', { p_room: ROOM, p_uid: uid, p_online: online });
     if (error) console.error('presence report failed:', error.message);
@@ -559,7 +556,6 @@
   function onPresenceSync() {
     if (!channel || !G) return;
     onlineUsers = new Set(Object.keys(channel.presenceState()));
-    presenceReady = true;
     G.pl.forEach(p => {
       if (onlineUsers.has(p.uid)) {
         if (offlineSince[p.uid]) reportPresence(p.uid, true);
@@ -611,7 +607,6 @@
 
   function openRoomChannel(code) {
     if (channel) db.removeChannel(channel);
-    presenceReady = false;
     offlineSince = {};
     channel = db.channel('room-' + code, { config: { presence: { key: ME } } })
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'rooms', filter: 'code=eq.' + code }, p => onRoomUpdate(p.new))
@@ -670,7 +665,7 @@
     if (channel) db.removeChannel(channel);
     channel = null;
     ROOM = null; ROOM_ROW = null; G = null; PRIV = null;
-    roomLoading = false; onlineUsers = new Set(); presenceReady = false; offlineSince = {};
+    roomLoading = false; onlineUsers = new Set(); offlineSince = {};
     gameOverDismissed = false;
     localStorage.removeItem('versa-room');
     render();
@@ -1000,13 +995,64 @@
   }
 
   /* =============================================================
-     16. POINTER INPUT ON THE BOARD
+     16. ZOOM AND PAN ON THE BOARD
+     Mouse wheel zooms. One finger pans or drags a hero. Two fingers
+     pinch to zoom, and pan is cancelled while they are down.
+     ============================================================= */
+
+  function clampZoom(zoom) {
+    return Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, zoom));
+  }
+
+  // the distance between the two touch points, in screen pixels
+  function pinchDistance() {
+    const [a, b] = [...touches.values()];
+    return Math.max(1, Math.hypot(a.x - b.x, a.y - b.y));
+  }
+
+  // a touch went down on the board: a second finger starts a pinch
+  function onTouchDown(event) {
+    if (event.pointerType !== 'touch') return;
+    touches.set(event.pointerId, { x: event.clientX, y: event.clientY });
+    if (touches.size === 2) {
+      drag = null;
+      pan = null;
+      el('carry').style.display = 'none';
+      pinch = { startDist: pinchDistance(), startZoom: view.zoom };
+    }
+  }
+
+  // a touch moved; while pinching, the board zooms by the change in finger spread
+  function onTouchMove(event) {
+    if (!touches.has(event.pointerId)) return false;
+    touches.set(event.pointerId, { x: event.clientX, y: event.clientY });
+    if (!pinch || touches.size < 2) return false;
+    view.zoom = clampZoom(pinch.startZoom * pinch.startDist / pinchDistance());
+    drawBoard();
+    return true;
+  }
+
+  // a touch lifted; the pinch ends when either finger leaves the board
+  function onTouchUp(event) {
+    if (!touches.has(event.pointerId)) return false;
+    touches.delete(event.pointerId);
+    if (!pinch) return false;
+    if (touches.size < 2) {
+      pinch = null;
+      suppressClicksBriefly();
+    }
+    return true;
+  }
+
+  /* =============================================================
+     17. POINTER INPUT ON THE BOARD
      Dragging a ready hero moves or attacks. Any other press pans
      the board. A press that does not move becomes a click.
      ============================================================= */
 
   function onBoardPointerDown(event) {
     if (!G || G.over || event.button !== 0) return;
+    if (touches.size > 1) return;                      // a pinch owns the gesture
     if (event.target.closest('[data-nuke]')) return;   // let the click reach the Nuke
     const heroNode = event.target.closest('[data-hero]');
     const hero = heroNode ? G.heroes[+heroNode.dataset.hero] : null;
@@ -1020,6 +1066,7 @@
   }
 
   function onPointerMove(event) {
+    if (onTouchMove(event)) return;
     if (cardDrag) return onCardPointerMove(event);
     if (pan) {
       const dx = event.clientX - pan.startX, dy = event.clientY - pan.startY;
@@ -1046,6 +1093,7 @@
   }
 
   function onPointerUp(event) {
+    if (onTouchUp(event)) return;
     if (cardDrag) return onCardPointerUp(event);
     if (pan) {
       if (pan.moved) suppressClicksBriefly();
@@ -1103,7 +1151,7 @@
   }
 
   /* =============================================================
-     17. TRAVERSAL HAND
+     18. TRAVERSAL HAND
      A 5V card is played by its Play button or by dragging it out
      of the hand. Sell buttons sell any card. A skill card is
      dragged onto a hero or object to apply it.
@@ -1187,7 +1235,7 @@
   }
 
   /* =============================================================
-     18. BOARD CLICKS
+     19. BOARD CLICKS
      A click opens a menu, picks a target for the current mode,
      or selects a hero I can act with.
      ============================================================= */
@@ -1317,7 +1365,7 @@
   }
 
   /* =============================================================
-     19. WHEEL MENU CHOICES
+     20. WHEEL MENU CHOICES
      Each choice closes the wheel first, then runs its handler.
      A handler opens the next wheel when the choice needs one.
      ============================================================= */
@@ -1373,7 +1421,7 @@
   }
 
   /* =============================================================
-     20. FLOATING FEEDBACK AND TOOLTIPS
+     21. FLOATING FEEDBACK AND TOOLTIPS
      ============================================================= */
 
   function showFloat(html, extraClass = '') {
@@ -1466,7 +1514,7 @@
   }
 
   /* =============================================================
-     21. BOARD DRAWING
+     22. BOARD DRAWING
      Everything here reads state; nothing changes it.
      ============================================================= */
 
@@ -1588,7 +1636,7 @@
   }
 
   /* =============================================================
-     22. PANELS
+     23. PANELS
      ============================================================= */
 
   function drawTop() {
@@ -1677,7 +1725,7 @@
   }
 
   /* =============================================================
-     23. TO-DO LIST
+     24. TO-DO LIST
      Phases first, then each hero I can act with and its remaining
      actions. Finished steps are struck through once.
      ============================================================= */
@@ -1752,7 +1800,7 @@
   }
 
   /* =============================================================
-     24. MODAL (name, lobby, waiting, game over)
+     25. MODAL (name, lobby, waiting, game over)
      ============================================================= */
 
   function drawModal() {
@@ -1798,7 +1846,7 @@
   }
 
   /* =============================================================
-     25. RENDER
+     26. RENDER
      Redraws the whole page from the current state. Rendering never
      changes game state.
      ============================================================= */
@@ -1838,7 +1886,7 @@
   }
 
   /* =============================================================
-     26. BUTTON ACTIONS
+     27. BUTTON ACTIONS
      Every element with data-action is routed through here.
      ============================================================= */
 
@@ -1875,23 +1923,27 @@
   }
 
   /* =============================================================
-     27. EVENT WIRING
+     28. EVENT WIRING
+     Touch listeners are registered before the board press listener,
+     so a second finger is seen as a pinch before it starts a drag.
      ============================================================= */
 
   function wireEvents() {
     const svg = el('svg');
+    svg.addEventListener('pointerdown', onTouchDown);
     svg.addEventListener('pointerdown', onBoardPointerDown);
     svg.addEventListener('click', onBoardClick);
     svg.addEventListener('pointermove', onBoardHover);
     svg.addEventListener('pointerleave', () => { el('tip').style.display = 'none'; });
     svg.addEventListener('wheel', event => {
       event.preventDefault();
-      view.zoom = Math.max(380, Math.min(1800, view.zoom * (event.deltaY > 0 ? 1.1 : 0.9)));
+      view.zoom = clampZoom(view.zoom * (event.deltaY > 0 ? 1.1 : 0.9));
       drawBoard();
     }, { passive: false });
 
     window.addEventListener('pointermove', onPointerMove);
     window.addEventListener('pointerup', onPointerUp);
+    window.addEventListener('pointercancel', onPointerUp);
     window.addEventListener('keydown', event => { if (event.key === 'Escape' && G) cancelMode(); });
     window.addEventListener('resize', () => { if (G || ROOM || username) render(); });
 
@@ -1912,14 +1964,14 @@
   }
 
   /* =============================================================
-     28. STARTUP
+     29. STARTUP
      Once a second: refresh the offline countdown. Every five
-     seconds: ask the server to apply any penalty that is due.
+     seconds: report absent players and ask the server to apply
+     any penalty that is due.
      ============================================================= */
 
   wireEvents();
-    
-  // every second: refresh the countdown; every 5 seconds: check whether a penalty is due on the server
+
   setInterval(() => {
     if (!G || !channel) return;
     presenceTick++;
