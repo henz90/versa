@@ -272,7 +272,8 @@
   const UNOWNED_STROKE = '#c9a227';
   const UNOCCUPIED_BARRIER = '#9a9a9a';
   const APOCALYPSE_RED = '#4a1d1d';
-  const OFFLINE_LIMIT_MS = 60000;
+  const OFFLINE_LIMIT_S = 60;          // seconds without a heartbeat before the penalty applies
+  const OFFLINE_SHOW_S = 10;           // show the countdown only after this many silent seconds
 
   const SKILLS = ['str', 'def', 'rng', 'int'];
   const SKILL_ICON = { str: '✊', def: '🛡️', rng: '🏹', int: '🧠', bar: '🛑' };
@@ -343,9 +344,10 @@
 
   /* =============================================================
      4. CLIENT STATE
-     G       shared game state, written only by the server
-     PRIV    this player's hand, pool, and the types of tiles they placed
-     ui      local interaction state: open menus, the active mode, messages
+     G           shared game state, written only by the server
+     PRIV        this player's hand, pool, and the types of tiles they placed
+     presenceSeen  seconds since each player's last heartbeat, as the server measured them
+     ui          local interaction state: open menus, the active mode, messages
      ============================================================= */
 
   let G = null;
@@ -365,9 +367,8 @@
   let logOpen = false;           // phones: whether the log tab is slid open
   let gameOverDismissed = false;
   let tooltips = {};
-  let onlineUsers = new Set();
-  let offlineSince = {};         // local clock: when each player was last seen offline
-  let presenceTick = 0;
+  let presenceSeen = { data: {}, at: 0 };
+  let tick = 0;
   let lastAnimatedSeq = null;
   const seenTodo = new Set();
 
@@ -576,40 +577,41 @@
 
   /* =============================================================
      8. PRESENCE AND EMOJI
-     Presence changes are reported to the server, which runs the
-     60-second disconnect penalty itself.
+     Each browser sends a heartbeat every 5 seconds. The server records
+     when it last heard from each player and applies the disconnect
+     penalty itself. Stops once the game is over.
      ============================================================= */
 
-  // records a player as offline or online on the server; failures are logged, not hidden
-  async function reportPresence(uid, online) {
-    const { error } = await db.rpc('set_presence', { p_room: ROOM, p_uid: uid, p_online: online });
-    if (error) console.error('presence report failed:', error.message);
+  // seconds since a player was last heard from, adjusted for time passed since the last server reading
+  function secondsSilent(uid) {
+    const base = presenceSeen.data[uid];
+    if (base == null) return null;
+    return Number(base) + (Date.now() - presenceSeen.at) / 1000;
   }
 
-  // runs whenever the room's presence list changes; marks players who left and clears players who returned
-  function onPresenceSync() {
-    if (!channel || !G) return;
-    onlineUsers = new Set(Object.keys(channel.presenceState()));
-    G.pl.forEach(p => {
-      if (onlineUsers.has(p.uid)) {
-        if (offlineSince[p.uid]) reportPresence(p.uid, true);
-        delete offlineSince[p.uid];
-      } else if (!offlineSince[p.uid]) {
-        offlineSince[p.uid] = Date.now();
-        reportPresence(p.uid, false);
-      }
-    });
-    render();
+  // sends my heartbeat, reads everyone's silence from the server, and asks the server to apply any penalty due
+  async function syncPresence() {
+    if (!ROOM || !G || G.over) return;
+    const hb = await db.rpc('heartbeat', { p_room: ROOM });
+    if (hb.error) console.error('heartbeat failed:', hb.error.message);
+
+    const status = await db.rpc('presence_status', { p_room: ROOM });
+    if (status.error) console.error('presence status failed:', status.error.message);
+    else presenceSeen = { data: status.data || {}, at: Date.now() };
+
+    const check = await db.rpc('apply_disconnects', { p_room: ROOM });
+    if (check.error) console.error('disconnect check failed:', check.error.message);
+    drawTop();
   }
 
-  // the countdown is shown here; the penalty itself is applied by the server
+  // the countdown for a silent player, computed from the server's own clock readings
   function offlineBadges() {
-    const now = Date.now();
-    return Object.keys(offlineSince).map(uid => {
-      const i = G.pl.findIndex(p => p.uid === uid);
-      if (i < 0 || !isAlive(i)) return '';
-      const secondsLeft = Math.max(0, Math.ceil((OFFLINE_LIMIT_MS - (now - offlineSince[uid])) / 1000));
-      return `<span class="alert">⏱ ${escapeHtml(G.pl[i].name)} offline: ${secondsLeft}s</span>`;
+    return G.pl.map((p, i) => {
+      if (p.uid === ME || !isAlive(i)) return '';
+      const silent = secondsSilent(p.uid);
+      if (silent === null || silent < OFFLINE_SHOW_S) return '';
+      const left = Math.max(0, Math.ceil(OFFLINE_LIMIT_S - silent));
+      return `<span class="alert">⏱ ${escapeHtml(p.name)} offline: ${left}s</span>`;
     }).join('');
   }
 
@@ -639,14 +641,13 @@
      9. LOBBY AND ROOMS
      ============================================================= */
 
+  // the room channel carries state updates and emoji; presence is handled by the server heartbeat
   function openRoomChannel(code) {
     if (channel) db.removeChannel(channel);
-    offlineSince = {};
-    channel = db.channel('room-' + code, { config: { presence: { key: ME } } })
+    channel = db.channel('room-' + code)
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'rooms', filter: 'code=eq.' + code }, p => onRoomUpdate(p.new))
-      .on('presence', { event: 'sync' }, onPresenceSync)
       .on('broadcast', { event: 'emoji' }, ({ payload }) => showEmoji(payload))
-      .subscribe(status => { if (status === 'SUBSCRIBED') channel.track({ uid: ME }); });
+      .subscribe();
   }
 
   async function enterRoom(code) {
@@ -699,7 +700,8 @@
     if (channel) db.removeChannel(channel);
     channel = null;
     ROOM = null; ROOM_ROW = null; G = null; PRIV = null;
-    roomLoading = false; onlineUsers = new Set(); offlineSince = {};
+    roomLoading = false;
+    presenceSeen = { data: {}, at: 0 };
     gameOverDismissed = false;
     localStorage.removeItem('versa-room');
     render();
@@ -795,7 +797,8 @@
   /* =============================================================
      12. MOVEMENT
      The browser asks for objects to carry; the server rolls the dice,
-     moves the hero, and reveals any hidden tile it lands on.
+     moves the hero, draws the first card of the turn, and reveals any
+     hidden tile it lands on.
      ============================================================= */
 
   // dropping on an empty tile: move directly, or choose objects to take first
@@ -1867,7 +1870,7 @@
         <div class="row"><button class="ghost" data-action="leave">Leave room</button></div></div>`;
     } else if (G && G.over && !gameOverDismissed) {
       html = `<div class="card"><h2 style="margin:0">🏆 ${escapeHtml(G.over)}</h2>
-        <div class="muted">The board stays visible so you can review the game.</div>
+        <div class="muted">The board stays visible so you can review the game. This room closes after an hour.</div>
         <div class="row">
           <button class="ghost" data-action="review-board">Review board</button>
           <button class="endb" data-action="leave">Back to lobby</button>
@@ -1999,24 +2002,17 @@
 
   /* =============================================================
      29. STARTUP
-     Once a second: refresh the offline countdown. Every five
-     seconds: report absent players and ask the server to apply
-     any penalty that is due.
+     Every second: refresh the countdown. Every five seconds: send a
+     heartbeat and check for penalties. Both stop once the game is over.
      ============================================================= */
 
   wireEvents();
 
   setInterval(() => {
-    if (!G || !channel) return;
-    presenceTick++;
-    if (presenceTick % 5 !== 0) return drawTop();
-    G.pl.forEach(p => {
-      if (!onlineUsers.has(p.uid) && p.uid !== ME) reportPresence(p.uid, false);
-    });
-    db.rpc('apply_disconnects', { p_room: ROOM }).then(({ error }) => {
-      if (error) console.error('disconnect check failed:', error.message);
-    });
-    drawTop();
+    if (!ROOM || !G || G.over) return;
+    tick++;
+    if (tick % 5 === 0) syncPresence();
+    else drawTop();
   }, 1000);
 
   (async function boot() {
