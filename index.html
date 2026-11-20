@@ -230,6 +230,9 @@
     #modal .row { display: flex; gap: .5em; justify-content: center; flex-wrap: wrap; }
     .logfull { text-align: left; max-height: 60vh; overflow: auto; font: .85em/1.45 ui-monospace, monospace; background: #0a0a0e; padding: .5em .7em; border-radius: .5em; border: 1px solid #2c2c3e; }
     .logfull div { white-space: pre-wrap; padding: .15em 0; border-bottom: 1px solid #17171f; }
+    .name-row { display: flex; gap: .4em; justify-content: center; align-items: center; flex-wrap: wrap; font-size: .85em; }
+    .name-in { width: 7em; font-size: .9em; padding: .3em; border-radius: .4em; border: 1px solid #556; background: #0e0e12; color: inherit; text-align: center; }
+    .plain-code { font-family: ui-monospace, monospace; user-select: text; -webkit-user-select: text; color: #ffe8a3; font-weight: 700; }
 
     /* =========================================================
        PHONES
@@ -406,7 +409,8 @@
   const isMyTurn = () => !!G && !G.over && G.pl[G.cur]?.uid === ME;
   const isDefeated = () => myIndex() >= 0 && !isAlive(myIndex());
   const selectedHero = () => (ui.selectedIndex == null ? null : G.heroes[ui.selectedIndex] || null);
-  const heroLabel = hero => `${G.pl[hero.p].name} H${hero.k}`;
+  const heroName = hero => G.pl[hero.p].hn?.[hero.k - 1] || `H${hero.k}`;
+  const heroLabel = hero => `${G.pl[hero.p].name} · ${heroName(hero)}`;
   const heroIndex = hero => G.heroes.indexOf(hero);
   const unitRef = unit => (G.heroes.includes(unit) ? { kind: 'h', i: G.heroes.indexOf(unit) } : { kind: 'o', i: G.objs.indexOf(unit) });
   const unitFromRef = ref => (ref.kind === 'h' ? G.heroes[ref.i] : G.objs[ref.i]);
@@ -565,6 +569,7 @@
 
   async function submitAction(action) {
     setMessage('');
+    console.debug('submit_action payload', JSON.stringify(action));
     const { data, error } = await db.rpc('submit_action', { p_room: ROOM, p_action: action });
     const message = error ? error.message : '';
     if (message && !message.includes(DISCOVERY_CHOICE)) setMessage(message);
@@ -638,6 +643,7 @@
   }
 
   async function enterRoom(code) {
+    loadoutDraft = null;
     roomLoading = true;
     render();
     ROOM = code;
@@ -698,6 +704,7 @@
     gameOverDismissed = false;
     logOpen = false;
     localStorage.removeItem('versa-room');
+    loadoutDraft = null;
     render();
   }
 
@@ -1461,8 +1468,7 @@
     const rangeNote = obj.s.rng > 0 ? `Adds ${obj.s.rng} range: the hero must take it along to move that far` : '';
     return {
       kind: 'object', color: PLAYER_COLORS[obj.p],
-      html: `<div class="th">${obj.sym || '🧱'} ${escapeHtml(G.pl[obj.p].name)}'s object</div>${statGrid(obj.s)}${damageBar(obj.dmg, obj.s.def)}
-        <div class="tsub">Damage ${obj.dmg} of ${obj.s.def}</div><div class="tsub">${rangeNote}${ownerNote}</div>`,
+      html: `<div class="th">${obj.sym || '🧱'} ${escapeHtml(obj.nm || G.pl[obj.p].name + "'s object")}</div>${statGrid(obj.s)}${damageBar(obj.dmg, obj.s.def)}
     };
   }
 
@@ -1750,7 +1756,7 @@
     if (boardStepDone()) {
       G.heroes.filter(h => h.alive && actsForMe(h)).forEach(hero => {
         const used = type => hero.t.some(x => x.type === type && !x.fail);
-        const name = hero.mc ? `${heroLabel(hero)} (controlled)` : `H${hero.k}`;
+        const name = hero.mc ? `${heroLabel(hero)} (controlled)` : heroName(hero);
         items.push({
           text: `${name}: ${hero.acts} action${hero.acts === 1 ? '' : 's'} left`,
           head: true,
@@ -1802,13 +1808,13 @@
     let html = '';
     if (logOpen && G) {
       const lines = (G.log || []).map(line => {
-      const color = line.p >= 0 ? PLAYER_COLORS[line.p] : '#9a9ab0';
-      return `<div style="color:${color}">${textWithV(line.t)}</div>`;
-    }).join('');
-    html = `<div class="card"><h2 style="margin:0">📜 Game log</h2>
-      <div class="muted">Room <b class="roomcode-inline">${escapeHtml(ROOM)}</b></div>
-      <div class="logfull">${lines || '<div>No events yet.</div>'}</div>
-      <div class="row"><button class="endb" data-action="close-log">Close</button></div></div>`;
+        const color = line.p >= 0 ? PLAYER_COLORS[line.p] : '#9a9ab0';
+        return `<div style="color:${color}">${textWithV(line.t)}</div>`;
+      }).join('');
+      html = `<div class="card"><h2 style="margin:0">📜 Game log</h2>
+        <div class="muted">Room code: <span class="plain-code">${escapeHtml(ROOM)}</span></div>
+        <div class="logfull">${lines || '<div>No events yet.</div>'}</div>
+        <div class="row"><button class="endb" data-action="close-log">Close</button></div></div>`;
     } else if (!username || !isValidName(username)) {
       html = `<div class="card"><h2 style="margin:0">VERSA</h2>
         <div class="muted">Choose a username (2 to 16 letters or numbers)</div>
@@ -1824,6 +1830,7 @@
       html = `<div class="card"><h2 style="margin:0">Loading room ${escapeHtml(ROOM)}…</h2>
         <div class="row"><button class="ghost" data-action="leave">Back to lobby</button></div></div>`;
     } else if (!G && ROOM_ROW) {
+      if (!loadoutDraft) loadoutDraft = loadoutFromRoom();
       const players = ROOM_ROW.players || [];
       const startButton = ROOM_ROW.host === ME
         ? `<div class="row"><button class="endb" data-action="start-game" ${players.length < 2 ? 'disabled' : ''}>Start game</button></div>`
@@ -1832,6 +1839,10 @@
         <div class="muted">Click the code to copy it, then share it with your opponent. The first player is chosen at random.</div>
         <div class="row"><button class="roomcode" data-action="copy-room" title="Copy room code">${ROOM}</button></div>
         <div>${players.map((p, i) => `<div style="color:${PLAYER_COLORS[i]}">${i + 1}. ${escapeHtml(p.name)}${p.uid === ME ? ' (you)' : ''}</div>`).join('')}</div>
+        <div class="muted">Names are optional. Blank names use the defaults. Save before the host starts.</div>
+        <div class="name-row"><span>Heroes</span>${nameFields('heroes', 'Hero')}</div>
+        <div class="name-row"><span>Objects</span>${nameFields('objects', 'Object')}</div>
+        <div class="row"><button data-action="save-loadout">Save names</button></div>
         ${startButton}
         <div class="row"><button class="ghost" data-action="leave">Leave room</button></div></div>`;
     } else if (G && G.over && !gameOverDismissed) {
@@ -1846,6 +1857,32 @@
     modal.style.display = html ? 'flex' : 'none';
     const nameInput = el('nameIn');
     if (nameInput) nameInput.value = username;
+  }
+
+      // names typed in the lobby; kept while the modal redraws
+  let loadoutDraft = null;
+  const LOADOUT_NAME_PATTERN = /^[A-Za-z0-9 ]{0,12}$/;
+
+  function loadoutFromRoom() {
+    const mine = (ROOM_ROW?.players || []).find(p => p.uid === ME) || {};
+    const padded = list => [0, 1, 2].map(i => (list || [])[i] || '');
+    return { heroes: padded(mine.heroNames), objects: padded(mine.objectNames) };
+  }
+
+  function nameFields(group, placeholder) {
+    return loadoutDraft[group].map((name, slot) =>
+      `<input class="name-in" data-loadout="${group}" data-slot="${slot}" maxlength="12"
+        placeholder="${placeholder} ${slot + 1}" value="${escapeHtml(name)}">`).join('');
+  }
+
+  async function saveLoadout() {
+    const heroes = loadoutDraft.heroes.map(name => name.trim());
+    const objects = loadoutDraft.objects.map(name => name.trim());
+    if ([...heroes, ...objects].some(name => !LOADOUT_NAME_PATTERN.test(name))) {
+      return toast('Names use letters, numbers and spaces, up to 12');
+    }
+    const { error } = await db.rpc('set_loadout', { p_room: ROOM, p_heroes: heroes, p_objects: objects });
+    toast(error ? error.message : 'Names saved');
   }
 
   /* =============================================================
@@ -1902,6 +1939,7 @@
       case 'save-name': return saveUsername();
       case 'rename': username = ''; localStorage.removeItem('versa-name'); return render();
       case 'create-room': return createRoom();
+      case 'save-loadout': return saveLoadout();
       case 'join-room': {
         const code = (el('codeIn')?.value || '').trim().toUpperCase();
         if (code) joinRoom(code);
@@ -1958,6 +1996,10 @@
       if (button && !button.disabled) pickBuy(button.dataset.buy);
     });
     el('hand').addEventListener('pointerdown', onCardPointerDown);
+    document.addEventListener('input', event => {
+      const { loadout, slot } = event.target.dataset;
+      if (loadout) loadoutDraft[loadout][Number(slot)] = event.target.value;
+    });
     document.addEventListener('click', event => {
       const button = event.target.closest('[data-action]');
       if (button && !button.disabled) runAction(button.dataset.action);
