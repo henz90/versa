@@ -1803,12 +1803,13 @@
     let html = '';
     if (logOpen && G) {
       const lines = (G.log || []).map(line => {
-        const color = line.p >= 0 ? PLAYER_COLORS[line.p] : '#9a9ab0';
-        return `<div style="color:${color}">${textWithV(line.t)}</div>`;
-      }).join('');
-      html = `<div class="card"><h2 style="margin:0">📜 Game log</h2>
-        <div class="logfull">${lines || '<div>No events yet.</div>'}</div>
-        <div class="row"><button class="endb" data-action="close-log">Close</button></div></div>`;
+      const color = line.p >= 0 ? PLAYER_COLORS[line.p] : '#9a9ab0';
+      return `<div style="color:${color}">${textWithV(line.t)}</div>`;
+    }).join('');
+    html = `<div class="card"><h2 style="margin:0">📜 Game log</h2>
+      <div class="muted">Room <b class="roomcode-inline">${escapeHtml(ROOM)}</b></div>
+      <div class="logfull">${lines || '<div>No events yet.</div>'}</div>
+      <div class="row"><button class="endb" data-action="close-log">Close</button></div></div>`;
     } else if (!username || !isValidName(username)) {
       html = `<div class="card"><h2 style="margin:0">VERSA</h2>
         <div class="muted">Choose a username (2 to 16 letters or numbers)</div>
