@@ -111,11 +111,12 @@ function hexPoints(cube, radius = HEX_RADIUS - 4) {
 
 /* =============================================================
    4. CLIENT STATE
-   G           shared game state, written only by the server
-   PRIV        this player's hand, pool, and the types of tiles they placed
+   G             shared game state, written only by the server
+   PRIV          this player's hand, pool, and the types of tiles they placed
    presenceSeen  seconds since each player's last heartbeat, as the server measured them
-   loadoutDraft  names typed in the lobby, kept while the modal redraws
-   ui          local interaction state: open menus, the active mode, messages
+   savedNames    this player's hero and object names, kept across games
+   loadoutDraft  names being typed in the lobby, kept while the modal redraws
+   ui            local interaction state: open menus, the active mode, messages
    ============================================================= */
 
 let G = null;
@@ -139,6 +140,7 @@ let tooltips = {};
 let presenceSeen = { data: {}, at: 0 };
 let tick = 0;
 let lastAnimatedSeq = null;
+let savedNames = null;
 let loadoutDraft = null;
 const seenTodo = new Set();
 
@@ -172,7 +174,7 @@ const isMyTurn = () => !!G && !G.over && G.pl[G.cur]?.uid === ME;
 const isDefeated = () => myIndex() >= 0 && !isAlive(myIndex());
 const selectedHero = () => (ui.selectedIndex == null ? null : G.heroes[ui.selectedIndex] || null);
 
-// a hero's name from the lobby, or the default H1, H2, H3
+// a hero's name from the player's saved names, or the default H1, H2, H3
 const heroName = hero => G.pl[hero.p].hn?.[hero.k - 1] || `H${hero.k}`;
 const heroLabel = hero => `${G.pl[hero.p].name} · ${heroName(hero)}`;
 const heroIndex = hero => G.heroes.indexOf(hero);
@@ -410,7 +412,6 @@ async function enterRoom(code) {
   render();
   ROOM = code;
   gameOverDismissed = false;
-  loadoutDraft = null;
   localStorage.setItem('versa-room', code);
   openRoomChannel(code);
   const { data, error } = await db.from('rooms').select('*').eq('code', code).maybeSingle();
@@ -479,12 +480,19 @@ function toast(message) {
   setTimeout(() => node.remove(), 2600);
 }
 
-/* lobby name fields: three hero names and three object names, blank means default */
+/* Names are saved per player, so they apply to every game. Loaded once at startup. */
 
-function loadoutFromRoom() {
-  const mine = (ROOM_ROW?.players || []).find(p => p.uid === ME) || {};
+async function loadSavedNames() {
+  const { data, error } = await db.from('player_names').select('hero_names, object_names').eq('uid', ME).maybeSingle();
+  if (error) console.error('saved names failed to load:', error.message);
+  savedNames = data || { hero_names: [], object_names: [] };
+  loadoutDraft = null;
+  render();
+}
+
+function loadoutFromSaved() {
   const padded = list => [0, 1, 2].map(i => (list || [])[i] || '');
-  return { heroes: padded(mine.heroNames), objects: padded(mine.objectNames) };
+  return { heroes: padded(savedNames?.hero_names), objects: padded(savedNames?.object_names) };
 }
 
 function nameFields(group, placeholder) {
@@ -499,8 +507,10 @@ async function saveLoadout() {
   if ([...heroes, ...objects].some(name => !LOADOUT_NAME_PATTERN.test(name))) {
     return toast('Names use letters, numbers and spaces, up to 12');
   }
-  const { error } = await db.rpc('set_loadout', { p_room: ROOM, p_heroes: heroes, p_objects: objects });
-  toast(error ? error.message : 'Names saved');
+  const { error } = await db.rpc('set_loadout', { p_heroes: heroes, p_objects: objects });
+  if (error) return toast(error.message);
+  savedNames = { hero_names: heroes, object_names: objects };
+  toast('Names saved for every game');
 }
 
 /* =============================================================
@@ -1640,7 +1650,7 @@ function drawModal() {
     html = `<div class="card"><h2 style="margin:0">Loading room ${escapeHtml(ROOM)}…</h2>
       <div class="row"><button class="ghost" data-action="leave">Back to lobby</button></div></div>`;
   } else if (!G && ROOM_ROW) {
-    if (!loadoutDraft) loadoutDraft = loadoutFromRoom();
+    if (!loadoutDraft) loadoutDraft = loadoutFromSaved();
     const players = ROOM_ROW.players || [];
     const startButton = ROOM_ROW.host === ME
       ? `<div class="row"><button class="endb" data-action="start-game" ${players.length < 2 ? 'disabled' : ''}>Start game</button></div>`
@@ -1649,7 +1659,7 @@ function drawModal() {
       <div class="muted">Click the code to copy it, then share it with your opponent. The first player is chosen at random.</div>
       <div class="row"><button class="roomcode" data-action="copy-room" title="Copy room code">${ROOM}</button></div>
       <div>${players.map((p, i) => `<div style="color:${PLAYER_COLORS[i]}">${i + 1}. ${escapeHtml(p.name)}${p.uid === ME ? ' (you)' : ''}</div>`).join('')}</div>
-      <div class="muted">Names are optional. Blank names use the defaults. Save before the host starts.</div>
+      <div class="muted">Your names are kept for every game. Blank names use the defaults.</div>
       <div class="name-row"><span>Heroes</span>${nameFields('heroes', 'Hero')}</div>
       <div class="name-row"><span>Objects</span>${nameFields('objects', 'Object')}</div>
       <div class="row"><button data-action="save-loadout">Save names</button></div>
@@ -1819,6 +1829,7 @@ setInterval(() => {
     if (error) { toast('Sign-in failed: ' + error.message); return; }
     ME = data.user.id;
   }
+  loadSavedNames();
   const savedRoom = localStorage.getItem('versa-room');
   if (savedRoom && isValidName(username)) enterRoom(savedRoom);
   render();
