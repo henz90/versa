@@ -29,26 +29,17 @@
 
     .col { display: flex; flex-direction: column; min-height: 0; }
     #handcol { flex: 1 1 0; min-width: 0; }
-    #buycol { flex: 0 0 auto; width: clamp(230px, 24vw, 340px); margin-left: .9em; border-left: 1px solid #2c2c3e; position: relative; }
+    #buycol { flex: 0 0 auto; width: clamp(250px, 26vw, 360px); margin-left: .9em; border-left: 1px solid #2c2c3e; position: relative; }
     .sec-head { width: 100%; text-align: left; font-size: .85em; padding: .3em .6em; border-radius: 0; border-left: 0; border-right: 0; background: #15151d; white-space: nowrap; flex: none; }
 
     #hand { flex: 1; min-height: 0; overflow: auto; background: #101018; padding: .5em .7em; display: flex; flex-wrap: wrap; gap: .5em; align-content: flex-start; }
     #buyside { flex: 1; min-height: 0; overflow: auto; background: #101018; padding: .5em .6em; display: flex; flex-direction: column; gap: .4em; position: relative; }
-    #sellzone { display: none; position: absolute; inset: 0; z-index: 4; background: #3a1a1acc; border: 2px dashed #ffd54f; border-radius: .5em; align-items: center; justify-content: center; text-align: center; font-weight: 800; color: #ffd54f; pointer-events: none; font-size: 1.05em; }
+
+    /* drop-to-sell overlay: shown on top of the Buy panel while a card is dragged */
+    #sellzone { display: none; position: absolute; inset: 0; z-index: 4; background: #3a1a1acc; border: 2px dashed #ffd54f; border-radius: .5em; align-items: center; justify-content: center; flex-direction: column; text-align: center; font-weight: 900; color: #ffd54f; pointer-events: none; font-size: 1.25em; letter-spacing: .02em; }
+    #sellzone small { font-size: .55em; font-weight: 600; color: #ffe8a3; margin-top: .3em; }
     #buycol.dragging #sellzone { display: flex; }
     #buycol.dragging #buyside button { pointer-events: none; }
-
-    /* board log overlay: one line by default, a stacked log when expanded */
-    #logbox { position: absolute; left: .5em; bottom: .5em; z-index: 6; max-width: min(60%, 34em); background: #000c; border: 1px solid #2c2c3e; border-radius: .5em; font: .8em/1.35 ui-monospace, monospace; color: #d8d8e4; }
-    #logbox .lhead { display: flex; align-items: center; gap: .4em; padding: .2em .5em; cursor: pointer; border-bottom: 1px solid #2c2c3e; }
-    #logbox .lhead button { font-size: .85em; padding: .1em .45em; }
-    #logline { padding: .25em .5em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; transition: opacity 1.2s ease; }
-    #logline.fade { opacity: .15; }
-    #logstack { display: none; max-height: 30vh; overflow-y: auto; flex-direction: column-reverse; padding: .25em .5em; }
-    #logbox.open #logstack { display: flex; }
-    #logbox.open #logline { display: none; }
-    #logstack div { white-space: pre-wrap; padding: .05em 0; }
-    #logbox.minimized #logline, #logbox.minimized #logstack { display: none; }
 
     #cx { position: absolute; left: 12px; top: 60px; display: none; z-index: 8; }
     #wheel { position: absolute; width: 0; height: 0; z-index: 5; display: none; }
@@ -82,21 +73,31 @@
 
     /* =========================================================
        BUY PANEL
+       Each option is a small card: frame colour from its type,
+       icon, name, and cost. Skills use the traversal card colours.
        ========================================================= */
-    .vside { font-size: 1.5em; font-weight: 800; color: #ffd54f; text-align: center; padding: .3em; background: #17171f; border-radius: .4em; }
-    .bcol { flex: 1; display: flex; flex-direction: column; gap: .3em; min-height: 0; }
-    .brow { display: grid; gap: .3em; flex: 1; min-height: 0; }
-    .opt2 { display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: .35em .2em; background: #24243a; font-size: clamp(10px, .9vw, 14px); line-height: 1.2; }
-    .opt2 small { font-size: .85em; color: #9a9ab0; }
-    .opt2.on { background: #4a6cf7; border-color: #4a6cf7; }
-    .opt2.on small { color: #dfe6ff; }
-    .opt2:disabled { background: #15151d; color: #55556a; }
-    .opt2:disabled small { color: #444458; }
+    .vside { font-size: 1.5em; font-weight: 800; color: #ffd54f; text-align: center; padding: .3em; background: #17171f; border: 2px solid #ffd54f55; border-radius: .5em; }
+    .bsection { font-size: .72em; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: #8a8aa0; margin-top: .2em; }
+    .bgrid { display: grid; gap: .35em; }
+    .bopt { --cc: #8a8aa0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: .15em; padding: .4em .2em; min-height: 4.4em; background: linear-gradient(160deg, color-mix(in srgb, var(--cc) 30%, #1a1a24), #15151d); border: 2px solid var(--cc); border-radius: .55em; box-shadow: 0 2px 6px #000a; font-size: clamp(10px, .9vw, 13px); line-height: 1.15; }
+    .bopt .bo-icon { font-size: 1.5em; line-height: 1; }
+    .bopt .bo-label { font-weight: 700; }
+    .bopt .bo-cost { font-size: .8em; color: #c8c8d8; }
+    .bopt.on { background: var(--cc); color: #000; box-shadow: 0 0 12px var(--cc); }
+    .bopt.on .bo-cost { color: #000; }
+    .bopt:disabled { filter: grayscale(.85); opacity: .4; }
+    .bopt.b-stone { --cc: #9a9a9a; }
+    .bopt.b-gold { --cc: #ffd54f; }
+    .bopt.b-hero { --cc: #7cf0ff; }
+    .bopt.b-str { --cc: #e5484d; }
+    .bopt.b-def { --cc: #3b82f6; }
+    .bopt.b-rng { --cc: #34c759; }
+    .bopt.b-int { --cc: #a855f7; }
+    .buy-note { font-size: .85em; color: #8a8aa0; text-align: center; padding: .4em; }
 
     /* =========================================================
        TRAVERSAL CARDS
-       Colour-coded by type: Strength red, Defense blue, Range green,
-       Intelligence purple, 5V gold. Emoji for now.
+       Colour-coded by type. Emoji for now.
        ========================================================= */
     .tcard { --cc: #8a8aa0; width: 6.2em; min-height: 8.6em; display: flex; flex-direction: column; align-items: center; justify-content: space-between; padding: .5em .4em; border-radius: .6em; background: linear-gradient(160deg, color-mix(in srgb, var(--cc) 35%, #1a1a24), #15151d); border: 2px solid var(--cc); box-shadow: 0 3px 10px #000a; cursor: grab; touch-action: none; user-select: none; flex: none; }
     .tcard.str { --cc: #e5484d; }
@@ -170,7 +171,6 @@
 
     /* =========================================================
        FLOATING FEEDBACK: event cards framed by source
-       Frame colour and icon come from where the event came from.
        ========================================================= */
     .fx { background: #000d; border: 1px solid #8a8aff; border-radius: .7em; padding: .5em .9em; font-size: 1.15em; font-weight: 700; line-height: 1.7; text-align: center; animation: fxin .3s ease-out, fxout .4s ease-in 2.6s forwards; }
     .fx span { display: inline-block; animation: pop .35s both; animation-delay: var(--d, 0s); }
@@ -227,24 +227,22 @@
     #modal .card { background: #1c1c28; border: 1px solid #2c2c3e; border-radius: .8em; width: min(92vw, 40em); max-height: 90vh; overflow: auto; padding: 1.6em; display: flex; flex-direction: column; gap: 1em; font-size: 1.15em; text-align: center; }
     #modal input { font-size: 1em; padding: .5em; border-radius: .4em; border: 1px solid #556; background: #0e0e12; color: inherit; text-align: center; }
     #modal .row { display: flex; gap: .5em; justify-content: center; flex-wrap: wrap; }
+    .logfull { text-align: left; max-height: 60vh; overflow: auto; font: .85em/1.45 ui-monospace, monospace; background: #0a0a0e; padding: .5em .7em; border-radius: .5em; border: 1px solid #2c2c3e; }
+    .logfull div { white-space: pre-wrap; padding: .15em 0; border-bottom: 1px solid #17171f; }
 
     /* =========================================================
        PHONES
-       The hand gets most of the width; the buy panel a smaller share.
-       The board log overlay is smaller and the cards are compact.
        ========================================================= */
     @media (max-width: 700px) {
       #bottom { height: clamp(260px, 42vh, 380px); }
       #handcol { flex: 1 1 0; min-width: 0; }
-      #buycol { flex: 0 0 36%; width: 36%; min-width: 0; margin-left: .3em; }
+      #buycol { flex: 0 0 40%; width: 40%; min-width: 0; margin-left: .3em; }
       #buyside { padding: .3em; }
       .vside { font-size: 1.1em; padding: .2em; }
-      .bcol { flex: none; }
-      .brow { flex: none; }
-      .opt2 { font-size: 10px; padding: .25em .1em; }
+      .bopt { font-size: 10px; min-height: 3.8em; padding: .25em .1em; }
+      .bopt .bo-icon { font-size: 1.2em; }
       .tcard { width: 4.6em; min-height: 6.6em; }
       .tcard .tc-art { font-size: 1.6em; }
-      #logbox { max-width: 70%; font-size: .7em; }
     }
   </style>
 </head>
@@ -253,14 +251,6 @@
     <div id="top"></div>
     <div id="svgwrap">
       <svg id="svg" xmlns="http://www.w3.org/2000/svg"></svg>
-      <div id="logbox" class="">
-        <div class="lhead" data-action="toggle-log">
-          <span>📜 Log</span>
-          <button data-action="toggle-log-size" title="Expand or collapse the log">▸</button>
-        </div>
-        <div id="logline"></div>
-        <div id="logstack"></div>
-      </div>
     </div>
     <div id="cx"></div>
     <div id="todo"></div>
@@ -275,8 +265,8 @@
           <div id="hand"></div>
         </div>
         <div class="col" id="buycol">
-          <button class="sec-head" data-action="show-buy">🛒 Buy · drop cards here to sell</button>
-          <div id="buyside"><div id="sellzone">Drop to sell<br><small>5V card: 5V · others: 2V</small></div></div>
+          <button class="sec-head" data-action="show-buy">🛒 Buy</button>
+          <div id="buyside"></div>
         </div>
       </div>
     </div>
@@ -311,6 +301,7 @@
   const SKILL_NAME = { str: 'Strength', def: 'Defense', rng: 'Range', int: 'Intelligence', bar: 'Barrier' };
   const CARD_NAME = { str: 'Strength', def: 'Defense', rng: 'Range', int: 'Intelligence', v: '5 Versa' };
   const CARD_ICON = { str: '✊', def: '🛡️', rng: '🏹', int: '🧠', v: '💰' };
+  const CARD_SELL_VALUE = { str: 2, def: 2, rng: 2, int: 2, v: 5 };
   const EMOJIS = ['😂', '👏', '😱', '🔥', '🤔', '💀', '🎯', '🙃'];
 
   const DIRECTIONS = [[1, -1, 0], [1, 0, -1], [0, 1, -1], [-1, 1, 0], [-1, 0, 1], [0, -1, 1]];
@@ -329,7 +320,6 @@
 
   const MUST_CHOOSE = ['moveBonus'];
   const DISCOVERY_CHOICE = 'DISCOVERY_CHOICE';
-  const LOG_LINE_FADE_MS = 6000;
 
   /* =============================================================
      2. UTILITIES
@@ -378,16 +368,15 @@
   let pan = null;
   let drag = null;
   let cardDrag = null;
+  let sellHint = null;           // the card value shown on the drop-to-sell overlay while dragging
   let suppressClick = false;
   let botMinimized = false;
+  let logOpen = false;           // the log modal
   let gameOverDismissed = false;
   let tooltips = {};
   let presenceSeen = { data: {}, at: 0 };
   let tick = 0;
   let lastAnimatedSeq = null;
-  let logLines = [];             // newest first, read from the server log
-  let logSeenCount = 0;
-  let logLineTimer = null;
   const seenTodo = new Set();
 
   const touches = new Map();
@@ -473,7 +462,7 @@
     && target.p !== myIndex() && canBeMindControlled(target);
 
   /* =============================================================
-     7. SERVER STATE, PRIVATE DATA, EVENTS AND LOG
+     7. SERVER STATE, PRIVATE DATA AND EVENTS
      ============================================================= */
 
   async function loadMyPrivateData() {
@@ -491,7 +480,7 @@
     };
   }
 
-  // Frame and icon by source, so the banner says where it came from before it is read
+  // frame and icon by source, so a banner says where it came from before it is read
   const SOURCE_STYLE = {
     combat: { icon: '⚔️', label: 'Combat' },
     mind: { icon: '🧠', label: 'Mind Control' },
@@ -508,22 +497,20 @@
     general: { icon: '•', label: '' },
   };
 
-  // Event card: source header, headline (largest), detail, who it affects, then dice for rolls
   function eventCardHtml(event) {
     const source = SOURCE_STYLE[event.source] || SOURCE_STYLE.general;
     const headline = event.headline || event.t || 'Something happened';
     const srcLine = source.label ? `<div class="event-source">${source.icon} ${source.label}</div>` : '';
     const detail = event.detail ? `<div class="event-detail">${textWithV(event.detail)}</div>` : '';
-    const who = playerWho(event);
     const dice = (event.dice || []).map((value, i) => dieHtml(value, i * 0.15)).join(' ');
     const diceRow = dice ? `<div class="event-dice">${dice}</div>` : '';
     return `<div class="event-card">${srcLine}
       <div class="event-headline">${textWithV(headline)}</div>
-      ${detail}${who}${diceRow}
+      ${detail}${playerWho(event)}${diceRow}
     </div>`;
   }
 
-  // names the acting and affected players, so players who are not acting still see who did what
+  // names the acting and affected players, so inactive players see who did what
   function playerWho(event) {
     const parts = [];
     if (event.actor != null && event.actor >= 0 && G.pl[event.actor]) parts.push(`by ${escapeHtml(G.pl[event.actor].name)}`);
@@ -540,32 +527,6 @@
         setTimeout(() => showFloat(eventCardHtml(event), `event tone-${tone} ${src}`), index * 1400);
       });
   }
-
-  // the log: the newest line shows on the board; the expanded log stacks the most recent lines
-  function updateLogOverlay() {
-    const server = (G.log || []).slice(0, 40);
-    logLines = server.map(line => ({
-      t: line.t,
-      color: line.p >= 0 ? PLAYER_COLORS[line.p] : '#9a9ab0',
-    }));
-    const newest = logLines[0];
-    const box = el('logbox');
-    const line = el('logline');
-    if (newest) {
-      line.innerHTML = `<span style="color:${newest.color}">${textWithV(newest.t)}</span>`;
-      line.classList.remove('fade');
-      clearTimeout(logLineTimer);
-      logLineTimer = setTimeout(() => line.classList.add('fade'), LOG_LINE_FADE_MS);
-    } else {
-      line.textContent = '';
-    }
-    el('logstack').innerHTML = logLines.map(l => `<div style="color:${l.color}">${textWithV(l.t)}</div>`).join('');
-    box.classList.toggle('open', logOpen);
-    box.classList.toggle('minimized', logMinimized);
-  }
-
-  let logOpen = false;
-  let logMinimized = false;
 
   function applyRemoteState(state) {
     if (G && state.seq <= (G.seq || 0)) return;
@@ -736,6 +697,7 @@
     roomLoading = false;
     presenceSeen = { data: {}, at: 0 };
     gameOverDismissed = false;
+    logOpen = false;
     localStorage.removeItem('versa-room');
     render();
   }
@@ -964,6 +926,7 @@
 
   const actingUnit = unit => ('k' in unit ? actsForMe(unit) : isMine(unit));
 
+  // each buy option carries its frame colour class and cost
   function buyOptions() {
     const mine = myIndex();
     const player = G.pl[mine >= 0 ? mine : G.cur];
@@ -971,15 +934,19 @@
     const canAfford = player.v >= RULES.actionCost;
     const objectsFull = objectCount(mine) >= RULES.maxObjects;
     const heroesFull = G.heroes.filter(h => h.alive && h.p === mine).length >= RULES.maxHeroes;
-    return [
-      { key: 'barrier', icon: '🛑', label: 'Barrier', cost: '5V', disabled: !(ready && canAfford) || !!G.apoc },
-      { key: 'obj', icon: '🔮', label: 'Object', cost: '5V', disabled: !(ready && canAfford) || objectsFull || !!G.apoc },
-      { key: 'hero', icon: '👤', label: 'Hero', cost: '30V', disabled: !(ready && player.v >= RULES.heroCost) || heroesFull },
-      { key: 'skill:str', icon: '✊', label: 'STR', cost: '5V', disabled: !(ready && canAfford) },
-      { key: 'skill:def', icon: '🛡️', label: 'DEF', cost: '5V', disabled: !(ready && canAfford) },
-      { key: 'skill:rng', icon: '🏹', label: 'RNG', cost: '5V', disabled: !(ready && canAfford) },
-      { key: 'skill:int', icon: '🧠', label: 'INT', cost: '5V', disabled: !(ready && canAfford) },
-    ];
+    return {
+      structures: [
+        { key: 'barrier', cls: 'b-stone', icon: '🛑', label: 'Barrier', cost: '5V', disabled: !(ready && canAfford) || !!G.apoc },
+        { key: 'obj', cls: 'b-gold', icon: '🔮', label: 'Object', cost: '5V', disabled: !(ready && canAfford) || objectsFull || !!G.apoc },
+        { key: 'hero', cls: 'b-hero', icon: '👤', label: 'Hero', cost: '30V', disabled: !(ready && player.v >= RULES.heroCost) || heroesFull },
+      ],
+      skills: [
+        { key: 'skill:str', cls: 'b-str', icon: '✊', label: 'STR', cost: '5V', disabled: !(ready && canAfford) },
+        { key: 'skill:def', cls: 'b-def', icon: '🛡️', label: 'DEF', cost: '5V', disabled: !(ready && canAfford) },
+        { key: 'skill:rng', cls: 'b-rng', icon: '🏹', label: 'RNG', cost: '5V', disabled: !(ready && canAfford) },
+        { key: 'skill:int', cls: 'b-int', icon: '🧠', label: 'INT', cost: '5V', disabled: !(ready && canAfford) },
+      ],
+    };
   }
 
   function pickBuy(key) {
@@ -1086,7 +1053,6 @@
     if (!G || G.over || event.button !== 0) return;
     if (touches.size > 1) return;
     if (event.target.closest('[data-nuke]')) return;
-    if (event.target.closest('#logbox')) return;
     const heroNode = event.target.closest('[data-hero]');
     const hero = heroNode ? G.heroes[+heroNode.dataset.hero] : null;
     const canDrag = hero && !ui.mode && boardStepDone()
@@ -1183,10 +1149,9 @@
      18. TRAVERSAL HAND AND SELLING
      Drag any card into the Buy panel to sell it. Drag a skill card
      onto a hero or object to apply it. Drag the 5V card onto the
-     board's open ground to play it.
+     open board to play it.
      ============================================================= */
 
-  // one card, drawn with its colour, emoji and name
   function cardHtml(card, index) {
     const name = CARD_NAME[card] || card;
     const icon = CARD_ICON[card] || '?';
@@ -1210,7 +1175,6 @@
     hand.innerHTML = cards.map((card, i) => cardHtml(card, i)).join('');
   }
 
-  // starts a drag on a card (only on your turn)
   function onCardPointerDown(event) {
     if (!isMyTurn() || event.button !== 0) return;
     const cardEl = event.target.closest('.tcard');
@@ -1218,16 +1182,18 @@
     cardDrag = { index: +cardEl.dataset.card, startX: event.clientX, startY: event.clientY, moved: false, ghost: null, node: cardEl };
   }
 
-  // when the drag starts, the Buy panel shows the drop-to-sell overlay
+  // when the drag starts, the Buy panel shows "Drop to Sell: +XV" for this card
   function onCardPointerMove(event) {
     if (!cardDrag.moved) {
       if (Math.hypot(event.clientX - cardDrag.startX, event.clientY - cardDrag.startY) < 6) return;
       cardDrag.moved = true;
+      const card = G.pl[myIndex()].hand[cardDrag.index];
       cardDrag.node.classList.add('dragging-out');
+      sellHint = CARD_SELL_VALUE[card] ?? 2;
       el('buycol').classList.add('dragging');
+      updateSellZone();
       cardDrag.ghost = document.createElement('div');
       cardDrag.ghost.className = 'ghostc';
-      const card = G.pl[myIndex()].hand[cardDrag.index];
       cardDrag.ghost.textContent = `${CARD_ICON[card]} ${CARD_NAME[card]}`;
       document.body.appendChild(cardDrag.ghost);
     }
@@ -1235,11 +1201,16 @@
     cardDrag.ghost.style.top = event.clientY + 'px';
   }
 
-  // release: over the Buy panel sells; over a hero or object applies a skill; over open board plays 5V
+  function endCardDragVisuals() {
+    el('buycol').classList.remove('dragging');
+    sellHint = null;
+    updateSellZone();
+  }
+
   function onCardPointerUp(event) {
     const finished = cardDrag;
     cardDrag = null;
-    el('buycol').classList.remove('dragging');
+    endCardDragVisuals();
     if (finished.ghost) finished.ghost.remove();
     if (finished.node) finished.node.classList.remove('dragging-out');
     if (!finished.moved) return;
@@ -1274,7 +1245,6 @@
 
   function onBoardClick(event) {
     if (suppressClick || !G || G.over) return;
-    if (event.target.closest('#logbox')) return;
     const node = event.target.closest('[data-k]');
     if (!node) {
       if (ui.wheel && !MUST_CHOOSE.includes(ui.wheel.kind)) { dismissMenus(); render(); }
@@ -1687,29 +1657,39 @@
     el('defeated').style.display = isDefeated() && !G.over ? 'block' : 'none';
   }
 
+  // the Buy panel: a sell overlay on top, then the V total, then the option cards
   function drawBuySide() {
     const mine = myIndex();
     const viewer = G.pl[mine >= 0 ? mine : G.cur];
-    const items = buyOptions();
+    const opts = buyOptions();
     const isActive = item => item.key === ui.mode
       || (item.key.startsWith('skill:') && ui.mode === 'buyskill' && ui.devSkill === item.key.slice(6));
-    const button = item => `<button class="opt2 ${isActive(item) ? 'on' : ''}" data-buy="${item.key}" ${item.disabled ? 'disabled' : ''}>${item.icon} ${item.label}<small>${markV(item.cost)}</small></button>`;
+    const option = item => `<button class="bopt ${item.cls} ${isActive(item) ? 'on' : ''}" data-buy="${item.key}" ${item.disabled ? 'disabled' : ''}>
+        <span class="bo-icon">${item.icon}</span><span class="bo-label">${item.label}</span><span class="bo-cost">${markV(item.cost)}</span>
+      </button>`;
     const body = isMyTurn()
-      ? `<div class="bcol">
-           <div class="brow" style="grid-template-columns:repeat(3,1fr)">${items.slice(0, 3).map(button).join('')}</div>
-           <div class="brow" style="grid-template-columns:repeat(2,1fr)">${items.slice(3, 5).map(button).join('')}</div>
-           <div class="brow" style="grid-template-columns:repeat(2,1fr)">${items.slice(5).map(button).join('')}</div>
-         </div>`
-      : '<span class="muted small">Buying is available on your turn.</span>';
-    const sell = el('sellzone');
-    const zone = sell ? sell.outerHTML : '';
-    el('buyside').innerHTML = `<div class="vside">${markV(viewer.v + ' V')}</div>${body}${zone}`;
+      ? `<div class="bsection">Structures</div>
+         <div class="bgrid" style="grid-template-columns:repeat(3,1fr)">${opts.structures.map(option).join('')}</div>
+         <div class="bsection">Skills</div>
+         <div class="bgrid" style="grid-template-columns:repeat(4,1fr)">${opts.skills.map(option).join('')}</div>`
+      : '<div class="buy-note">Buying is available on your turn.</div>';
+    const sellText = sellHint != null ? `Drop to Sell: +${sellHint}V` : '';
+    const sellZone = `<div id="sellzone">${sellText}<small>sold for cash, card returns to the deck</small></div>`;
+    el('buyside').innerHTML = `<div class="vside">${markV(viewer.v + ' V')}</div>${body}${sellZone}`;
+  }
+
+  // updates only the overlay text while a drag is in progress
+  function updateSellZone() {
+    const zone = el('sellzone');
+    if (zone) zone.firstChild.textContent = sellHint != null ? `Drop to Sell: +${sellHint}V` : '';
+    if (!zone) drawBuySide();
   }
 
   function drawBottomBar() {
     el('bottom').classList.toggle('minimized', botMinimized);
     el('bar').innerHTML = `
       <span class="msg">${textWithV(ui.message)}</span>
+      <button class="sbtn" data-action="open-log">📜 Log</button>
       <button class="sbtn" data-action="minimize">${botMinimized ? '▴ Expand' : '▾ Minimize'}</button>`;
     const handSize = myIndex() >= 0 ? G.pl[myIndex()].hand.length : 0;
     el('handcol').querySelector('.sec-head').textContent = `🃏 Hand (${handSize})`;
@@ -1815,13 +1795,21 @@
   }
 
   /* =============================================================
-     25. MODAL
+     25. MODAL (log, name, lobby, game over)
      ============================================================= */
 
   function drawModal() {
     const modal = el('modal');
     let html = '';
-    if (!username || !isValidName(username)) {
+    if (logOpen && G) {
+      const lines = (G.log || []).map(line => {
+        const color = line.p >= 0 ? PLAYER_COLORS[line.p] : '#9a9ab0';
+        return `<div style="color:${color}">${textWithV(line.t)}</div>`;
+      }).join('');
+      html = `<div class="card"><h2 style="margin:0">📜 Game log</h2>
+        <div class="logfull">${lines || '<div>No events yet.</div>'}</div>
+        <div class="row"><button class="endb" data-action="close-log">Close</button></div></div>`;
+    } else if (!username || !isValidName(username)) {
       html = `<div class="card"><h2 style="margin:0">VERSA</h2>
         <div class="muted">Choose a username (2 to 16 letters or numbers)</div>
         <input id="nameIn" maxlength="16">
@@ -1885,7 +1873,6 @@
       drawWheel();
       drawCancel();
       drawTodo();
-      updateLogOverlay();
       document.documentElement.style.setProperty('--top-h', el('top').offsetHeight + 'px');
       document.documentElement.style.setProperty('--bottom-h', el('bottom').offsetHeight + 'px');
     } else {
@@ -1893,8 +1880,6 @@
       el('cx').style.display = 'none';
       el('defeated').style.display = 'none';
       ['top', 'hand', 'bar', 'todo'].forEach(id => { el(id).innerHTML = ''; });
-      el('logline').textContent = '';
-      el('logstack').innerHTML = '';
     }
     drawModal();
     document.body.classList.toggle('wait', (!!G && !isMyTurn() && !isControllingNow()) || isDefeated());
@@ -1929,8 +1914,8 @@
       case 'cancel': return cancelMode();
       case 'review-board': gameOverDismissed = true; return render();
       case 'minimize': botMinimized = !botMinimized; return render();
-      case 'toggle-log': logOpen = !logOpen; return render();
-      case 'toggle-log-size': logOpen = !logOpen; return render();
+      case 'open-log': logOpen = true; return render();
+      case 'close-log': logOpen = false; return render();
       case 'show-hand':
       case 'show-buy': botMinimized = false; return render();
       default: return undefined;
@@ -1957,11 +1942,12 @@
     window.addEventListener('pointermove', onPointerMove);
     window.addEventListener('pointerup', onPointerUp);
     window.addEventListener('pointercancel', onPointerUp);
-    window.addEventListener('keydown', event => { if (event.key === 'Escape' && G) cancelMode(); });
+    window.addEventListener('keydown', event => {
+      if (event.key !== 'Escape' || !G) return;
+      if (logOpen) { logOpen = false; return render(); }
+      cancelMode();
+    });
     window.addEventListener('resize', () => { if (G || ROOM || username) render(); });
-
-    // the log overlay scrolls on its own; wheel over it should not zoom the board
-    el('logbox').addEventListener('wheel', event => event.stopPropagation(), { passive: true });
 
     el('wheel').addEventListener('click', event => {
       const button = event.target.closest('[data-w]');
