@@ -55,6 +55,12 @@ const zoomMax = () => (isPhone() ? 4000 : 1800);
 const ROUND = { placementEnds: 5, attacksFrom: 4, declineFrom: 7 };
 const RULES = { maxHeroes: 3, maxObjects: 3, maxSkill: 5, maxBarrier: 12, actionCost: 5, heroCost: 30 };
 
+// banner timing: each event card stays for EVENT_CARD_MS and the next one starts EVENT_GAP_MS later
+const EVENT_CARD_MS = 5200;
+const EVENT_GAP_MS = 2600;
+// how long units named in an event stay highlighted on the board
+const FLASH_MS = 4200;
+
 // frame colour and icon for each event source; keys must match add_event's list in sql/20_helpers.sql
 const SOURCE_STYLE = {
   combat: { icon: '⚔️', label: 'Combat' },
@@ -72,6 +78,16 @@ const SOURCE_STYLE = {
   general: { icon: '•', label: '' },
 };
 
+// the headline a defender sees instead of the attacker's wording
+const DEFENDER_HEADLINES = {
+  Hit: 'You were hit',
+  Miss: 'You held',
+  Through: 'Barrier failed',
+  Blocked: 'Barrier held',
+  Defeated: 'Your hero fell',
+  'Object lost': 'Your object fell',
+};
+
 const MUST_CHOOSE = ['moveBonus'];
 const DISCOVERY_CHOICE = 'DISCOVERY_CHOICE';
 const LOADOUT_NAME_PATTERN = /^[A-Za-z0-9 ]{0,12}$/;
@@ -86,6 +102,22 @@ const markV = html => html.replace(/(\d+) ?V\b/g, '$1<span class="vs">V</span>')
 const textWithV = text => markV(escapeHtml(text));
 const dieHtml = (value, delay) => `<span class="die" style="--d:${delay}s">${value}</span>`;
 const isValidName = name => /^[A-Za-z0-9]{2,16}$/.test(name);
+
+// one pass over a log line: each kind of thing gets its own colour
+// groups: 1 Versa amount, 2 barrier level, 3 hero label, 4 object, 5 barrier word, 6 damage word, 7 plain number
+const LOG_RULE = /(\d+\s?V\b)|(\bL\d+\b)|(\bH\d\b)|(\bobjects?\b)|(\bbarriers?\b)|(\b(?:hit|hits|miss|blocked|dies|destroyed|lost|damage|killed)\b)|(\b\d+\b)/gi;
+
+function colourLog(text) {
+  return escapeHtml(text).replace(LOG_RULE, (match, versa, barLevel, hero, object, barrierWord, damage, number) => {
+    if (versa) return `<span class="lg-v">${match}</span>`;
+    if (barLevel || barrierWord) return `<span class="lg-bar">${match}</span>`;
+    if (hero) return `<span class="lg-hero">${match}</span>`;
+    if (object) return `<span class="lg-obj">${match}</span>`;
+    if (damage) return `<span class="lg-dmg">${match}</span>`;
+    if (number) return `<span class="lg-num">${match}</span>`;
+    return match;
+  });
+}
 
 /* =============================================================
    3. HEX GEOMETRY
@@ -116,6 +148,7 @@ function hexPoints(cube, radius = HEX_RADIUS - 4) {
    presenceSeen  seconds since each player's last heartbeat, as the server measured them
    savedNames    this player's hero and object names, kept across games
    loadoutDraft  names being typed in the lobby, kept while the modal redraws
+   flashKeys     units named in the latest event, e.g. 'h2' or 'o0', highlighted briefly
    ui            local interaction state: open menus, the active mode, messages
    ============================================================= */
 
@@ -142,6 +175,8 @@ let tick = 0;
 let lastAnimatedSeq = null;
 let savedNames = null;
 let loadoutDraft = null;
+let flashKeys = new Set();
+let flashTimer = null;
 const seenTodo = new Set();
 
 const touches = new Map();
@@ -201,6 +236,7 @@ const phaseName = () => {
 };
 
 const knowsTileType = (tile, mine) => !!tile.disc || (tile.own === mine && tile.sk != null);
+const barrierIsMine = (tile, hero) => tile.barOwn === hero.p || heroesAt(tile.c).some(h => h.p === hero.p);
 const barrierColor = cube => {
   const hero = heroesAt(cube)[0];
   return hero ? PLAYER_COLORS[hero.p] : UNOCCUPIED_BARRIER;
@@ -250,17 +286,18 @@ async function loadMyPrivateData() {
   };
 }
 
-// Event card: source header, headline (largest), detail, who it affects, then dice for rolls
+// Event card: source, headline, detail, who acted and who was affected, then the rolls.
+// A defender sees the headline written for them.
 function eventCardHtml(event) {
   const source = SOURCE_STYLE[event.source] || SOURCE_STYLE.general;
-  const headline = event.headline || event.t || 'Something happened';
+  const rawHeadline = event.headline || event.t || 'Something happened';
+  const youDefend = event.source === 'combat' && event.target === myIndex();
+  const headline = youDefend ? (DEFENDER_HEADLINES[rawHeadline] || rawHeadline) : rawHeadline;
   const srcLine = source.label ? `<div class="event-source">${source.icon} ${source.label}</div>` : '';
   const detail = event.detail ? `<div class="event-detail">${textWithV(event.detail)}</div>` : '';
-  const dice = (event.dice || []).map((value, i) => dieHtml(value, i * 0.15)).join(' ');
-  const diceRow = dice ? `<div class="event-dice">${dice}</div>` : '';
   return `<div class="event-card">${srcLine}
     <div class="event-headline">${textWithV(headline)}</div>
-    ${detail}${playerWho(event)}${diceRow}
+    ${detail}${playerWho(event)}${unitsLine(event)}${diceBlock(event, rawHeadline)}
   </div>`;
 }
 
@@ -272,14 +309,50 @@ function playerWho(event) {
   return parts.length ? `<div class="event-who">${parts.join(' · ')}</div>` : '';
 }
 
-// shows each event of the latest action one after another, 1.4 seconds apart
+// the heroes and objects the action touched, by their names
+function unitsLine(event) {
+  if (!event.affected || !event.affected.length) return '';
+  const names = event.affected.map(u => {
+    if (u.kind === 'hero') return G.heroes[u.i] ? heroLabel(G.heroes[u.i]) : null;
+    const obj = G.objs[u.i];
+    return obj ? (obj.nm || `${G.pl[obj.p].name}'s object`) : null;
+  }).filter(Boolean);
+  return names.length ? `<div class="event-who">Affected: ${names.map(name => escapeHtml(name)).join(', ')}</div>` : '';
+}
+
+// an attack shows both rolls labelled by side; other events show their dice in a row
+function diceBlock(event, rawHeadline) {
+  const dice = event.dice || [];
+  if (!dice.length) return '';
+  const isAttack = event.source === 'combat' && (rawHeadline === 'Hit' || rawHeadline === 'Miss') && dice.length === 2;
+  if (isAttack) {
+    return `<div class="event-roll-pair">
+      <div><small>Attacker</small>${dieHtml(dice[0], 0)}</div>
+      <div><small>Defender</small>${dieHtml(dice[1], 0.15)}</div>
+    </div>`;
+  }
+  return `<div class="event-dice">${dice.map((value, i) => dieHtml(value, i * 0.15)).join(' ')}</div>`;
+}
+
+// highlights the named heroes and objects on the board for a few seconds
+function flashUnits(units) {
+  flashKeys = new Set(units.map(u => (u.kind === 'hero' ? 'h' : 'o') + u.i));
+  clearTimeout(flashTimer);
+  flashTimer = setTimeout(() => { flashKeys = new Set(); drawBoard(); }, FLASH_MS);
+  drawBoard();
+}
+
+// shows each event of the latest action one after another, slowly enough to read
 function playEvents(events) {
   events
     .filter(event => event && (event.headline || event.t))
     .forEach((event, index) => {
       const tone = ['good', 'bad', 'info', 'gold'].includes(event.tone) ? event.tone : 'info';
       const source = SOURCE_STYLE[event.source] ? event.source : 'general';
-      setTimeout(() => showFloat(eventCardHtml(event), `event tone-${tone} src-${source}`), index * 1400);
+      setTimeout(() => {
+        if (event.affected && event.affected.length) flashUnits(event.affected);
+        showFloat(eventCardHtml(event), `event slow tone-${tone} src-${source}`, EVENT_CARD_MS);
+      }, index * EVENT_GAP_MS);
     });
 }
 
@@ -1252,12 +1325,12 @@ function pickWheelItem(value) {
    21. FLOATING FEEDBACK AND TOOLTIPS
    ============================================================= */
 
-function showFloat(html, extraClass = '') {
+function showFloat(html, extraClass = '', durationMs = 3000) {
   const node = document.createElement('div');
   node.className = 'fx ' + extraClass;
   node.innerHTML = markV(html);
   el('fx').appendChild(node);
-  setTimeout(() => node.remove(), 3000);
+  setTimeout(() => node.remove(), durationMs);
 }
 
 function playApocalypseAnimation() {
@@ -1373,6 +1446,13 @@ function tileSvg(tile, mine) {
     + barrierTag;
 }
 
+// the purple chain from each Mind Controlled hero to the hero controlling it
+function chainSvg(controller, controlled) {
+  const [x1, y1] = heroPosition(controller);
+  const [x2, y2] = heroPosition(controlled);
+  return `<line class="mc-chain" x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}"/>`;
+}
+
 function isEnemyInDragReach(hero) {
   if (!drag || !drag.moved) return false;
   const dragged = G.heroes[drag.heroIdx];
@@ -1392,6 +1472,7 @@ function heroSvg(hero, index) {
   const march = actable && hero.acts > 0 && !ui.mode && !drag ? `<circle class="ring-march" cx="${x}" cy="${y}" r="8"/>` : '';
   const attackRing = isEnemyInDragReach(hero) ? `<circle class="ring-atk" cx="${x}" cy="${y}" r="10"/>` : '';
   const skillRing = isDevelopSkillTarget(hero) ? `<circle class="ring-selh" cx="${x}" cy="${y}" r="10"/>` : '';
+  const flash = flashKeys.has('h' + index) ? `<circle class="ring-flash" cx="${x}" cy="${y}" r="12"/>` : '';
   const selected = ui.selectedIndex === index;
   const dots = actable
     ? `<text x="${x}" y="${y - 9}" font-size="6" fill="#ffe8a3" stroke="#000" stroke-width="1" paint-order="stroke">${'●'.repeat(hero.acts)}${'✕'.repeat(Math.max(0, 2 - hero.acts))}</text>`
@@ -1401,7 +1482,7 @@ function heroSvg(hero, index) {
   tooltips['h' + index] = heroTooltip(hero);
   return `<g class="${muted}" data-hero="${index}" data-k="${cubeKey(hero.c)}" data-tip="h${index}">`
     + `<circle cx="${x}" cy="${y}" r="6" fill="${HERO_COLORS[index % HERO_COLORS.length]}" stroke="${PLAYER_COLORS[hero.p]}" stroke-width="${selected ? 2.5 : 1.5}"/>`
-    + mc + march + attackRing + skillRing + dots + damage + `</g>`;
+    + mc + march + attackRing + skillRing + flash + dots + damage + `</g>`;
 }
 
 function objectSvg(obj, index) {
@@ -1410,11 +1491,12 @@ function objectSvg(obj, index) {
   const x = hexX(obj.c) + (position - (row.length - 1) / 2) * 15;
   const y = hexY(obj.c) - 20;
   const ring = isDevelopSkillTarget(obj) ? `<rect class="ring-o" x="${x - 10}" y="${y - 10}" width="20" height="20" rx="4"/>` : '';
+  const flash = flashKeys.has('o' + index) ? `<rect class="ring-flash" x="${x - 10}" y="${y - 10}" width="20" height="20" rx="4"/>` : '';
   const muted = ui.mode === 'develop' && ui.devType === 'skill' && !isDevelopSkillTarget(obj) ? 'mute' : '';
   tooltips['o' + index] = objectTooltip(obj);
   return `<g class="${muted}" data-obj="${index}" data-k="${cubeKey(obj.c)}" data-tip="o${index}">`
     + `<rect x="${x - 7}" y="${y - 7}" width="14" height="14" rx="3" fill="${PLAYER_COLORS[obj.p]}" stroke="#0e0e12" stroke-width="1"/>`
-    + ring
+    + ring + flash
     + `<text x="${x}" y="${y - 1}" font-size="9">${obj.sym || '🧱'}</text>`
     + `<text x="${x + 5}" y="${y + 5}" font-size="5" font-weight="bold" fill="#fff" stroke="#000" stroke-width=".8" paint-order="stroke">${obj.s.def}</text>`
     + `</g>`;
@@ -1450,6 +1532,12 @@ function drawBoard() {
     placementCandidates().forEach(c => { out += `<polygon class="cand" data-k="${cubeKey(c)}" points="${hexPoints(c)}"/>`; });
   }
   Object.values(G.tiles).forEach(tile => { out += tileSvg(tile, mine); });
+  // chains are drawn under the heroes so the hero circles stay on top
+  G.heroes.forEach(hero => {
+    if (!hero.alive || !hero.mc) return;
+    const controller = G.heroes[hero.mc.src];
+    if (controller && controller.alive) out += chainSvg(controller, hero);
+  });
   G.heroes.forEach((hero, i) => { if (hero.alive) out += heroSvg(hero, i); });
   G.objs.forEach((obj, i) => { if (obj.alive && !obj.nuke) out += objectSvg(obj, i); });
   const nuke = G.objs.find(o => o.alive && o.nuke);
@@ -1649,7 +1737,7 @@ function drawModal() {
   if (logOpen && G) {
     const lines = (G.log || []).map(line => {
       const color = line.p >= 0 ? PLAYER_COLORS[line.p] : '#9a9ab0';
-      return `<div style="color:${color}">${textWithV(line.t)}</div>`;
+      return `<div style="color:${color}">${colourLog(line.t)}</div>`;
     }).join('');
     html = `<div class="card"><h2 style="margin:0">📜 Game log</h2>
       <div class="muted">Room code: <span class="plain-code">${escapeHtml(ROOM)}</span></div>
