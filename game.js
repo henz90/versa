@@ -1528,3 +1528,333 @@ function drawBuySide() {
 function updateSellZone() {
   const zone = el('sellzone');
   if (!zone) { drawBuySide(); return; }
+  zone.firstChild.textContent = sellHint != null ? `Drop to Sell: +${sellHint}V` : '';
+}
+
+function drawBottomBar() {
+  el('bottom').classList.toggle('minimized', botMinimized);
+  el('bar').innerHTML = `
+    <span class="msg">${textWithV(ui.message)}</span>
+    <button class="sbtn" data-action="open-log">📜 Log</button>
+    <button class="sbtn" data-action="minimize">${botMinimized ? '▴ Expand' : '▾ Minimize'}</button>`;
+  const handSize = myIndex() >= 0 ? G.pl[myIndex()].hand.length : 0;
+  el('handcol').querySelector('.sec-head').textContent = `🃏 Hand (${handSize})`;
+}
+
+function drawWheel() {
+  const wheelEl = el('wheel'), wheel = ui.wheel;
+  if (!wheel) { wheelEl.style.display = 'none'; wheelEl.innerHTML = ''; return; }
+  const [x, y] = screenPoint(hexX(wheel.cube), hexY(wheel.cube));
+  wheelEl.style.left = x + 'px';
+  wheelEl.style.top = y + 'px';
+  wheelEl.style.display = 'block';
+  const count = wheel.items.length;
+  const buttons = wheel.items.map((item, i) => {
+    const angle = -Math.PI / 2 + i * 2 * Math.PI / count;
+    const emojiClass = wheel.kind === 'emoji' ? 'emoji-btn' : '';
+    return `<button class="wbtn ${emojiClass} ${item.on ? 'on' : ''}" data-w="${item.v}" ${item.dis ? 'disabled' : ''}
+      style="left:calc(${Math.cos(angle).toFixed(3)} * var(--r));top:calc(${Math.sin(angle).toFixed(3)} * var(--r))">
+      <span class="wi">${item.ic}</span>${item.t ? `<small>${markV(item.t)}</small>` : ''}</button>`;
+  }).join('');
+  const closeButton = MUST_CHOOSE.includes(wheel.kind) ? '' : '<button class="wbtn wx" data-w="x">✕</button>';
+  wheelEl.innerHTML = buttons + closeButton;
+}
+
+function drawCancel() {
+  const cancel = el('cx');
+  const show = !!ui.mode && ui.mode !== 'place' && ui.mode !== 'remove' && !ui.wheel;
+  cancel.style.display = show ? 'block' : 'none';
+  cancel.innerHTML = show ? '<button class="xbtn" data-action="cancel">✕</button>' : '';
+}
+
+/* =============================================================
+   24. TO-DO LIST
+   ============================================================= */
+
+function todoItems() {
+  if (G.over) return [{ text: G.over }];
+  if (isDefeated()) return [{ text: 'You have been defeated. Watch the game.' }];
+  if (!isMyTurn() && !isControllingNow()) return [{ text: `Waiting for ${G.pl[G.cur].name}…` }];
+  const myTurn = isMyTurn();
+  const items = [];
+
+  if (myTurn && G.rd <= ROUND.placementEnds) {
+    items.push({ text: 'Place a tile', done: boardStepDone() });
+  }
+
+  if (myTurn && G.rd >= ROUND.declineFrom && G.remPlan.length) {
+    items.push({
+      text: 'Remove one tile per player',
+      head: true,
+      done: boardStepDone(),
+      children: G.remPlan.map(owner => ({
+        text: owner === G.cur ? 'One of your tiles' : `${G.pl[owner].name} (eliminated)`,
+        done: !G.remOrder.includes(owner) || !ownerHasRemovableTile(owner),
+      })),
+    });
+  }
+
+  if (boardStepDone()) {
+    G.heroes.filter(h => h.alive && actsForMe(h)).forEach(hero => {
+      const used = type => hero.t.some(x => x.type === type && !x.fail);
+      const name = hero.mc ? `${heroLabel(hero)} (controlled)` : heroName(hero);
+      items.push({
+        text: `${name}: ${hero.acts} action${hero.acts === 1 ? '' : 's'} left`,
+        head: true,
+        done: hero.acts < 1,
+        children: [
+          { text: 'Move', done: used('move'), dim: !used('move') && !canAct(hero, 'move') },
+          { text: G.rd < ROUND.attacksFrom ? 'Attack (from round 4)' : 'Attack or Mind Control', done: used('attack') || used('mind'), dim: !used('attack') && !used('mind') && !canAct(hero, 'attack') },
+          { text: 'Develop', done: used('develop'), dim: !used('develop') && !canAct(hero, 'develop') },
+        ],
+      });
+    });
+  }
+
+  if (myTurn && G.heroes.some(h => h.alive && isMine(h) && h.mc && !h.mc.ceded)) {
+    items.push({ text: 'Click a hero under Mind Control to cede it, or leave it with its controller' });
+  }
+
+  if (myTurn && boardStepDone() && !G.heroes.some(h => h.alive && actsForMe(h) && h.acts > 0)) {
+    items.push({ text: 'Nothing left: end your turn', head: true });
+  }
+
+  if (ui.wheel) {
+    items.unshift({ text: `Choose: ${ui.wheel.items.map(i => i.t || i.ic).join(' · ')}`, temp: true });
+  }
+  return items;
+}
+
+function todoLineHtml(item, depth) {
+  const key = `${G.rd}|${G.cur}|${item.text}`;
+  const animate = item.done && !seenTodo.has(key);
+  if (item.done) seenTodo.add(key);
+  const classes = ['td', depth ? 'sub' : '', item.head ? 'head' : '', item.temp ? 'temp' : '',
+    item.dim ? 'dim' : '', item.done ? 'done' : '', animate ? 'strike' : ''].join(' ');
+  const mark = item.done ? '☑' : item.head ? '▸' : '☐';
+  const children = (item.children || []).map(child => todoLineHtml(child, depth + 1)).join('');
+  return `<div class="${classes}">${mark} ${textWithV(item.text)}</div>${children}`;
+}
+
+function drawTodo() {
+  el('todo').innerHTML = '<b>To do</b>' + todoItems().map(item => todoLineHtml(item, 0)).join('');
+}
+
+/* =============================================================
+   25. MODAL (log, name, lobby, game over)
+   ============================================================= */
+
+function drawModal() {
+  const modal = el('modal');
+  let html = '';
+
+  if (logOpen && G) {
+    const lines = (G.log || []).map(line => {
+      const color = line.p >= 0 ? PLAYER_COLORS[line.p] : '#9a9ab0';
+      return `<div style="color:${color}">${textWithV(line.t)}</div>`;
+    }).join('');
+    html = `<div class="card"><h2 style="margin:0">📜 Game log</h2>
+      <div class="muted">Room code: <span class="plain-code">${escapeHtml(ROOM)}</span></div>
+      <div class="logfull">${lines || '<div>No events yet.</div>'}</div>
+      <div class="row"><button class="endb" data-action="close-log">Close</button></div></div>`;
+  } else if (!username || !isValidName(username)) {
+    html = `<div class="card"><h2 style="margin:0">VERSA</h2>
+      <div class="muted">Choose a username (2 to 16 letters or numbers)</div>
+      <input id="nameIn" maxlength="16">
+      <div class="row"><button class="endb" data-action="save-name">Continue</button></div></div>`;
+  } else if (!ROOM) {
+    html = `<div class="card"><h2 style="margin:0">Play VERSA</h2>
+      <div class="muted">Playing as <b>${escapeHtml(username)}</b></div>
+      <div class="row"><button class="endb" data-action="create-room">Create room</button></div>
+      <div class="row"><input id="codeIn" maxlength="6" placeholder="Room code"><button data-action="join-room">Join room</button></div>
+      <div class="row"><button class="ghost" data-action="rename">Change username</button></div></div>`;
+  } else if (roomLoading || (!G && !ROOM_ROW)) {
+    html = `<div class="card"><h2 style="margin:0">Loading room ${escapeHtml(ROOM)}…</h2>
+      <div class="row"><button class="ghost" data-action="leave">Back to lobby</button></div></div>`;
+  } else if (!G && ROOM_ROW) {
+    if (!loadoutDraft) loadoutDraft = loadoutFromSaved();
+    const players = ROOM_ROW.players || [];
+    const startButton = ROOM_ROW.host === ME
+      ? `<div class="row"><button class="endb" data-action="start-game" ${players.length < 2 ? 'disabled' : ''}>Start game</button></div>`
+      : '<div class="muted">Waiting for the host to start…</div>';
+    html = `<div class="card"><h2 style="margin:0">Room</h2>
+      <div class="muted">Click the code to copy it, then share it with your opponent. The first player is chosen at random.</div>
+      <div class="row"><button class="roomcode" data-action="copy-room" title="Copy room code">${ROOM}</button></div>
+      <div>${players.map((p, i) => `<div style="color:${PLAYER_COLORS[i]}">${i + 1}. ${escapeHtml(p.name)}${p.uid === ME ? ' (you)' : ''}</div>`).join('')}</div>
+      <div class="muted">Your names are kept for every game. Blank names use the defaults.</div>
+      <div class="name-row"><span>Heroes</span>${nameFields('heroes', 'Hero')}</div>
+      <div class="name-row"><span>Objects</span>${nameFields('objects', 'Object')}</div>
+      <div class="row"><button data-action="save-loadout">Save names</button></div>
+      ${startButton}
+      <div class="row"><button class="ghost" data-action="leave">Leave room</button></div></div>`;
+  } else if (G && G.over && !gameOverDismissed) {
+    html = `<div class="card"><h2 style="margin:0">🏆 ${escapeHtml(G.over)}</h2>
+      <div class="muted">The board stays visible so you can review the game. This room closes after an hour.</div>
+      <div class="row">
+        <button class="ghost" data-action="review-board">Review board</button>
+        <button class="endb" data-action="leave">Back to lobby</button>
+      </div></div>`;
+  }
+
+  modal.innerHTML = html;
+  modal.style.display = html ? 'flex' : 'none';
+  const nameInput = el('nameIn');
+  if (nameInput) nameInput.value = username;
+}
+
+/* =============================================================
+   26. RENDER
+   Full redraw from the current state. Rendering never changes
+   game state.
+   ============================================================= */
+
+function syncModeWithRules() {
+  if (!G) return;
+  if (!isMyTurn() || G.over) {
+    if (ui.mode === 'place' || ui.mode === 'remove') ui.mode = '';
+    return;
+  }
+  if (!boardStepDone()) ui.mode = G.rd <= ROUND.placementEnds ? 'place' : 'remove';
+  else if (ui.mode === 'place' || ui.mode === 'remove') ui.mode = '';
+}
+
+function render() {
+  if (G) syncModeWithRules();
+  drawBoard();
+  if (G) {
+    drawTop();
+    drawHand();
+    drawBuySide();
+    drawBottomBar();
+    drawWheel();
+    drawCancel();
+    drawTodo();
+    document.documentElement.style.setProperty('--top-h', el('top').offsetHeight + 'px');
+    document.documentElement.style.setProperty('--bottom-h', el('bottom').offsetHeight + 'px');
+  } else {
+    el('wheel').style.display = 'none';
+    el('cx').style.display = 'none';
+    el('defeated').style.display = 'none';
+    ['top', 'hand', 'bar', 'todo'].forEach(id => { el(id).innerHTML = ''; });
+  }
+  drawModal();
+  document.body.classList.toggle('wait', (!!G && !isMyTurn() && !isControllingNow()) || isDefeated());
+}
+
+/* =============================================================
+   27. BUTTON ACTIONS
+   Every element with data-action is routed here.
+   ============================================================= */
+
+function saveUsername() {
+  const name = (el('nameIn')?.value || '').trim();
+  if (!isValidName(name)) return toast('Use 2 to 16 letters or numbers');
+  username = name;
+  localStorage.setItem('versa-name', name);
+  render();
+}
+
+function runAction(action) {
+  switch (action) {
+    case 'save-name': return saveUsername();
+    case 'rename': username = ''; localStorage.removeItem('versa-name'); return render();
+    case 'create-room': return createRoom();
+    case 'join-room': {
+      const code = (el('codeIn')?.value || '').trim().toUpperCase();
+      if (code) joinRoom(code);
+      return;
+    }
+    case 'copy-room': return copyRoomCode();
+    case 'save-loadout': return saveLoadout();
+    case 'start-game': return startGame();
+    case 'leave': return leaveRoom();
+    case 'end-turn': return endTurnClick();
+    case 'cancel': return cancelMode();
+    case 'review-board': gameOverDismissed = true; return render();
+    case 'minimize': botMinimized = !botMinimized; return render();
+    case 'open-log': logOpen = true; return render();
+    case 'close-log': logOpen = false; return render();
+    case 'show-hand':
+    case 'show-buy': botMinimized = false; return render();
+    default: return undefined;
+  }
+}
+
+/* =============================================================
+   28. EVENT WIRING
+   ============================================================= */
+
+function wireEvents() {
+  const svg = el('svg');
+  svg.addEventListener('pointerdown', onTouchDown);
+  svg.addEventListener('pointerdown', onBoardPointerDown);
+  svg.addEventListener('click', onBoardClick);
+  svg.addEventListener('pointermove', onBoardHover);
+  svg.addEventListener('pointerleave', () => { el('tip').style.display = 'none'; });
+  svg.addEventListener('wheel', event => {
+    event.preventDefault();
+    view.zoom = clampZoom(view.zoom * (event.deltaY > 0 ? 1.1 : 0.9));
+    drawBoard();
+  }, { passive: false });
+
+  window.addEventListener('pointermove', onPointerMove);
+  window.addEventListener('pointerup', onPointerUp);
+  window.addEventListener('pointercancel', onPointerUp);
+  window.addEventListener('keydown', event => {
+    if (event.key !== 'Escape' || !G) return;
+    if (logOpen) { logOpen = false; return render(); }
+    cancelMode();
+  });
+  window.addEventListener('resize', () => { if (G || ROOM || username) render(); });
+
+  el('wheel').addEventListener('click', event => {
+    const button = event.target.closest('[data-w]');
+    if (button && !button.disabled) pickWheelItem(button.dataset.w);
+  });
+  el('buyside').addEventListener('click', event => {
+    const button = event.target.closest('[data-buy]');
+    if (button && !button.disabled) pickBuy(button.dataset.buy);
+  });
+  el('hand').addEventListener('pointerdown', onCardPointerDown);
+  document.addEventListener('click', event => {
+    const button = event.target.closest('[data-action]');
+    if (button && !button.disabled) runAction(button.dataset.action);
+  });
+  // keeps the lobby name drafts up to date as the player types
+  document.addEventListener('input', event => {
+    const { loadout, slot } = event.target.dataset;
+    if (loadout && loadoutDraft) loadoutDraft[loadout][Number(slot)] = event.target.value;
+  });
+}
+
+/* =============================================================
+   29. STARTUP
+   Every second: refresh the countdown. Every five seconds: send a
+   heartbeat and check for penalties. Both stop once the game is over.
+   ============================================================= */
+
+wireEvents();
+
+setInterval(() => {
+  if (!ROOM || !G || G.over) return;
+  tick++;
+  if (tick % 5 === 0) syncPresence();
+  else updateOfflineBadges();
+}, 1000);
+
+(async function boot() {
+  const { data: { session } } = await db.auth.getSession();
+  if (session) {
+    ME = session.user.id;
+  } else {
+    const { data, error } = await db.auth.signInAnonymously();
+    if (error) { toast('Sign-in failed: ' + error.message); return; }
+    ME = data.user.id;
+  }
+  loadSavedNames();
+  const savedRoom = localStorage.getItem('versa-room');
+  if (savedRoom && isValidName(username)) enterRoom(savedRoom);
+  render();
+})();
+
+render();
