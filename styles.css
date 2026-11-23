@@ -69,8 +69,6 @@ button.on { background: #4a6cf7; border-color: #4a6cf7; }
 
 /* =========================================================
    BUY PANEL
-   The option grid fills the panel and scales with its height,
-   so nothing scrolls. Text and icons size from the container.
    ========================================================= */
 .vside { flex: none; font-size: clamp(14px, 6cqh, 26px); font-weight: 800; color: #ffd54f; text-align: center; padding: .25em; background: #17171f; border: 2px solid #ffd54f55; border-radius: .5em; }
 .buy-body { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: .3em; }
@@ -94,7 +92,6 @@ button.on { background: #4a6cf7; border-color: #4a6cf7; }
 
 /* =========================================================
    TRAVERSAL CARDS
-   Colour-coded by type. Emoji for now.
    ========================================================= */
 .tcard { --cc: #8a8aa0; width: 6.2em; min-height: 8.6em; display: flex; flex-direction: column; align-items: center; justify-content: space-between; padding: .5em .4em; border-radius: .6em; background: linear-gradient(160deg, color-mix(in srgb, var(--cc) 35%, #1a1a24), #15151d); border: 2px solid var(--cc); box-shadow: 0 3px 10px #000a; cursor: grab; touch-action: none; user-select: none; flex: none; }
 .tcard.str { --cc: #e5484d; }
@@ -144,6 +141,10 @@ text { pointer-events: none; text-anchor: middle; dominant-baseline: central; fo
 .ring-nk { stroke: #ff3d3d; stroke-width: 1.5; }
 .ring-march { fill: none; stroke: #ffffffcc; stroke-width: 1; stroke-dasharray: 2 2; pointer-events: none; animation: march 1s linear infinite; }
 .ring-mc { fill: none; stroke: #c77dff; stroke-width: 1.2; stroke-dasharray: 2 3; pointer-events: none; }
+/* a unit named in the latest event pulses gold for a few seconds */
+.ring-flash { fill: none; stroke: #ffe066; stroke-width: 2.2; pointer-events: none; animation: pulse .6s ease-in-out infinite; }
+/* the translucent purple chain from a Mind Controlled hero to its controller */
+.mc-chain { stroke: rgba(199, 125, 255, .55); stroke-width: 3; stroke-dasharray: 5 3; stroke-linecap: round; pointer-events: none; }
 
 /* =========================================================
    TOP BAR
@@ -168,6 +169,7 @@ text { pointer-events: none; text-anchor: middle; dominant-baseline: central; fo
 
 /* =========================================================
    FLOATING FEEDBACK: event cards framed by source
+   Event cards stay longer and fade slowly.
    ========================================================= */
 .fx { background: #000d; border: 1px solid #8a8aff; border-radius: .7em; padding: .5em .9em; font-size: 1.15em; font-weight: 700; line-height: 1.7; text-align: center; animation: fxin .3s ease-out, fxout .4s ease-in 2.6s forwards; }
 .fx span { display: inline-block; animation: pop .35s both; animation-delay: var(--d, 0s); }
@@ -176,6 +178,7 @@ text { pointer-events: none; text-anchor: middle; dominant-baseline: central; fo
 .fx.nat { border-color: #ffd54f; background: #2a2100f0; font-size: 1.6em; box-shadow: 0 0 50px #ffd54f88; animation: natin .6s ease-out, fxout .4s ease-in 2.8s forwards; }
 .fx.nat > span:first-child { color: #ffd54f; animation: spin .8s ease-out both; }
 .fx.event { min-width: 11em; padding: .6em .9em; font-size: 1em; font-weight: 600; border-width: 1px 1px 1px 5px; border-left-color: var(--frame, #8ab4ff); }
+.fx.event.slow { animation: fxin .4s ease-out, fxout .8s ease-in 4.4s forwards; }
 .fx.event.src-combat { --frame: #ff5252; }
 .fx.event.src-mind { --frame: #c77dff; }
 .fx.event.src-barrier { --frame: #9a9a9a; }
@@ -193,6 +196,8 @@ text { pointer-events: none; text-anchor: middle; dominant-baseline: central; fo
 .event-detail { font-size: .8em; font-weight: 500; color: #b8b8c8; margin-top: .15em; }
 .event-who { font-size: .75em; color: #c8c8d8; margin-top: .15em; }
 .event-dice { margin-top: .35em; }
+.event-roll-pair { display: flex; justify-content: center; gap: 1em; margin-top: .35em; }
+.event-roll-pair small { display: block; font-size: .6em; font-weight: 600; color: #b8b8c8; }
 .emo { position: absolute; font-size: 22px; line-height: 1; padding: 3px; border-radius: 50%; background: #000c; transform: translate(-50%, -50%); pointer-events: none; z-index: 7; animation: emofloat 2.2s ease-out forwards; }
 .ghostc { position: fixed; pointer-events: none; z-index: 30; transform: translate(-50%, -50%); background: #24243a; border: 1px solid #ffe066; border-radius: .6em; padding: .4em .7em; font-size: 1.2em; opacity: .9; }
 @keyframes emofloat { 0% { opacity: 0; margin-top: 0; } 15% { opacity: 1; } 100% { opacity: 0; margin-top: -40px; } }
@@ -202,6 +207,17 @@ text { pointer-events: none; text-anchor: middle; dominant-baseline: central; fo
 @keyframes roll { 0% { transform: rotate(-720deg) scale(.3); opacity: 0; } 70% { transform: rotate(15deg) scale(1.15); opacity: 1; } 100% { transform: none; opacity: 1; } }
 @keyframes natin { 0% { opacity: 0; transform: scale(.3) rotate(-8deg); } 60% { transform: scale(1.12); } 100% { opacity: 1; transform: none; } }
 @keyframes spin { from { transform: rotate(-360deg) scale(.2); } to { transform: none; } }
+
+/* =========================================================
+   LOG COLOURS
+   Each kind of thing in a log line has its own colour.
+   ========================================================= */
+.lg-v { color: #ffd54f; font-weight: 700; }
+.lg-bar { color: #b0b0b8; font-weight: 700; }
+.lg-hero { color: #7cf0ff; font-weight: 700; }
+.lg-obj { color: #ffb74d; font-weight: 700; }
+.lg-dmg { color: #ff5252; font-weight: 700; }
+.lg-num { color: #ffffff; font-weight: 700; }
 
 /* =========================================================
    TOOLTIPS
