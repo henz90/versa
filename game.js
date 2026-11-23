@@ -201,7 +201,6 @@ const phaseName = () => {
 };
 
 const knowsTileType = (tile, mine) => !!tile.disc || (tile.own === mine && tile.sk != null);
-const barrierIsMine = (tile, hero) => tile.barOwn === hero.p || heroesAt(tile.c).some(h => h.p === hero.p);
 const barrierColor = cube => {
   const hero = heroesAt(cube)[0];
   return hero ? PLAYER_COLORS[hero.p] : UNOCCUPIED_BARRIER;
@@ -721,13 +720,12 @@ const developTypeItems = () => [
 const skillItems = () => SKILLS.map(k => ({ v: k, ic: SKILL_ICON[k], t: SKILL_NAME[k] }));
 const rollItems = () => [{ v: 'roll', ic: '🎲', t: 'Roll d20' }, { v: 'take', ic: '1️⃣', t: 'Take 1 pt' }];
 
-// Develop on a barrier: you raise your own barriers and lower others'
+// Develop on a barrier: raise or lower it, whoever owns it. Lower needs a barrier to be present.
 function buildDirItems(cube) {
-  const tile = tileAt(cube), hero = selectedHero();
-  const mine = !tile.bar || (hero && barrierIsMine(tile, hero));
+  const tile = tileAt(cube);
   return [
-    { v: 'up', ic: '▲', t: 'Build up', dis: !tile.disc || !mine },
-    { v: 'down', ic: '▼', t: 'Lower', dis: !tile.disc || !tile.bar || mine },
+    { v: 'up', ic: '▲', t: 'Raise', dis: !tile.disc || tile.bar >= RULES.maxBarrier },
+    { v: 'down', ic: '▼', t: 'Lower', dis: !tile.disc || !tile.bar },
   ];
 }
 
