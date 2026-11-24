@@ -13,6 +13,8 @@ body { margin: 0; font-size: clamp(12px, 1.05vw, 17px); font-family: system-ui, 
 #svg { width: 100%; height: 100%; display: block; cursor: grab; touch-action: none; }
 /* the drag line and its arrow sit above the board and ignore the pointer */
 #dragLayer { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 3; }
+/* attack projectiles and impacts sit above the drag line */
+#animLayer { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 4; }
 
 #bottom { display: flex; flex-direction: column; height: clamp(200px, 32vh, 320px); border-top: 1px solid #2c2c3e; overflow: hidden; }
 #bottom.minimized { height: auto; }
@@ -40,6 +42,8 @@ body { margin: 0; font-size: clamp(12px, 1.05vw, 17px); font-family: system-ui, 
 #cx { position: absolute; left: 12px; top: 60px; display: none; z-index: 8; }
 #wheel { position: absolute; width: 0; height: 0; z-index: 5; display: none; }
 #fx { position: absolute; left: 50%; top: 38%; transform: translate(-50%, -50%); display: flex; flex-direction: column; align-items: center; gap: .5em; pointer-events: none; z-index: 6; max-width: 90%; }
+/* roll display: sits above the banners, one card per die roll */
+#rollStage { position: absolute; left: 50%; top: 16%; transform: translateX(-50%); display: flex; flex-wrap: wrap; gap: .6em; justify-content: center; pointer-events: none; z-index: 7; max-width: 95%; }
 #todo { position: absolute; right: .5em; top: calc(var(--top-h) + .4em); max-height: calc(100% - var(--top-h) - var(--bottom-h) - .8em); width: clamp(170px, 19vw, 280px); overflow: auto; background: #0f0f18ee; border: 1px solid #2c2c3e; border-radius: .6em; padding: .5em .7em; font-size: clamp(11px, .95vw, 14px); line-height: 1.4; z-index: 7; }
 #tip { position: fixed; display: none; pointer-events: none; --pc: #8a8aff; background: #0b0b12f5; border: 2px solid var(--pc); border-radius: .8em; padding: .5em .6em; font-size: clamp(12px, 1.05vw, 15px); line-height: 1.45; z-index: 9; min-width: 12em; max-width: 19em; box-shadow: 0 8px 24px #000c; }
 #modal { position: fixed; inset: 0; background: #06060acc; display: none; align-items: center; justify-content: center; z-index: 20; padding: 1em; }
@@ -141,7 +145,7 @@ text { pointer-events: none; text-anchor: middle; dominant-baseline: central; fo
 .ring-nk { stroke: #ff3d3d; stroke-width: 1.5; }
 .ring-march { fill: none; stroke: #ffffffcc; stroke-width: 1; stroke-dasharray: 2 2; pointer-events: none; animation: march 1s linear infinite; }
 .ring-mc { fill: none; stroke: #c77dff; stroke-width: 1.2; stroke-dasharray: 2 3; pointer-events: none; }
-/* a unit named in the latest event pulses gold for a few seconds */
+/* a unit named in the current action pulses gold until the action's banners finish */
 .ring-flash { fill: none; stroke: #ffe066; stroke-width: 2.2; pointer-events: none; animation: pulse .6s ease-in-out infinite; }
 /* the translucent purple chain from a Mind Controlled hero to its controller */
 .mc-chain { stroke: rgba(199, 125, 255, .55); stroke-width: 3; stroke-dasharray: 5 3; stroke-linecap: round; pointer-events: none; }
@@ -166,6 +170,23 @@ text { pointer-events: none; text-anchor: middle; dominant-baseline: central; fo
 .wbtn.wx { left: 0; top: 0; width: clamp(34px, 4vmin, 44px); height: clamp(34px, 4vmin, 44px); background: #3a2a2a; }
 .wbtn.emoji-btn { width: clamp(48px, 6vmin, 66px); height: clamp(48px, 6vmin, 66px); background: #2a2a44; border-color: #ffffff; }
 .wbtn.emoji-btn .wi { font-size: 1.9em; text-shadow: 0 0 3px #000, 0 0 6px #000; }
+
+/* =========================================================
+   ROLL DISPLAY: each die roll shows its faces and total
+   ========================================================= */
+.roll-card { background: #000ee0; border: 1px solid #8a8aff; border-radius: .7em; padding: .45em .8em; text-align: center; min-width: 7em; box-shadow: 0 6px 20px #000c; animation: rollIn .35s ease-out, rollOut .5s ease-in 1.9s forwards; }
+.roll-label { font-size: .68em; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: #b8b8c8; }
+.roll-dice { display: flex; gap: .4em; justify-content: center; margin: .3em 0; }
+.roll-die { width: 2.3em; height: 2.3em; background: #f4f4f4; color: #111; border-radius: .4em; display: flex; align-items: center; justify-content: center; font-weight: 900; font-size: 1.45em; animation: tumble .7s cubic-bezier(.2, .8, .3, 1) both; }
+.roll-die.d6 { font-size: 1.2em; }
+.roll-total { font-size: 1.25em; font-weight: 900; color: #ffe8a3; }
+.roll-total small { display: block; font-size: .6em; font-weight: 600; color: #b8b8c8; }
+.roll-pair { display: flex; gap: .9em; justify-content: center; }
+.roll-pair > div { display: flex; flex-direction: column; align-items: center; gap: .2em; }
+.roll-pair small { font-size: .62em; font-weight: 700; color: #b8b8c8; text-transform: uppercase; }
+@keyframes rollIn { from { opacity: 0; transform: translateY(-10px) scale(.9); } to { opacity: 1; transform: none; } }
+@keyframes rollOut { to { opacity: 0; transform: translateY(-8px); } }
+@keyframes tumble { 0% { transform: rotate(-540deg) scale(.3); opacity: 0; } 70% { transform: rotate(12deg) scale(1.12); opacity: 1; } 100% { transform: none; opacity: 1; } }
 
 /* =========================================================
    FLOATING FEEDBACK: event cards framed by source
@@ -257,4 +278,6 @@ text { pointer-events: none; text-anchor: middle; dominant-baseline: central; fo
   #buyside { padding: .3em; }
   .tcard { width: 4.6em; min-height: 6.6em; }
   .tcard .tc-art { font-size: 1.6em; }
+  #rollStage { top: 12%; }
+  .roll-die { width: 2em; height: 2em; font-size: 1.2em; }
 }
