@@ -65,7 +65,6 @@ body.reduce-motion *, body.reduce-motion *::before, body.reduce-motion *::after 
 #carry { position: fixed; display: none; pointer-events: none; z-index: 31; background: #000e; border: 1px solid #ffe066; border-radius: .5em; padding: .3em .6em; line-height: 1.5; white-space: nowrap; }
 #defeated { position: absolute; left: 50%; top: calc(var(--top-h) + 8px); transform: translateX(-50%); display: none; z-index: 8; background: #5a1010ee; color: #ffd0d0; border: 1px solid #ff5252; border-radius: .6em; padding: .35em .9em; font-weight: 700; pointer-events: none; }
 
-/* one-time pinch hint on touch screens */
 .pinch-hint { position: fixed; left: 50%; top: 42%; transform: translate(-50%, -50%); background: #000ef0; border: 1px solid #8a8aff; border-radius: .8em; padding: .7em 1em; text-align: center; font-size: 1em; line-height: 1.5; z-index: 30; max-width: 80%; box-shadow: 0 8px 24px #000c; cursor: pointer; }
 .pinch-hint small { color: #c8c8d8; }
 
@@ -83,7 +82,6 @@ button.on { background: #4a6cf7; border-color: #4a6cf7; }
 .muted { color: #a8a8bb; }
 .roomcode { font-family: ui-monospace, monospace; font-size: 1.6em; letter-spacing: .15em; font-weight: 800; color: #ffe8a3; background: #17171f; border-color: #ffe8a3; padding: .2em .6em; }
 
-/* layout-specific controls: each is shown only where it is useful */
 .phone-only, .bar-end { display: none; }
 
 @media (pointer: coarse) {
@@ -181,7 +179,6 @@ text { pointer-events: none; text-anchor: middle; dominant-baseline: central; fo
 .ring-flash { fill: none; stroke: #ffe066; stroke-width: 2.2; pointer-events: none; animation: pulse .6s ease-in-out infinite; }
 .mc-chain { stroke: rgba(199, 125, 255, .55); stroke-width: 3; stroke-dasharray: 5 3; stroke-linecap: round; pointer-events: none; }
 
-/* the Nuke glows and shakes when it takes damage */
 .nuke-core { animation: nukeGlow 2.4s ease-in-out infinite; }
 @keyframes nukeGlow { 0%, 100% { filter: drop-shadow(0 0 2px #ff3d3d); } 50% { filter: drop-shadow(0 0 8px #ff3d3d); } }
 .nuke-hit { animation: nukeShake .45s linear 1; }
@@ -211,46 +208,50 @@ text { pointer-events: none; text-anchor: middle; dominant-baseline: central; fo
 /* =========================================================
    ROLL DISPLAY
    ========================================================= */
-.roll-card { background: #000ee0; border: 2px solid #9a9a9a; border-radius: .7em; padding: .45em .8em; text-align: center; min-width: 7em; box-shadow: 0 6px 20px #000c; animation: rollIn .35s ease-out, rollOut .5s ease-in 1.9s forwards; transition: border-color .25s; }
+.roll-card { background: #000ee0; border: 2px solid #9a9a9a; border-radius: .7em; padding: .45em .8em; text-align: center; min-width: 6em; box-shadow: 0 6px 20px #000c; animation: rollIn .35s ease-out, rollOut .5s ease-in 1.9s forwards; transition: border-color .25s; }
 .roll-card.win { border-color: #34c759; }
 .roll-card.lose { border-color: #e5484d; }
 .palette-cb .roll-card.win { border-color: #009E73; }
 .palette-cb .roll-card.lose { border-color: #D55E00; }
-.roll-label { font-size: .68em; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: #c8c8d8; }
+.roll-label { font-size: .68em; font-weight: 800; letter-spacing: .06em; color: #c8c8d8; }
 .roll-dice { display: flex; gap: .4em; justify-content: center; margin: .3em 0; }
 .roll-die { width: 2.3em; height: 2.3em; background-color: #f4f4f4; color: #111; border-radius: .4em; display: flex; align-items: center; justify-content: center; font-weight: 900; font-size: 1.45em; animation: tumble .7s cubic-bezier(.2, .8, .3, 1) both; }
 .roll-die.d6 { font-size: 1.2em; }
 .roll-die.d20-die { background: none; width: 3.2em; height: 3.2em; padding: 0; }
 .roll-die.hatch, .die.hatch { background-image: repeating-linear-gradient(45deg, transparent 0 4px, rgba(0, 0, 0, .35) 4px 6px); }
 .roll-total { font-size: 1.25em; font-weight: 900; color: #ffe8a3; }
-.roll-total small { display: block; font-size: .6em; font-weight: 600; color: #c8c8d8; }
 .roll-pair { display: flex; gap: .9em; justify-content: center; }
 .roll-pair > div { display: flex; flex-direction: column; align-items: center; gap: .2em; }
-.roll-pair small { font-size: .62em; font-weight: 700; color: #c8c8d8; text-transform: uppercase; }
+.roll-pair small { font-size: .8em; font-weight: 700; color: #c8c8d8; }
 @keyframes rollIn { from { opacity: 0; transform: translateY(-10px) scale(.9); } to { opacity: 1; transform: none; } }
 @keyframes rollOut { to { opacity: 0; transform: translateY(-8px); } }
 @keyframes tumble { 0% { transform: rotate(-540deg) scale(.3); opacity: 0; } 70% { transform: rotate(12deg) scale(1.12); opacity: 1; } 100% { transform: none; opacity: 1; } }
 
 /* =========================================================
-   BANNERS
+   BANNERS (symbol form)
+   The headline is a symbol line, large and centred. The source
+   symbol sits above it. Player and hero dots show who is involved.
    ========================================================= */
-.fx { background: #000d; border: 1px solid #8a8aff; border-radius: .7em; padding: .5em .9em; font-size: 1.15em; font-weight: 700; line-height: 1.7; text-align: center; animation: fxin .3s ease-out, fxout .4s ease-in 2.6s forwards; }
+.fx { background: #000d; border: 1px solid #8a8aff; border-radius: .7em; padding: .4em .8em; font-weight: 700; line-height: 1.4; text-align: center; animation: fxin .3s ease-out, fxout .4s ease-in 2.6s forwards; }
 .fx span { display: inline-block; animation: pop .35s both; animation-delay: var(--d, 0s); }
 .fx .die { display: inline-block; min-width: 1.7em; text-align: center; background: #f4f4f4; color: #111; border-radius: .3em; padding: .1em .3em; font-weight: 900; margin: 0 .15em; animation: roll .7s cubic-bezier(.2, .8, .3, 1) both; animation-delay: var(--d, 0s); }
-.fx .bon { display: inline-block; background: #24243a; border: 1px solid #556; border-radius: .4em; padding: 0 .35em; margin: 0 .15em; font-size: .9em; animation: pop .35s both; animation-delay: var(--d, 0s); }
-.fx.nat { border-color: #ffd54f; background: #2a2100f0; font-size: 1.6em; box-shadow: 0 0 50px #ffd54f88; animation: natin .6s ease-out, fxout .4s ease-in 2.8s forwards; }
+.fx.nat { border-color: #ffd54f; background: #2a2100f0; font-size: 1.6em; box-shadow: 0 0 50px #ffd54f88; animation: natin .6s ease-out, fxout .4s ease-in 2.4s forwards; }
 .fx.nat > span:first-child { color: #ffd54f; animation: spin .8s ease-out both; }
-.fx.event { min-width: 11em; padding: .6em .9em; font-size: 1em; font-weight: 600; border-width: 1px 1px 1px 5px; border-left-color: var(--frame, #8ab4ff); }
+.fx.event { min-width: 9em; padding: .5em .8em; font-size: 1em; border-width: 1px 1px 1px 5px; border-left-color: var(--frame, #8ab4ff); }
 .fx.event.slow { animation: fxin .4s ease-out, fxout .8s ease-in 4.4s forwards; }
-.event-source { font-size: .65em; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: var(--frame, #8ab4ff); margin-bottom: .1em; }
-.event-headline { font-size: 1.7em; font-weight: 900; line-height: 1.1; letter-spacing: .02em; }
-.event-detail { font-size: .8em; font-weight: 500; color: #d0d0dc; margin-top: .15em; }
-.event-who { font-size: .75em; color: #d8d8e4; margin-top: .15em; }
-.event-dice { margin-top: .35em; }
-.event-roll-pair { display: flex; justify-content: center; gap: 1em; margin-top: .35em; }
-.event-roll-pair small { display: block; font-size: .6em; font-weight: 600; color: #d0d0dc; }
+.event-card { display: flex; flex-direction: column; align-items: center; gap: .15em; }
+.event-source { font-size: 1.1em; line-height: 1; }
+.event-headline { font-size: 2em; font-weight: 900; line-height: 1.1; letter-spacing: .02em; }
+.event-who { display: flex; align-items: center; justify-content: center; gap: .3em; font-size: .9em; }
+.pdot { display: inline-block; width: .8em; height: .8em; border-radius: 50%; background: var(--c); border: 1px solid #000; vertical-align: middle; }
+.hdot { display: inline-block; width: .8em; height: .8em; background: var(--hc); border: 2px solid var(--c); border-radius: 2px; vertical-align: middle; }
+.event-dice { margin-top: .2em; display: flex; gap: .3em; justify-content: center; }
+.event-roll-pair { display: flex; justify-content: center; gap: 1em; margin-top: .2em; }
+.event-roll-pair > div { display: flex; flex-direction: column; align-items: center; gap: .1em; }
+.event-roll-pair small { font-size: .9em; }
+.die-d20 { display: inline-block; width: 2.1em; height: 2.1em; vertical-align: middle; animation: roll .7s cubic-bezier(.2, .8, .3, 1) both; animation-delay: var(--d, 0s); }
 
-.side-chip { background: #000d; border-left: 4px solid var(--frame, #8ab4ff); border-radius: .4em; padding: .2em .5em; font-size: .8em; font-weight: 600; animation: fxin .25s ease-out, fxout .4s ease-in 1.9s forwards; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: #f0f0f8; }
+.side-chip { background: #000d; border-left: 4px solid var(--frame, #8ab4ff); border-radius: .4em; padding: .2em .5em; font-size: .9em; font-weight: 700; animation: fxin .25s ease-out, fxout .4s ease-in 1.9s forwards; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: #f0f0f8; }
 .side-card { background: #000e; border: 1px solid #8a8aff; border-radius: .5em; padding: .4em .6em; font-size: .8em; max-width: 100%; pointer-events: auto; color: #f0f0f8; }
 .side-card b { color: #ffe8a3; }
 
@@ -324,8 +325,6 @@ text { pointer-events: none; text-anchor: middle; dominant-baseline: central; fo
 
 /* =========================================================
    PHONE PORTRAIT
-   Banners form a strip under the top bar. The bottom bar holds
-   the panel tabs and End Turn. The Hand or Buy panel opens above it.
    ========================================================= */
 @media (orientation: portrait) and (max-width: 700px) {
   .phone-only, .bar-end { display: inline-block; }
@@ -350,14 +349,13 @@ text { pointer-events: none; text-anchor: middle; dominant-baseline: central; fo
   .roll-die { width: 2em; height: 2em; font-size: 1.2em; }
   .roll-die.d20-die { width: 2.6em; height: 2.6em; }
   #todo { width: 42%; font-size: 11px; max-height: 30%; opacity: .92; }
-  .side-chip { font-size: .7em; }
+  .side-chip { font-size: .8em; }
   .fx.event { font-size: .85em; }
-  .event-headline { font-size: 1.3em; }
+  .event-headline { font-size: 1.6em; }
 }
 
 /* =========================================================
    PHONE LANDSCAPE
-   The board takes the left side; Hand and Buy stack on the right.
    ========================================================= */
 @media (orientation: landscape) and (max-height: 540px) {
   #board { display: grid; grid-template-columns: minmax(0, 1fr) minmax(230px, 40%); grid-template-rows: auto minmax(0, 1fr); }
@@ -382,6 +380,6 @@ text { pointer-events: none; text-anchor: middle; dominant-baseline: central; fo
   .roll-die { width: 2em; height: 2em; font-size: 1.1em; }
   .roll-die.d20-die { width: 2.5em; height: 2.5em; }
   .fx.event { font-size: .8em; }
-  .event-headline { font-size: 1.25em; }
-  .side-chip { font-size: .7em; }
+  .event-headline { font-size: 1.4em; }
+  .side-chip { font-size: .8em; }
 }
