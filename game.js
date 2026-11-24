@@ -18,7 +18,7 @@
    1. CONFIGURATION
    ============================================================= */
 
-const APP_VERSION = '1.3.1';
+const APP_VERSION = '1.3.2';
 const EXPECTED_SCHEMA_VERSION = '3';
 
 const SUPABASE_URL = 'https://jbdfcqqobtatxmmhmipa.supabase.co';
@@ -39,12 +39,12 @@ const OUTCOME_COLOURS = {
 const SOURCE_FRAME = {
   standard: {
     combat: '#ff5252', mind: '#c77dff', barrier: '#9a9a9a', object: '#ffd54f', hero: '#7cf0ff',
-    develop: '#34c759', card: '#ffd54f', nuke: '#ff3d3d', turn: '#8ab4ff', concede: '#ff5252',
+    develop: '#34c759', card: '#ffd54f', buy: '#ffd54f', nuke: '#ff3d3d', turn: '#8ab4ff', concede: '#ff5252',
     disconnect: '#ff5252', move: '#8ab4ff', general: '#8ab4ff',
   },
   cb: {
     combat: '#D55E00', mind: '#CC79A7', barrier: '#999999', object: '#E69F00', hero: '#56B4E9',
-    develop: '#009E73', card: '#F0E442', nuke: '#FFFFFF', turn: '#0072B2', concede: '#D55E00',
+    develop: '#009E73', card: '#F0E442', buy: '#E69F00', nuke: '#FFFFFF', turn: '#0072B2', concede: '#D55E00',
     disconnect: '#999999', move: '#56B4E9', general: '#56B4E9',
   },
 };
@@ -94,12 +94,12 @@ const PINCH_HINT_MS = 8000;
 
 // banner symbols: the text on a banner is these symbols and numbers only
 const SYM = {
-  attack: '⚔', mind: '🧠', barrier: '🛑', develop: '🛠', object: '🔮', hero: '👤',
+  attack: '⚔', mind: '🧠', barrier: '🛑', develop: '🛠', buy: '🛒', object: '🔮', hero: '👤',
   versa: '💰', move: '🏃', turn: '➜', round: '🎲', nat20: '🎯', nuke: '☢', concede: '🏳',
   disconnect: '⏱', defended: '🛡', win: '✅', lose: '❌', up: '⬆', down: '⬇', kill: '☠', boom: '💥',
+  cost: '💰', plus: '+',
 };
 
-// the symbol for each source, used for the banner header and side chips
 const SOURCE_STYLE = {
   combat: { icon: SYM.attack, label: 'Attack' },
   mind: { icon: SYM.mind, label: 'Mind Control' },
@@ -107,6 +107,7 @@ const SOURCE_STYLE = {
   object: { icon: SYM.object, label: 'Object' },
   hero: { icon: SYM.hero, label: 'Hero' },
   develop: { icon: SYM.develop, label: 'Develop' },
+  buy: { icon: SYM.buy, label: 'Buy' },
   card: { icon: SYM.versa, label: 'Versa' },
   nuke: { icon: SYM.nuke, label: 'Nuke' },
   turn: { icon: SYM.turn, label: 'Turn' },
@@ -116,10 +117,9 @@ const SOURCE_STYLE = {
   general: { icon: '•', label: '' },
 };
 
-// the defender's banner is marked with the shield, and its headline is the attack result seen from the defender's side
 const DEFENDER_MARK = SYM.defended;
 
-const WIN_HEADLINES = ['Hit', 'Through', 'Controlled', 'Renewed', 'Blocked_no'];
+const WIN_HEADLINES = ['Hit', 'Through', 'Controlled', 'Renewed'];
 const LOSE_HEADLINES = ['Miss', 'Blocked', 'Failed', 'Resisted', 'Freed', 'Released'];
 
 const PROJECTILE_HEADLINES = ['Hit', 'Miss', 'Controlled', 'Renewed', 'Resisted', 'Released'];
@@ -166,6 +166,7 @@ function outcomeFill(outcome) {
 
 const inkFor = outcome => (outcome === 'lose' ? '#ffffff' : '#111111');
 
+// the d20 hexagon: always used for d20 rolls, pending grey until painted
 function d20Svg(value, outcome = 'pending') {
   const points = '50,4 89.8,27 89.8,73 50,96 10.2,73 10.2,27';
   const hatch = outcome === 'lose'
@@ -176,6 +177,12 @@ function d20Svg(value, outcome = 'pending') {
     ${hatch}
     <text x="50" y="52" text-anchor="middle" dominant-baseline="central" font-size="${value >= 10 ? 30 : 36}" font-weight="900" fill="${inkFor(outcome)}">${value}</text>
   </svg>`;
+}
+
+// the 2d6 square die: barrier checks and movement only
+function d6Html(value, outcome = 'pending', extraClass = '') {
+  const bg = outcomeFill(outcome);
+  return `<div class="roll-die d6 ${extraClass} ${outcome === 'lose' ? 'hatch' : ''}" data-v="${value}" style="background-color:${bg};color:${inkFor(outcome)}" aria-hidden="true">${value}</div>`;
 }
 
 const d20BannerFace = (value, delay, outcome) =>
@@ -404,7 +411,7 @@ function frameFor(source) {
 }
 
 function outcomeOf(event) {
-  if (event.source === 'move' || event.source === 'card') return 'win';
+  if (event.source === 'move' || event.source === 'card' || event.source === 'buy') return 'win';
   if (LOSE_HEADLINES.includes(event.headline)) return 'lose';
   if (WIN_HEADLINES.includes(event.headline)) return 'win';
   return 'win';
@@ -441,11 +448,8 @@ function mergeRollEvents(list) {
   return out;
 }
 
-/* ---------- symbol banners ----------
-   Each banner is a symbol header, a symbol line, and the dice.
-   Words are kept for screen readers only (see announce()). */
+/* ---------- symbol lines ---------- */
 
-// the number shown for a roll, taken from the banner detail when it carries one
 function shownTotal(event) {
   const detail = event.detail || '';
   const versus = detail.match(/(\d+)\s*vs\s*(\d+)/);
@@ -455,7 +459,7 @@ function shownTotal(event) {
   return null;
 }
 
-// the symbol line for each event, built from the table approved for version 1.3.1
+// the symbol line for each event. Develop and buy are kept apart: develop shows where a point came from, buy shows the cost
 function symbolLine(event, rawHeadline, youDefend) {
   const won = outcomeOf(event) === 'win';
   const mark = won ? SYM.win : SYM.lose;
@@ -467,7 +471,7 @@ function symbolLine(event, rawHeadline, youDefend) {
     case 'Hit': case 'Miss':
       return `${prefix}${SYM.attack} ${mark} ${vs}`;
     case 'Through':
-      return `${prefix}${SYM.barrier} ${SYM.win} ${t ? t.a : ''}${t && t.b ? '' : ''}`.trim();
+      return `${prefix}${SYM.barrier} ${SYM.win} ${t ? t.a : ''}`.trim();
     case 'Blocked':
       return `${prefix}${SYM.barrier} ${SYM.lose} ${t ? t.a : ''}`.trim();
     case 'Controlled': case 'Renewed': case 'Resisted': case 'Freed': case 'Released':
@@ -486,17 +490,28 @@ function symbolLine(event, rawHeadline, youDefend) {
     case 'Disconnected': return SYM.disconnect;
     default: break;
   }
-  if (/^\+\d+ bonus$/.test(rawHeadline)) return `${prefix}${SYM.develop} ${SYM.win} ${rawHeadline.match(/\d+/)[0]}`;
-  if (/^▲ Barrier L(\d+)$/.test(rawHeadline)) return `${prefix}${SYM.barrier} ${SYM.up} L${rawHeadline.match(/\d+/)[0]}`;
-  if (/^▼ Barrier L(\d+)$/.test(rawHeadline)) return `${prefix}${SYM.barrier} ${SYM.down} L${rawHeadline.match(/\d+/)[0]}`;
-  if (rawHeadline === '▲ Barrier L3') return `${prefix}${SYM.barrier} ${SYM.up} L3`;
-  if (rawHeadline === '▼ Barrier removed') return `${prefix}${SYM.barrier} ${SYM.down} 0`;
-  if (/^Object DEF/.test(rawHeadline)) return `${prefix}${SYM.object} ${SYM.up} ${rawHeadline.match(/\d+/)[0]}`;
-  if (/^\+5 Versa$/.test(rawHeadline)) return `${SYM.versa} +5`;
+  // develop: the bonus roll and the skill or object it went to
+  if (/^\+\d+ bonus$/.test(rawHeadline)) return `${SYM.develop} ${SYM.plus}${rawHeadline.match(/\d+/)[0]}`;
   if (/^\+\d+ (Strength|Defense|Range|Intelligence)$/.test(rawHeadline)) {
     const skill = rawHeadline.split(' ')[1];
     const key = Object.keys(SKILL_NAME).find(k => SKILL_NAME[k] === skill) || 'str';
-    return `${prefix}${SYM.develop} ${SKILL_ICON[key]} ${rawHeadline.match(/\d+/)[0]}`;
+    return `${SYM.develop} ${SKILL_ICON[key]} ${SYM.plus}${rawHeadline.match(/\d+/)[0]}`;
+  }
+  if (/^Object DEF/.test(rawHeadline)) return `${SYM.develop} ${SYM.object} ${SYM.plus}${rawHeadline.match(/\d+/)[0]}`;
+  // barriers from develop or buy: buy shows cost, develop shows the roll
+  if (/^▲ Barrier L(\d+)$/.test(rawHeadline) || rawHeadline === '▲ Barrier L3') {
+    const lvl = rawHeadline.match(/\d+/)[0];
+    return event.source === 'buy' ? `${SYM.buy} ${SYM.barrier} ${SYM.up} L${lvl} ${SYM.cost}5` : `${SYM.develop} ${SYM.barrier} ${SYM.up} L${lvl}`;
+  }
+  if (/^▼ Barrier L(\d+)$/.test(rawHeadline)) {
+    const lvl = rawHeadline.match(/\d+/)[0];
+    return event.source === 'buy' ? `${SYM.buy} ${SYM.barrier} ${SYM.down} L${lvl} ${SYM.cost}5` : `${SYM.develop} ${SYM.barrier} ${SYM.down} L${lvl}`;
+  }
+  if (rawHeadline === '▼ Barrier removed') return `${event.source === 'buy' ? SYM.buy : SYM.develop} ${SYM.barrier} ${SYM.down} 0`;
+  if (rawHeadline === '+5 Versa') return `${SYM.versa} ${SYM.plus}5`;
+  if (event.source === 'buy' && /^\+\d+ (Strength|Defense|Range|Intelligence)$/.test(rawHeadline)) {
+    const key = Object.keys(SKILL_NAME).find(k => SKILL_NAME[k] === rawHeadline.split(' ')[1]) || 'str';
+    return `${SYM.buy} ${SKILL_ICON[key]} ${SYM.cost}5`;
   }
   if (event.source === 'move') return `${SYM.move} ${mark} ${single}`;
   if (event.source === 'turn') return `${SYM.turn} ${SYM.hero} R${G ? G.rd : ''}`;
@@ -508,6 +523,17 @@ function eventSpokenText(event) {
   return [event.headline || event.t, event.detail].filter(Boolean).join('. ');
 }
 
+// the colour of the player who started the action; combat gets a gradient from attacker to defender
+function bannerFillStyle(event) {
+  const actor = event.actor != null && event.actor >= 0 ? PLAYER_COLORS[event.actor] : null;
+  const target = event.target != null && event.target >= 0 ? PLAYER_COLORS[event.target] : null;
+  if (event.source === 'combat' && actor && target && actor !== target) {
+    return `background: linear-gradient(100deg, ${actor} 0%, ${actor} 45%, ${target} 55%, ${target} 100%);`;
+  }
+  if (actor) return `background: ${actor};`;
+  return '';
+}
+
 function eventCardHtml(event) {
   const source = SOURCE_STYLE[event.source] || SOURCE_STYLE.general;
   const rawHeadline = event.headline || event.t || 'Something happened';
@@ -515,14 +541,13 @@ function eventCardHtml(event) {
   const line = symbolLine(event, rawHeadline, youDefend);
   const dice = diceBlock(event, rawHeadline);
   const who = whoLine(event);
-  return `<div class="event-card" role="img" aria-label="${escapeHtml(eventSpokenText(event))}">
+  return `<div class="event-card" style="${bannerFillStyle(event)}" role="img" aria-label="${escapeHtml(eventSpokenText(event))}">
     <div class="event-source" aria-hidden="true">${source.icon}${youDefend ? ` ${DEFENDER_MARK}` : ''}</div>
     <div class="event-headline" aria-hidden="true">${markV(escapeHtml(line))}</div>
     ${who}${dice}
   </div>`;
 }
 
-// who acted and who was hit, as colour dots and short names
 function whoLine(event) {
   const dots = [];
   const dot = i => (i != null && i >= 0 && G.pl[i]
@@ -539,15 +564,15 @@ function whoLine(event) {
   return dots.length ? `<div class="event-who" aria-hidden="true">${dots.join(' ')}</div>` : '';
 }
 
-// the dice in a banner, painted as the outcome shows
+// dice in a banner: d20 always uses the hexagon; 2d6 uses the square die
 function diceBlock(event, rawHeadline) {
   const dice = event.dice || [];
   if (!dice.length) return '';
   const outcome = outcomeOf(event);
-  const d20 = !(event.source === 'move' || rawHeadline === 'Through' || rawHeadline === 'Blocked');
-  const face = (value, delay) => (d20
-    ? d20BannerFace(value, delay, outcome)
-    : `<span class="die${outcome === 'lose' ? ' hatch' : ''}" style="--d:${delay}s;background-color:${outcomeFill(outcome)};color:${inkFor(outcome)}">${value}</span>`);
+  const is2d6 = event.source === 'move' || rawHeadline === 'Through' || rawHeadline === 'Blocked';
+  const face = (value, delay) => (is2d6
+    ? `<span class="die${outcome === 'lose' ? ' hatch' : ''}" style="--d:${delay}s;background-color:${outcomeFill(outcome)};color:${inkFor(outcome)}">${value}</span>`
+    : d20BannerFace(value, delay, outcome));
   const isAttack = event.source === 'combat' && (rawHeadline === 'Hit' || rawHeadline === 'Miss') && dice.length === 2;
   if (isAttack) {
     return `<div class="event-roll-pair">
@@ -624,7 +649,6 @@ function presentEvent(event) {
   return IMPORTANT_GAP_MS;
 }
 
-// side chips: one symbol and the short headline symbol, no words
 function showSideChip(event, source) {
   const stack = el('sideStack');
   const chip = document.createElement('div');
@@ -1740,12 +1764,12 @@ function rollTotalsHtml(event) {
   return t ? `${t.a}` : `${dice[0]}`;
 }
 
+// a roll card: black fill, grey border until painted green or red; d20 uses the hexagon, 2d6 the square die
 function rollCardHtml(event) {
   const rawHeadline = event.headline || '';
-  const twoD6 = event.dice.length === 2 && (event.source === 'move' || rawHeadline === 'Through' || rawHeadline === 'Blocked');
-  const pending = outcomeFill('pending');
-  const faces = event.dice.map(v => (twoD6
-    ? `<div class="roll-die d6" data-v="${v}" style="background-color:${pending}" aria-hidden="true">${v}</div>`
+  const is2d6 = event.source === 'move' || rawHeadline === 'Through' || rawHeadline === 'Blocked';
+  const faces = event.dice.map(v => (is2d6
+    ? d6Html(v, 'pending')
     : `<div class="roll-die d20-die" data-v="${v}" aria-hidden="true">${d20Svg(v, 'pending')}</div>`)).join('');
   const spoken = `${rollLabel(event)}: ${event.dice.join(' and ')}`;
   return `<div class="roll-card pending" role="img" aria-label="${escapeHtml(spoken)}">
@@ -1756,12 +1780,12 @@ function rollCardHtml(event) {
 }
 
 function paintRoll(card, outcome) {
-  const fill = outcomeFill(outcome), ink = inkFor(outcome);
+  const ink = inkFor(outcome);
   card.classList.remove('pending');
   card.classList.add(outcome);
   card.querySelectorAll('.d20-die').forEach(die => { die.innerHTML = d20Svg(Number(die.dataset.v), outcome); });
   card.querySelectorAll('.roll-die.d6').forEach(die => {
-    die.style.backgroundColor = fill;
+    die.style.backgroundColor = outcomeFill(outcome);
     die.style.color = ink;
     if (outcome === 'lose') die.classList.add('hatch');
   });
@@ -1900,7 +1924,7 @@ function outcomeSoundName(event) {
   if (headline === 'Through' || headline === 'Blocked') return 'clank';
   if (event.source === 'mind') return ['Resisted', 'Released', 'Freed'].includes(headline) ? 'miss' : 'mind';
   if (event.source === 'barrier') return 'clank';
-  if (event.source === 'card' || headline.includes('Versa')) return 'coin';
+  if (event.source === 'buy' || event.source === 'card' || headline.includes('Versa')) return 'coin';
   if (event.source === 'develop' || event.source === 'object' || event.source === 'hero') return 'chime';
   return 'tick';
 }
@@ -2555,8 +2579,8 @@ const TUTORIAL_STEPS = [
   { title: 'Welcome to VERSA', body: 'A turn-based battle royale for two to six players. Your heroes move across a hex map, fight, and build. The last player with living heroes wins.' },
   { title: 'Your turn', body: 'Each turn you get 5 Versa (V). In the early rounds you place a hex tile next to your own. Each hero can move, attack, and develop. Press End Turn when you are finished.' },
   { title: 'Moving heroes', body: 'Select or hover a hero to see where it can go (dotted tiles) and who it can attack (dotted rings). Drag a hero onto an empty tile to move it. Drag it onto an enemy to choose Combat or Mind Control, once attacks unlock in round 4.' },
-  { title: 'Banners', body: 'Banners use symbols. ⚔ is an attack, 🛑 a barrier, 🧠 Mind Control, 🛠 develop, 💰 Versa. ✅ means success and ❌ failure. A 🛡 at the front means the action was aimed at you.' },
-  { title: 'Rolls', body: 'Dice start grey and turn green on success or red on failure; failed dice are hatched. A barrier check uses two dice and must meet the barrier level before any d20 is rolled.' },
+  { title: 'Banners', body: 'Banners use symbols. The colour behind a banner is the colour of the player who started the action; attacks blend both players\' colours. ⚔ attack, 🛑 barrier, 🧠 Mind Control, 🛠 develop, 🛒 buy, 💰 Versa. ✅ success, ❌ failure. A 🛡 means the action was aimed at you.' },
+  { title: 'Rolls', body: 'Dice start grey and turn green on success or red on failure; failed dice are hatched. d20 rolls use the hexagon. A barrier check uses two square dice and must meet the barrier level before any d20 is rolled.' },
   { title: 'Buying', body: 'The Buy panel costs 5 V for barriers, objects, and skill points. A hero costs 30 V. Greyed options show why they are unavailable when tapped. Barriers can be raised or lowered by anyone, but the first builder keeps ownership.' },
   { title: 'Traversal cards', body: 'Drag a card into the Buy panel to sell it: 5 V for the gold card, 2 V for the others. Drag a skill card onto one of your heroes or objects to use it. Drag the gold 5 V card onto the open board to play it.' },
   { title: 'Phones', body: 'On a phone in portrait, tap 🃏 or 🛒 in the bottom bar to open the Hand or Buy panel, and End in the bottom bar to end your turn. Turn the phone sideways to see the board with both panels beside it.' },
@@ -2564,8 +2588,9 @@ const TUTORIAL_STEPS = [
 
 const REFERENCE_SECTIONS = [
   { title: 'Banner symbols', items: [
-    '⚔ attack · 🧠 Mind Control · 🛑 barrier · 🛠 develop · 🔮 object · 🏃 move · 💰 Versa',
+    '⚔ attack · 🧠 Mind Control · 🛑 barrier · 🛠 develop (a roll) · 🛒 buy (costs 💰) · 🔮 object · 🏃 move · 💰 Versa',
     '✅ success · ❌ failure · 🛡 aimed at you · ☠ hero defeated · 🎯 natural 20 · ☢ Nuke · ➜ turn',
+    'Banner colour is the colour of the player who acted. Attack banners blend attacker and defender colours.',
   ] },
   { title: 'Phases', items: [
     'Rounds 1 to 3 are Peace: no attacks.',
@@ -2574,7 +2599,8 @@ const REFERENCE_SECTIONS = [
   ] },
   { title: 'Heroes and actions', items: [
     'Each hero has two actions per turn. A hero may move once and use one Combat or Mind Control per turn. A failed attempt can be retried.',
-    'Develop rolls d20 plus Intelligence. You need 10 or more. The bonus is 1 to 3 points. A natural 20 lets the hero act again.',
+    'Develop rolls d20 plus Intelligence. You need 10 or more. The bonus is 1 to 3 points, which goes to a skill or an object. A natural 20 lets the hero act again.',
+    'Buying spends 5 V (or 30 V for a hero) and does not roll.',
     'Heroes heal fully at the start of their owner\'s turn. Objects heal the same way.',
   ] },
   { title: 'Reach and Range', items: [
