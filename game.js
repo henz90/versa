@@ -2,23 +2,23 @@
    VERSA client
    The server owns every rule. This file decides what to show,
    what to offer, and what to send. Sections:
-     1 configuration     2 utilities      3 hex geometry
-     4 client state      5 lookups        6 action rules
-     7 server state      8 presence       9 lobby
-    10 turn controls    11 placement     12 movement
-    13 combat           14 develop/buy   15 UI helpers
-    16 zoom/pan         17 board pointer 18 hand and selling
-    19 board clicks     20 wheel menus   21 feedback, sound, banners
-    22 board drawing    23 panels        24 to-do
-    25 log and modal    26 render        27 buttons
-    28 overlays         29 wiring        30 startup
+     1 configuration     2 utilities and dice   3 hex geometry
+     4 client state      5 lookups              6 action rules
+     7 server state      8 presence and emoji   9 lobby
+    10 turn controls    11 placement           12 movement
+    13 combat           14 develop and buying  15 UI helpers
+    16 zoom and pan     17 board pointer       18 hand and selling
+    19 board clicks     20 wheel menus         21 feedback and layout
+    22 board drawing    23 panels              24 to-do
+    25 log and modal    26 render              27 buttons
+    28 overlays         29 wiring              30 startup
    ============================================================= */
 
 /* =============================================================
    1. CONFIGURATION
    ============================================================= */
 
-const APP_VERSION = '1.2.2';
+const APP_VERSION = '1.3.0';
 const EXPECTED_SCHEMA_VERSION = '3';
 
 const SUPABASE_URL = 'https://jbdfcqqobtatxmmhmipa.supabase.co';
@@ -51,6 +51,7 @@ const SOURCE_FRAME = {
 };
 
 const TILE_COLORS = { str: '#7a2e38', def: '#24527a', rng: '#4f6b26', int: '#5b3478', bar: '#7a5a22' };
+const TERRAIN_PATTERN = { str: 'pat-str', def: 'pat-def', rng: 'pat-rng', int: 'pat-int', bar: 'pat-bar' };
 const HERO_COLORS = ['#ff8fab', '#7cf0ff', '#c3f584', '#ffd166', '#b28dff', '#ffa94d', '#f1faee', '#90e0ef', '#e76f51', '#2ec4b6', '#f72585', '#caf0f8', '#fbf8cc', '#a0c4ff', '#ffadad', '#9bf6ff', '#bdb2ff', '#ffc6ff'];
 const NEUTRAL_FILL = '#2a2a38';
 const GROUND_ZERO_FILL = '#4d4118';
@@ -88,8 +89,10 @@ const MINOR_CHIP_MS = 2400;
 const ROLL_MS = 2400;
 const ROLL_TUMBLE_MS = 700;
 const FLASH_SAFETY_MS = 12000;
+const NUKE_SHAKE_MS = 700;
 const PROJECTILE_MS = 600;
 const BANNER_QUEUE_MAX = 8;
+const PINCH_HINT_MS = 8000;
 
 const SOURCE_STYLE = {
   combat: { icon: '⚔️', label: 'Combat' },
@@ -116,7 +119,6 @@ const DEFENDER_HEADLINES = {
   'Object lost': 'Your object fell',
 };
 
-// headlines whose roll succeeded or failed; the die colour follows
 const WIN_HEADLINES = ['Hit', 'Through', 'Controlled', 'Renewed'];
 const LOSE_HEADLINES = ['Miss', 'Blocked', 'Failed', 'Resisted', 'Freed', 'Released'];
 
@@ -128,6 +130,7 @@ const DISCOVERY_CHOICE = 'DISCOVERY_CHOICE';
 const LOADOUT_NAME_PATTERN = /^[A-Za-z0-9 ]{0,12}$/;
 const TUTORIAL_KEY = 'versa-tutorial-done';
 const SETTINGS_KEY = 'versa-settings';
+const PINCH_KEY = 'versa-pinch-seen';
 
 const DEFAULT_SETTINGS = { volume: 70, muted: false, palette: 'standard', reduceMotion: false, largeText: false };
 let settings = { ...DEFAULT_SETTINGS, ...JSON.parse(localStorage.getItem(SETTINGS_KEY) || '{}') };
@@ -165,11 +168,15 @@ function outcomeFill(outcome) {
 
 const inkFor = outcome => (outcome === 'lose' ? '#ffffff' : '#111111');
 
-// a d20 shown as a regular hexagon with a point at the top and bottom; the number stays upright
+// a d20 as a regular hexagon with points at top and bottom; a failed roll gets a dashed inner hexagon
 function d20Svg(value, outcome = 'pending') {
   const points = '50,4 89.8,27 89.8,73 50,96 10.2,73 10.2,27';
+  const hatch = outcome === 'lose'
+    ? '<polygon points="50,14 83,31 83,69 50,86 17,69 17,31" fill="none" stroke="#111" stroke-width="2.5" stroke-dasharray="4 3"/>'
+    : '';
   return `<svg class="d20" viewBox="0 0 100 100" aria-hidden="true" style="width:100%;height:100%;display:block;overflow:visible">
     <polygon points="${points}" fill="${outcomeFill(outcome)}" stroke="#111" stroke-width="3" stroke-linejoin="round"/>
+    ${hatch}
     <text x="50" y="52" text-anchor="middle" dominant-baseline="central" font-size="${value >= 10 ? 30 : 36}" font-weight="900" fill="${inkFor(outcome)}">${value}</text>
   </svg>`;
 }
@@ -178,7 +185,7 @@ const d20BannerFace = (value, delay, outcome) =>
   `<span class="die-d20" style="display:inline-block;width:2.1em;height:2.1em;vertical-align:middle;margin:0 .15em;animation:roll .7s cubic-bezier(.2,.8,.3,1) both;animation-delay:${delay}s">${d20Svg(value, outcome)}</span>`;
 
 /* =============================================================
-   3. HEX GEOMETRY
+   3. HEX GEOMETRY AND SHAPES
    ============================================================= */
 
 const cubeKey = cube => cube.join(',');
@@ -196,6 +203,53 @@ function hexPoints(cube, radius = HEX_RADIUS - 4) {
     return (hexX(cube) + radius * Math.cos(angle)).toFixed(1) + ',' + (hexY(cube) + radius * Math.sin(angle)).toFixed(1);
   }).join(' ');
 }
+
+// n-sided regular polygon around (x, y); the first point sits at the top
+function polyPoints(x, y, r, n, startAngle = -Math.PI / 2) {
+  const pts = [];
+  for (let i = 0; i < n; i++) {
+    const a = startAngle + i * 2 * Math.PI / n;
+    pts.push((x + r * Math.cos(a)).toFixed(1) + ',' + (y + r * Math.sin(a)).toFixed(1));
+  }
+  return pts.join(' ');
+}
+
+function starPoints(x, y, r) {
+  const pts = [];
+  for (let i = 0; i < 10; i++) {
+    const rad = i % 2 ? r * 0.45 : r;
+    const a = -Math.PI / 2 + i * Math.PI / 5;
+    pts.push((x + rad * Math.cos(a)).toFixed(1) + ',' + (y + rad * Math.sin(a)).toFixed(1));
+  }
+  return pts.join(' ');
+}
+
+// each player's heroes have their own token shape, so players are told apart without colour
+function tokenShape(player, x, y, r, fill, stroke, strokeWidth) {
+  const attrs = `fill="${fill}" stroke="${stroke}" stroke-width="${strokeWidth}" stroke-linejoin="round"`;
+  switch (player % 6) {
+    case 1: return `<polygon points="${x},${(y - r).toFixed(1)} ${(x + r).toFixed(1)},${y} ${x},${(y + r).toFixed(1)} ${(x - r).toFixed(1)},${y}" ${attrs}/>`;
+    case 2: return `<rect x="${(x - r * 0.85).toFixed(1)}" y="${(y - r * 0.85).toFixed(1)}" width="${(r * 1.7).toFixed(1)}" height="${(r * 1.7).toFixed(1)}" rx="1.5" ${attrs}/>`;
+    case 3: return `<polygon points="${polyPoints(x, y, r, 3)}" ${attrs}/>`;
+    case 4: return `<polygon points="${polyPoints(x, y, r, 6, 0)}" ${attrs}/>`;
+    case 5: return `<polygon points="${starPoints(x, y, r)}" ${attrs}/>`;
+    default: return `<circle cx="${x}" cy="${y}" r="${r}" ${attrs}/>`;
+  }
+}
+
+// patterns drawn over each tile type so the type reads without relying on colour
+const TERRAIN_DEFS = `<defs>
+  <pattern id="pat-str" width="10" height="10" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+    <line x1="0" y1="0" x2="0" y2="10" stroke="#ffffff" stroke-opacity=".22" stroke-width="3"/></pattern>
+  <pattern id="pat-def" width="10" height="10" patternUnits="userSpaceOnUse">
+    <circle cx="5" cy="5" r="1.6" fill="#ffffff" fill-opacity=".25"/></pattern>
+  <pattern id="pat-rng" width="12" height="12" patternUnits="userSpaceOnUse">
+    <path d="M0 9 L6 3 L12 9" fill="none" stroke="#ffffff" stroke-opacity=".22" stroke-width="2"/></pattern>
+  <pattern id="pat-int" width="12" height="12" patternUnits="userSpaceOnUse">
+    <path d="M6 0 V12 M0 6 H12" stroke="#ffffff" stroke-opacity=".18" stroke-width="1.5"/></pattern>
+  <pattern id="pat-bar" width="14" height="8" patternUnits="userSpaceOnUse">
+    <path d="M0 4 H14 M7 0 V4 M0 4 V8" stroke="#ffffff" stroke-opacity=".22" stroke-width="1.5" fill="none"/></pattern>
+</defs>`;
 
 /* =============================================================
    4. CLIENT STATE
@@ -231,6 +285,10 @@ let flashTimer = null;
 let bannerQueue = [];
 let bannerBusy = false;
 let overlayState = { kind: null, step: 0, returnFocus: null };
+let nukeHitUntil = 0;
+let hoverIdx = null;
+let currentHints = { moves: new Set(), attacks: new Set() };
+let pinchTimer = null;
 const seenTodo = new Set();
 
 const touches = new Map();
@@ -244,6 +302,7 @@ const ui = {
   wheel: null,
   carry: null,
   message: '',
+  drawer: null,
 };
 
 /* =============================================================
@@ -255,6 +314,7 @@ const heroesAt = cube => G.heroes.filter(h => h.alive && sameTile(h.c, cube));
 const objectsAt = cube => G.objs.filter(o => o.alive && sameTile(o.c, cube));
 const nukeAt = cube => G.objs.find(o => o.alive && o.nuke && sameTile(o.c, cube));
 const objectCount = player => G.objs.filter(o => o.alive && !o.nuke && o.p === player).length;
+const heroCount = player => G.heroes.filter(h => h.alive && h.p === player).length;
 const isAlive = player => G.heroes.some(h => h.alive && h.p === player);
 const myIndex = () => (G ? G.pl.findIndex(p => p.uid === ME) : -1);
 const isMine = unit => unit.p === myIndex();
@@ -429,7 +489,7 @@ function diceBlock(event, rawHeadline) {
   const d20 = isD20Event(event, rawHeadline);
   const face = (value, delay) => (d20
     ? d20BannerFace(value, delay, outcome)
-    : `<span class="die" style="--d:${delay}s;background:${outcomeFill(outcome)};color:${inkFor(outcome)}">${value}</span>`);
+    : `<span class="die${outcome === 'lose' ? ' hatch' : ''}" style="--d:${delay}s;background-color:${outcomeFill(outcome)};color:${inkFor(outcome)}">${value}</span>`);
   const isAttack = event.source === 'combat' && (rawHeadline === 'Hit' || rawHeadline === 'Miss') && dice.length === 2;
   if (isAttack) {
     return `<div class="event-roll-pair">
@@ -543,6 +603,7 @@ function applyRemoteState(state) {
   if (G && state.seq <= (G.seq || 0)) return;
   const hadGame = !!G;
   const wasApocalypse = hadGame && !!G.apoc;
+  const oldNuke = hadGame ? G.objs.find(o => o.nuke) : null;
   const priv = PRIV || { pool: [], hand: [], secretSkills: {} };
   const me = state.pl.findIndex(p => p.uid === ME);
 
@@ -559,6 +620,13 @@ function applyRemoteState(state) {
     const key = cubeKey(tile.c);
     if (tile.own === me && !tile.disc && priv.secretSkills[key]) tile.sk = priv.secretSkills[key];
   });
+
+  // the Nuke shakes whenever its damage goes up
+  const newNuke = G.objs.find(o => o.nuke);
+  if (oldNuke && newNuke && newNuke.dmg > oldNuke.dmg) {
+    nukeHitUntil = Date.now() + NUKE_SHAKE_MS;
+    setTimeout(drawBoard, NUKE_SHAKE_MS + 20);
+  }
 
   const gap = hadGame && state.seq > lastSeenSeq + 1;
   if ((!hadGame || gap) && G.events && G.events.length) {
@@ -780,9 +848,19 @@ async function saveLoadout() {
 
 function setMessage(text) { ui.message = text; }
 
+function unusedActionCount() {
+  return G.heroes.filter(h => h.alive && actsForMe(h) && h.acts > 0).length;
+}
+
+// asks first when heroes still have actions, so a turn is not ended by accident
 function endTurnClick() {
   if (!isMyTurn()) return;
   if (!boardStepDone()) { setMessage('Finish your board step first'); return render(); }
+  const unused = unusedActionCount();
+  if (unused > 0) {
+    const plural = unused === 1 ? 'hero still has' : 'heroes still have';
+    if (!window.confirm(`${unused} ${plural} actions left. End your turn anyway?`)) return;
+  }
   submitAction({ type: 'end_turn' });
 }
 
@@ -1004,24 +1082,32 @@ function barrierBuyItems(cube) {
 
 const actingUnit = unit => ('k' in unit ? actsForMe(unit) : isMine(unit));
 
+// each Buy option, with the reason it is unavailable (empty when it can be bought)
 function buyOptions() {
   const mine = myIndex();
   const player = G.pl[mine >= 0 ? mine : G.cur];
-  const ready = isMyTurn() && boardStepDone();
-  const canAfford = player.v >= RULES.actionCost;
-  const objectsFull = objectCount(mine) >= RULES.maxObjects;
-  const heroesFull = G.heroes.filter(h => h.alive && h.p === mine).length >= RULES.maxHeroes;
+  const turnReason = () => {
+    if (!isMyTurn()) return 'Your turn only';
+    if (!boardStepDone()) return 'Finish your board step first';
+    return '';
+  };
+  const reasonFor = (cost, extra = '') => turnReason() || extra
+    || (player.v < cost ? `Needs ${cost} V (you have ${player.v})` : '');
+  const apocalypse = G.apoc ? 'Apocalypse: no new barriers or objects' : '';
+  const objectsFull = objectCount(mine) >= RULES.maxObjects ? `Object limit (${RULES.maxObjects}) reached` : '';
+  const heroesFull = heroCount(mine) >= RULES.maxHeroes ? `Hero limit (${RULES.maxHeroes}) reached` : '';
+  const option = (key, cls, icon, label, cost, reason) => ({ key, cls, icon, label, cost, reason });
   return {
     structures: [
-      { key: 'barrier', cls: 'b-stone', icon: '🛑', label: 'Barrier', cost: '5V', disabled: !(ready && canAfford) || !!G.apoc },
-      { key: 'obj', cls: 'b-gold', icon: '🔮', label: 'Object', cost: '5V', disabled: !(ready && canAfford) || objectsFull || !!G.apoc },
-      { key: 'hero', cls: 'b-hero', icon: '👤', label: 'Hero', cost: '30V', disabled: !(ready && player.v >= RULES.heroCost) || heroesFull },
+      option('barrier', 'b-stone', '🛑', 'Barrier', '5V', reasonFor(RULES.actionCost, apocalypse)),
+      option('obj', 'b-gold', '🔮', 'Object', '5V', reasonFor(RULES.actionCost, apocalypse || objectsFull)),
+      option('hero', 'b-hero', '👤', 'Hero', '30V', reasonFor(RULES.heroCost, heroesFull)),
     ],
     skills: [
-      { key: 'skill:str', cls: 'b-str', icon: '✊', label: 'STR', cost: '5V', disabled: !(ready && canAfford) },
-      { key: 'skill:def', cls: 'b-def', icon: '🛡️', label: 'DEF', cost: '5V', disabled: !(ready && canAfford) },
-      { key: 'skill:rng', cls: 'b-rng', icon: '🏹', label: 'RNG', cost: '5V', disabled: !(ready && canAfford) },
-      { key: 'skill:int', cls: 'b-int', icon: '🧠', label: 'INT', cost: '5V', disabled: !(ready && canAfford) },
+      option('skill:str', 'b-str', '✊', 'STR', '5V', reasonFor(RULES.actionCost)),
+      option('skill:def', 'b-def', '🛡️', 'DEF', '5V', reasonFor(RULES.actionCost)),
+      option('skill:rng', 'b-rng', '🏹', 'RNG', '5V', reasonFor(RULES.actionCost)),
+      option('skill:int', 'b-int', '🧠', 'INT', '5V', reasonFor(RULES.actionCost)),
     ],
   };
 }
@@ -1038,6 +1124,14 @@ function pickBuy(key) {
     ui.devSkill = skill;
   }
   render();
+}
+
+// the line under the Buy grid: what to do next, or how to find out why an option is greyed
+function buyStatusText() {
+  if (ui.mode === 'barrier') return 'Tap a tile next to one of your heroes';
+  if (ui.mode === 'obj' || ui.mode === 'hero') return 'Tap a tile with one of your heroes';
+  if (ui.mode === 'buyskill') return `Tap one of your heroes or objects to add ${SKILL_NAME[ui.devSkill]}`;
+  return 'Greyed options: tap one to see why it is unavailable';
 }
 
 /* =============================================================
@@ -1507,27 +1601,50 @@ function pickWheelItem(value) {
 }
 
 /* =============================================================
-   21. FEEDBACK: BANNERS, ROLLS, ANIMATION AND SOUND
-   Banners live in a column on the left so the board stays visible.
+   21. LAYOUT, FEEDBACK, ANIMATION AND SOUND
+   Three layouts: desktop, phone portrait, phone landscape.
+   The same thresholds are used in the CSS media queries.
    ============================================================= */
 
+// which layout the screen is in, so JavaScript and CSS agree
+function layoutMode() {
+  if (window.matchMedia('(orientation: landscape) and (max-height: 540px)').matches) return 'phone-landscape';
+  if (window.matchMedia('(orientation: portrait) and (max-width: 700px)').matches) return 'phone-portrait';
+  return 'desktop';
+}
+
+const isTouchLayout = () => ['phone-portrait', 'phone-landscape'].includes(layoutMode());
+
+// places banners, roll cards, chips and the cancel button for the current layout
 function placeFeedback() {
-  const width = isPhone() ? '46%' : 'clamp(220px, 24vw, 320px)';
-  const fx = el('fx');
-  Object.assign(fx.style, {
-    left: '.5em', right: 'auto', top: 'calc(var(--top-h) + 9em)', bottom: 'auto',
-    transform: 'none', width, maxWidth: width, alignItems: 'stretch', pointerEvents: 'none',
+  const mode = layoutMode();
+  const fx = el('fx'), rolls = el('rollStage'), chips = el('sideStack'), cancel = el('cx');
+  [fx, rolls, chips, cancel].forEach(node => {
+    Object.assign(node.style, { left: '', right: '', top: '', bottom: '', width: '', maxWidth: '', transform: '', justifyContent: '', alignItems: '' });
   });
-  const rolls = el('rollStage');
-  Object.assign(rolls.style, {
-    left: '.5em', right: 'auto', top: 'calc(var(--top-h) + .5em)', transform: 'none',
-    width, maxWidth: width, justifyContent: 'flex-start', pointerEvents: 'none',
-  });
-  const chips = el('sideStack');
-  Object.assign(chips.style, {
-    left: '.5em', top: 'auto', bottom: 'calc(var(--bottom-h) + .5em)', maxWidth: width,
-  });
-  const cancel = el('cx');
+
+  if (mode === 'phone-portrait') {
+    // a full-width strip under the top bar; rolls and chips sit above the bottom bar
+    Object.assign(fx.style, { left: '.5em', right: '.5em', top: 'calc(var(--top-h) + .4em)', transform: 'none', alignItems: 'stretch' });
+    Object.assign(rolls.style, { left: '3.6em', right: '.5em', bottom: 'calc(var(--bottom-h) + .5em)', top: 'auto', transform: 'none', justifyContent: 'center' });
+    Object.assign(chips.style, { left: '.5em', right: '.5em', top: 'calc(var(--top-h) + 6em)', bottom: 'auto', maxWidth: 'none' });
+    Object.assign(cancel.style, { left: '.5em', top: 'auto', bottom: 'calc(var(--bottom-h) + .5em)' });
+    return;
+  }
+
+  if (mode === 'phone-landscape') {
+    // banners and rolls on the left of the board, chips bottom right, cancel beside the column
+    Object.assign(fx.style, { left: '.5em', right: 'auto', top: 'calc(var(--top-h) + 6em)', width: '38%', maxWidth: '38%', transform: 'none', alignItems: 'stretch' });
+    Object.assign(rolls.style, { left: '.5em', right: 'auto', top: 'calc(var(--top-h) + .5em)', width: '38%', maxWidth: '38%', transform: 'none', justifyContent: 'flex-start' });
+    Object.assign(chips.style, { left: 'auto', right: '.5em', bottom: '.5em', top: 'auto', maxWidth: '38%' });
+    Object.assign(cancel.style, { left: 'calc(38% + 1em)', top: 'calc(var(--top-h) + .5em)' });
+    return;
+  }
+
+  const width = 'clamp(220px, 24vw, 320px)';
+  Object.assign(fx.style, { left: '.5em', right: 'auto', top: 'calc(var(--top-h) + 9em)', width, maxWidth: width, transform: 'none', alignItems: 'stretch' });
+  Object.assign(rolls.style, { left: '.5em', right: 'auto', top: 'calc(var(--top-h) + .5em)', width, maxWidth: width, transform: 'none', justifyContent: 'flex-start' });
+  Object.assign(chips.style, { left: '.5em', right: 'auto', bottom: 'calc(var(--bottom-h) + .5em)', top: 'auto', maxWidth: width });
   Object.assign(cancel.style, { left: `calc(${width} + 1.5em)`, top: 'calc(var(--top-h) + .5em)' });
 }
 
@@ -1588,8 +1705,8 @@ function rollCardHtml(event) {
   const twoD6 = event.dice.length === 2 && !isD20Event(event, rawHeadline);
   const pending = outcomeFill('pending');
   const faces = event.dice.map(v => (twoD6
-    ? `<div class="roll-die d6" style="background:${pending}" aria-hidden="true">${v}</div>`
-    : `<div class="roll-die d20-die" style="background:none;width:3.2em;height:3.2em;padding:0" aria-hidden="true">${d20Svg(v, 'pending')}</div>`)).join('');
+    ? `<div class="roll-die d6" data-v="${v}" style="background-color:${pending}" aria-hidden="true">${v}</div>`
+    : `<div class="roll-die d20-die" data-v="${v}" aria-hidden="true">${d20Svg(v, 'pending')}</div>`)).join('');
   const showFaces = event.dice.length <= 2;
   const spoken = `${rollLabel(event)}: ${event.dice.join(' and ')}`;
   return `<div class="roll-card pending" role="img" aria-label="${escapeHtml(spoken)}">
@@ -1599,15 +1716,17 @@ function rollCardHtml(event) {
   </div>`;
 }
 
-// paints the dice of a roll card green (win) or red (lose)
+// paints a roll card green (win) or red (lose); failed dice also get a hatched pattern
 function paintRoll(card, outcome) {
-  const fill = outcomeFill(outcome);
-  const ink = inkFor(outcome);
+  const fill = outcomeFill(outcome), ink = inkFor(outcome);
   card.classList.remove('pending');
   card.classList.add(outcome);
-  card.querySelectorAll('.d20-die polygon').forEach(poly => poly.setAttribute('fill', fill));
-  card.querySelectorAll('.d20-die text').forEach(text => text.setAttribute('fill', ink));
-  card.querySelectorAll('.roll-die.d6').forEach(die => { die.style.background = fill; die.style.color = ink; });
+  card.querySelectorAll('.d20-die').forEach(die => { die.innerHTML = d20Svg(Number(die.dataset.v), outcome); });
+  card.querySelectorAll('.roll-die.d6').forEach(die => {
+    die.style.backgroundColor = fill;
+    die.style.color = ink;
+    if (outcome === 'lose') die.classList.add('hatch');
+  });
 }
 
 function showRollStage(event) {
@@ -1759,6 +1878,30 @@ function toggleMute() {
   render();
 }
 
+/* ---------- pinch hint (touch layouts, shown once) ---------- */
+
+function showPinchHint() {
+  if (el('pinchHint')) return;
+  const node = document.createElement('div');
+  node.id = 'pinchHint';
+  node.className = 'pinch-hint';
+  node.setAttribute('role', 'status');
+  node.innerHTML = '<b>Pinch</b> to zoom · <b>two fingers</b> to pan<br><small>Tap to dismiss</small>';
+  const dismiss = () => {
+    localStorage.setItem(PINCH_KEY, '1');
+    clearTimeout(pinchTimer);
+    node.remove();
+  };
+  node.addEventListener('click', dismiss);
+  document.body.appendChild(node);
+  pinchTimer = setTimeout(dismiss, PINCH_HINT_MS);
+}
+
+function maybePinchHint() {
+  if (!G || !isTouchLayout() || localStorage.getItem(PINCH_KEY)) return;
+  showPinchHint();
+}
+
 /* ---------- tooltips ---------- */
 
 const statGrid = stats => `<div class="tstats">${[
@@ -1823,6 +1966,13 @@ function tileTooltip(tile) {
 }
 
 function onBoardHover(event) {
+  // hovering a hero shows its action hints; the board redraws only when the hovered hero changes
+  const heroNode = event.target.closest('[data-hero]');
+  const idx = heroNode ? +heroNode.dataset.hero : null;
+  if (idx !== hoverIdx) {
+    hoverIdx = idx;
+    drawBoard();
+  }
   const node = event.target.closest('[data-tip]');
   const info = node && tooltips[node.dataset.tip];
   const tip = el('tip');
@@ -1839,19 +1989,44 @@ function onBoardHover(event) {
    22. BOARD DRAWING
    ============================================================= */
 
+// the tiles a selected (or hovered) hero can move to, and the enemies it can attack
+function hintSets() {
+  const empty = { moves: new Set(), attacks: new Set() };
+  if (!G || G.over || ui.mode || ui.wheel || (drag && drag.moved)) return empty;
+  const src = ui.selectedIndex != null ? selectedHero() : (hoverIdx != null ? G.heroes[hoverIdx] : null);
+  if (!src || !src.alive || !actsForMe(src)) return empty;
+  const moves = new Set(), attacks = new Set();
+  if (canAct(src, 'move')) {
+    const r = reach(src);
+    Object.values(G.tiles).forEach(t => {
+      const d = cubeDistance(src.c, t.c);
+      if (d >= 1 && d <= r) moves.add(cubeKey(t.c));
+    });
+  }
+  G.heroes.forEach((h, i) => {
+    if (!h.alive || h.p === myIndex() || !inRangeOf(src, h)) return;
+    if (canAct(src, 'attack') || canMindControl(src, h)) attacks.add(i);
+  });
+  return { moves, attacks };
+}
+
 function tileSvg(tile, mine) {
   const cube = tile.c, key = cubeKey(cube);
   const seen = knowsTileType(tile, mine);
   const valid = isValidTarget(cube);
   const highlight = valid && ['develop', 'obj', 'barrier', 'hero'].includes(ui.mode);
   const removable = valid && ui.mode === 'remove';
+  const hinted = currentHints.moves.has(key);
   const fill = tile.gz ? GROUND_ZERO_FILL : tile.disc ? TILE_COLORS[tile.sk] : NEUTRAL_FILL;
   const stroke = tile.own >= 0 ? PLAYER_COLORS[tile.own] : UNOWNED_STROKE;
   const symbol = tile.gz ? '⬡' : !seen ? '?' : tile.sk === 'bar' ? '🛑' : (SKILL_ICON[tile.sk] || '?');
   const label = tile.bar && seen && tile.sk === 'bar' ? '🛑' + tile.bar : symbol;
-  const cls = [highlight ? 'ok' : '', removable ? 'rm' : ''].join(' ');
+  const cls = [highlight ? 'ok' : '', removable ? 'rm' : '', hinted ? 'hint' : ''].join(' ');
   tooltips['t' + key] = tileTooltip(tile);
 
+  const texture = seen && tile.disc && !tile.gz && TERRAIN_PATTERN[tile.sk]
+    ? `<polygon class="tex" points="${hexPoints(cube)}" fill="url(#${TERRAIN_PATTERN[tile.sk]})"/>`
+    : '';
   const glowColor = barrierColor(cube);
   const glow = tile.bar > 0
     ? `<polygon class="barglow" points="${hexPoints(cube, HEX_RADIUS - 9)}" stroke="${glowColor}" style="filter:drop-shadow(0 0 1.5px ${glowColor})"/>`
@@ -1860,6 +2035,7 @@ function tileSvg(tile, mine) {
     ? `<text x="${hexX(cube) + HEX_RADIUS * 0.5}" y="${hexY(cube) + HEX_RADIUS * 0.6}" font-size="8" font-weight="bold" fill="#ffd54f" stroke="#000" stroke-width="1" paint-order="stroke">🛑${tile.bar}</text>`
     : '';
   return `<polygon data-k="${key}" data-tip="t${key}" class="${cls}" fill="${fill}" stroke="${stroke}" stroke-width="1.5" points="${hexPoints(cube)}"/>`
+    + texture
     + glow
     + `<text x="${hexX(cube)}" y="${hexY(cube)}" font-size="${label.length > 2 ? 22 : 34}" fill="#fff">${label}</text>`
     + barrierTag;
@@ -1889,6 +2065,7 @@ function heroSvg(hero, index) {
   const mc = hero.mc ? `<circle class="ring-mc" cx="${x}" cy="${y}" r="9"/>` : '';
   const march = actable && hero.acts > 0 && !ui.mode && !drag ? `<circle class="ring-march" cx="${x}" cy="${y}" r="8"/>` : '';
   const attackRing = isEnemyInDragReach(hero) ? `<circle class="ring-atk" cx="${x}" cy="${y}" r="10"/>` : '';
+  const hintRing = currentHints.attacks.has(index) ? `<circle class="ring-hint" cx="${x}" cy="${y}" r="11"/>` : '';
   const skillRing = isDevelopSkillTarget(hero) ? `<circle class="ring-selh" cx="${x}" cy="${y}" r="10"/>` : '';
   const flash = flashKeys.has('h' + index) && hero.alive ? `<circle class="ring-flash" cx="${x}" cy="${y}" r="12"/>` : '';
   const selected = ui.selectedIndex === index;
@@ -1898,9 +2075,9 @@ function heroSvg(hero, index) {
   const damage = hero.dmg ? `<text x="${x + 8}" y="${y - 6}" font-size="7" font-weight="bold" fill="#ff5252">-${hero.dmg}</text>` : '';
   const muted = ui.mode === 'develop' && ui.devType === 'skill' && !isDevelopSkillTarget(hero) ? 'mute' : '';
   tooltips['h' + index] = heroTooltip(hero);
+  const token = tokenShape(hero.p, x, y, 6, HERO_COLORS[index % HERO_COLORS.length], PLAYER_COLORS[hero.p], selected ? 2.5 : 1.5);
   return `<g class="${muted}" data-hero="${index}" data-k="${cubeKey(hero.c)}" data-tip="h${index}">`
-    + `<circle cx="${x}" cy="${y}" r="6" fill="${HERO_COLORS[index % HERO_COLORS.length]}" stroke="${PLAYER_COLORS[hero.p]}" stroke-width="${selected ? 2.5 : 1.5}"/>`
-    + mc + march + attackRing + skillRing + flash + dots + damage + `</g>`;
+    + token + mc + march + attackRing + hintRing + skillRing + flash + dots + damage + `</g>`;
 }
 
 function objectSvg(obj, index) {
@@ -1924,9 +2101,10 @@ function nukeSvg(nuke) {
   const [x, y] = nukePoint(nuke.c);
   tooltips.nuke = nukeTooltip(nuke);
   const ring = drag && drag.moved ? `<circle class="ring-nk" cx="${x}" cy="${y}" r="${NUKE_RADIUS + 3}"/>` : '';
-  return `<g data-k="${cubeKey(nuke.c)}" data-nuke="1" data-tip="nuke">`
+  const shaking = Date.now() < nukeHitUntil ? ' nuke-hit' : '';
+  return `<g class="nuke-g${shaking}" data-k="${cubeKey(nuke.c)}" data-nuke="1" data-tip="nuke">`
     + `<circle cx="${x}" cy="${y}" r="13" fill="transparent"/>`
-    + `<circle cx="${x}" cy="${y}" r="${NUKE_RADIUS}" fill="#2a0a0a" stroke="#ff3d3d" stroke-width="1.2"/>`
+    + `<circle class="nuke-core" cx="${x}" cy="${y}" r="${NUKE_RADIUS}" fill="#2a0a0a" stroke="#ff3d3d" stroke-width="1.2"/>`
     + `<text x="${x}" y="${y}" font-size="8" fill="#ff3d3d">☢</text>`
     + ring + `</g>`;
 }
@@ -1939,12 +2117,12 @@ function drawBoard() {
   const svg = el('svg');
   tooltips = {};
   svg.style.background = G && G.apoc ? APOCALYPSE_RED : '';
-  if (!G) { svg.innerHTML = ''; return; }
-  // a gold pulse never outlives the unit it marks
+  if (!G) { svg.innerHTML = ''; currentHints = { moves: new Set(), attacks: new Set() }; return; }
   flashKeys = new Set([...flashKeys].filter(isLiveFlashKey));
+  currentHints = hintSets();
   setViewBox(svg);
   const mine = myIndex();
-  let out = '';
+  let out = TERRAIN_DEFS;
   if (G.apoc) out += apocalypseSymbol();
   if (ui.mode === 'place') {
     placementCandidates().forEach(c => { out += `<polygon class="cand" data-k="${cubeKey(c)}" points="${hexPoints(c)}"/>`; });
@@ -1980,12 +2158,11 @@ function drawDragLayer() {
 function drawTop() {
   const player = G.pl[G.cur];
   const chips = G.pl.map((p, i) => {
-    const heroCount = G.heroes.filter(h => h.alive && h.p === i).length;
-    const status = isAlive(i) ? `${heroCount} heroes` : 'out';
+    const status = isAlive(i) ? `${heroCount(i)} heroes` : 'out';
     return `<span class="pchip ${i === G.cur ? 'cur' : ''} ${isAlive(i) ? '' : 'out'}" style="--c:${PLAYER_COLORS[i]}">${escapeHtml(p.name)} · ${markV(p.v + ' V')} · ${status}</span>`;
   }).join('');
   const endButton = isMyTurn()
-    ? `<button class="endb" data-action="end-turn" ${boardStepDone() ? '' : 'disabled'}>➜ End Turn</button>`
+    ? `<button class="endb top-end" data-action="end-turn" ${boardStepDone() ? '' : 'disabled'}>➜ End Turn</button>`
     : '';
   const backButton = G.over && gameOverDismissed ? '<button class="endb" data-action="leave">Back to lobby</button>' : '';
   const exitButton = !G.over && ROOM
@@ -2011,15 +2188,19 @@ function drawBuySide() {
   const opts = buyOptions();
   const isActive = item => item.key === ui.mode
     || (item.key.startsWith('skill:') && ui.mode === 'buyskill' && ui.devSkill === item.key.slice(6));
-  const option = item => `<button class="bopt ${item.cls} ${isActive(item) ? 'on' : ''}" data-buy="${item.key}" ${item.disabled ? 'disabled' : ''} aria-pressed="${isActive(item)}" aria-label="${item.label}, ${item.cost}">
+  const option = item => {
+    const label = item.reason ? `${item.label}, ${item.cost}, unavailable: ${item.reason}` : `${item.label}, ${item.cost}`;
+    return `<button class="bopt ${item.cls} ${isActive(item) ? 'on' : ''} ${item.reason ? 'is-off' : ''}"
+      data-buy="${item.key}" data-reason="${escapeHtml(item.reason || '')}" aria-disabled="${!!item.reason}"
+      aria-pressed="${isActive(item)}" title="${escapeHtml(item.reason || `${item.label} · ${item.cost}`)}" aria-label="${escapeHtml(label)}">
       <span class="bo-icon" aria-hidden="true">${item.icon}</span><span class="bo-label">${item.label}</span><span class="bo-cost">${markV(item.cost)}</span>
     </button>`;
-  const body = isMyTurn()
-    ? `<div class="bsection">Structures</div>
+  };
+  const body = `<div class="bsection">Structures</div>
        <div class="bgrid" style="grid-template-columns:repeat(3,1fr)">${opts.structures.map(option).join('')}</div>
        <div class="bsection">Skills</div>
-       <div class="bgrid" style="grid-template-columns:repeat(4,1fr)">${opts.skills.map(option).join('')}</div>`
-    : '<div class="buy-note">Buying is available on your turn.</div>';
+       <div class="bgrid" style="grid-template-columns:repeat(4,1fr)">${opts.skills.map(option).join('')}</div>
+       <div class="buy-status" aria-live="polite">${escapeHtml(buyStatusText())}</div>`;
   const sellText = sellHint != null ? `Drop to Sell: +${sellHint}V` : '';
   const sellZone = `<div id="sellzone">${sellText}<small>sold for cash, card returns to the deck</small></div>`;
   el('buyside').innerHTML = `<div class="vside">${markV(viewer.v + ' V')}</div><div class="buy-body">${body}</div>${sellZone}`;
@@ -2031,17 +2212,28 @@ function updateSellZone() {
   zone.firstChild.textContent = sellHint != null ? `Drop to Sell: +${sellHint}V` : '';
 }
 
+// the bottom bar: on phones it also holds the panel tabs and End Turn, within reach of the thumb
 function drawBottomBar() {
-  el('bottom').classList.toggle('minimized', botMinimized);
+  const mode = layoutMode();
+  const bottom = el('bottom');
+  const phonePortrait = mode === 'phone-portrait';
+  const collapsed = phonePortrait ? !ui.drawer : (mode !== 'phone-landscape' && botMinimized);
+  bottom.classList.toggle('minimized', collapsed);
+  bottom.dataset.drawer = phonePortrait && ui.drawer ? ui.drawer : '';
+
+  const handSize = G && myIndex() >= 0 ? G.pl[myIndex()].hand.length : 0;
+  const endEnabled = !!G && isMyTurn() && boardStepDone();
   const muteLabel = settings.muted ? 'Unmute sound' : 'Mute sound';
   el('bar').innerHTML = `
     <span class="msg" aria-live="polite">${textWithV(ui.message)}</span>
+    <button class="endb bar-end" data-action="end-turn" ${endEnabled ? '' : 'disabled'} aria-label="End turn">➜ End</button>
+    <button class="sbtn phone-only" data-action="drawer-hand" aria-expanded="${ui.drawer === 'hand'}" aria-label="Hand, ${handSize} cards">🃏 ${handSize}</button>
+    <button class="sbtn phone-only" data-action="drawer-buy" aria-expanded="${ui.drawer === 'buy'}" aria-label="Buy panel">🛒 Buy</button>
     <button class="sbtn" data-action="toggle-mute" aria-pressed="${settings.muted}" aria-label="${muteLabel}" title="${muteLabel}">${settings.muted ? '🔇' : '🔊'}</button>
     <button class="sbtn" data-action="open-help" aria-label="Help and tutorial" title="Help and tutorial">❓</button>
     <button class="sbtn" data-action="open-settings" aria-label="Settings" title="Settings">⚙</button>
     <button class="sbtn" data-action="open-log" title="Game log">📜 Log</button>
-    <button class="sbtn" data-action="minimize" aria-expanded="${!botMinimized}">${botMinimized ? '▴ Expand' : '▾ Minimize'}</button>`;
-  const handSize = myIndex() >= 0 ? G.pl[myIndex()].hand.length : 0;
+    <button class="sbtn desk-only" data-action="minimize" aria-expanded="${!botMinimized}">${botMinimized ? '▴ Expand' : '▾ Minimize'}</button>`;
   el('handcol').querySelector('.sec-head').textContent = `🃏 Hand (${handSize})`;
 }
 
@@ -2252,21 +2444,21 @@ function render() {
     drawTop();
     drawHand();
     drawBuySide();
-    drawBottomBar();
     drawWheel();
     drawCancel();
     drawTodo();
-    document.documentElement.style.setProperty('--top-h', el('top').offsetHeight + 'px');
-    document.documentElement.style.setProperty('--bottom-h', el('bottom').offsetHeight + 'px');
   } else {
     el('wheel').style.display = 'none';
     el('cx').style.display = 'none';
     el('defeated').style.display = 'none';
     ['top', 'hand', 'todo'].forEach(id => { el(id).innerHTML = ''; });
-    el('bar').innerHTML = '';
   }
+  drawBottomBar();
+  document.documentElement.style.setProperty('--top-h', el('top').offsetHeight + 'px');
+  document.documentElement.style.setProperty('--bottom-h', el('bottom').offsetHeight + 'px');
   drawModal();
   placeFeedback();
+  maybePinchHint();
   document.body.classList.toggle('wait', (!!G && !isMyTurn() && !isControllingNow()) || isDefeated());
 }
 
@@ -2281,6 +2473,11 @@ function saveUsername() {
   localStorage.setItem('versa-name', name);
   render();
   if (!localStorage.getItem(TUTORIAL_KEY)) openOverlay('tutorial');
+}
+
+function toggleDrawer(tab) {
+  ui.drawer = ui.drawer === tab ? null : tab;
+  render();
 }
 
 function runAction(action) {
@@ -2301,13 +2498,15 @@ function runAction(action) {
     case 'cancel': return cancelMode();
     case 'review-board': gameOverDismissed = true; return render();
     case 'minimize': botMinimized = !botMinimized; return render();
+    case 'drawer-hand': return toggleDrawer('hand');
+    case 'drawer-buy': return toggleDrawer('buy');
     case 'toggle-mute': return toggleMute();
     case 'open-help': return openOverlay('help');
     case 'open-settings': return openOverlay('settings');
     case 'open-log': logOpen = true; return render();
     case 'close-log': logOpen = false; return render();
-    case 'show-hand':
-    case 'show-buy': botMinimized = false; return render();
+    case 'show-hand': return layoutMode() === 'phone-portrait' ? toggleDrawer('hand') : (botMinimized = false, render());
+    case 'show-buy': return layoutMode() === 'phone-portrait' ? toggleDrawer('buy') : (botMinimized = false, render());
     default: return undefined;
   }
 }
@@ -2319,12 +2518,12 @@ function runAction(action) {
 const TUTORIAL_STEPS = [
   { title: 'Welcome to VERSA', body: 'A turn-based battle royale for two to six players. Your heroes move across a hex map, fight, and build. The last player with living heroes wins.' },
   { title: 'Your turn', body: 'Each turn you get 5 Versa (V). In the early rounds you place a hex tile next to your own. Each hero can move, attack, and develop. Press End Turn when you are finished.' },
-  { title: 'Moving heroes', body: 'Drag a hero onto an empty tile to move it. Objects on its tile can come along. Drag a hero onto an enemy hero to choose Combat or Mind Control, once attacks unlock in round 4. If several enemies share a tile, you pick which one.' },
-  { title: 'Rolls', body: 'Every roll appears beside the board. Dice start grey and turn green on success or red on failure. A barrier check uses two dice (2d6) and must meet the barrier level before any d20 is rolled.' },
-  { title: 'Buying', body: 'The Buy panel costs 5 V for barriers, objects, and skill points. A hero costs 30 V. Barriers can be raised or lowered by anyone, but the first builder keeps ownership.' },
+  { title: 'Moving heroes', body: 'Select or hover a hero to see where it can go (dotted tiles) and who it can attack (dotted rings). Drag a hero onto an empty tile to move it. Drag it onto an enemy to choose Combat or Mind Control, once attacks unlock in round 4.' },
+  { title: 'Rolls', body: 'Every roll appears beside the board. Dice start grey and turn green on success or red on failure; failed dice are hatched. A barrier check uses two dice (2d6) and must meet the barrier level before any d20 is rolled.' },
+  { title: 'Buying', body: 'The Buy panel costs 5 V for barriers, objects, and skill points. A hero costs 30 V. Greyed options show why they are unavailable when tapped. Barriers can be raised or lowered by anyone, but the first builder keeps ownership.' },
   { title: 'Traversal cards', body: 'Drag a card into the Buy panel to sell it: 5 V for the gold card, 2 V for the others. Drag a skill card onto one of your heroes or objects to use it. Drag the gold 5 V card onto the open board to play it.' },
-  { title: 'Banners and the log', body: 'Banners explain what happened, on the left of the screen, so the board stays visible. Ones that involve you are large; the rest shrink to chips at the bottom left. The 📜 Log button keeps the full history, grouped by round.' },
-  { title: 'Settings and help', body: 'Use ⚙ for volume, colour-blind safe colours, reduced motion, and larger text. Use ❓ at any time to reopen this tutorial or read the rules. Concede with the button at the top right if you want to leave.' },
+  { title: 'Banners and the log', body: 'Banners explain what happened. On a phone they run along the top; on a larger screen they sit on the left, so the board stays visible. The 📜 Log button keeps the full history, grouped by round.' },
+  { title: 'Phones', body: 'On a phone in portrait, tap 🃏 or 🛒 in the bottom bar to open the Hand or Buy panel, and End in the bottom bar to end your turn. Turn the phone sideways to see the board with both panels beside it.' },
 ];
 
 const REFERENCE_SECTIONS = [
@@ -2468,7 +2667,10 @@ function wireEvents() {
   svg.addEventListener('pointerdown', onBoardPointerDown);
   svg.addEventListener('click', onBoardClick);
   svg.addEventListener('pointermove', onBoardHover);
-  svg.addEventListener('pointerleave', () => { el('tip').style.display = 'none'; });
+  svg.addEventListener('pointerleave', () => {
+    el('tip').style.display = 'none';
+    if (hoverIdx !== null) { hoverIdx = null; drawBoard(); }
+  });
   svg.addEventListener('wheel', event => {
     event.preventDefault();
     view.zoom = clampZoom(view.zoom * (event.deltaY > 0 ? 1.1 : 0.9));
@@ -2484,7 +2686,8 @@ function wireEvents() {
     if (logOpen) { logOpen = false; return render(); }
     if (G) cancelMode();
   });
-  window.addEventListener('resize', () => { if (G || ROOM || username) render(); else placeFeedback(); });
+  window.addEventListener('resize', () => render());
+  window.addEventListener('orientationchange', () => render());
   window.addEventListener('pointerdown', () => audioContext(), { once: true });
 
   el('helpOverlay').addEventListener('click', handleOverlayClick);
@@ -2499,9 +2702,15 @@ function wireEvents() {
     const button = event.target.closest('[data-w]');
     if (button && !button.disabled) pickWheelItem(button.dataset.w);
   });
+  // unavailable options explain themselves when tapped instead of doing nothing
   el('buyside').addEventListener('click', event => {
     const button = event.target.closest('[data-buy]');
-    if (button && !button.disabled) pickBuy(button.dataset.buy);
+    if (!button) return;
+    if (button.classList.contains('is-off')) {
+      setMessage(button.dataset.reason || '');
+      return render();
+    }
+    pickBuy(button.dataset.buy);
   });
   el('hand').addEventListener('pointerdown', onCardPointerDown);
   document.addEventListener('click', event => {
