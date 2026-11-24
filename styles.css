@@ -8,27 +8,22 @@ html, body { height: 100%; overflow: hidden; max-width: 100vw; }
 body { margin: 0; font-size: clamp(12px, 1.05vw, 17px); font-family: system-ui, sans-serif; background: #0e0e12; color: #e8e8ee; }
 [hidden] { display: none !important; }
 
-/* keyboard users always see where focus is */
 :focus-visible { outline: 3px solid #ffe066; outline-offset: 2px; }
 
-/* text that only screen readers hear */
 .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
 
-/* larger text option */
 body.large-text { font-size: clamp(15px, 1.35vw, 21px); }
 
-/* reduce motion: turns off looping and decorative animation */
 body.reduce-motion *, body.reduce-motion *::before, body.reduce-motion *::after {
   animation-duration: 0.01ms !important;
   animation-iteration-count: 1 !important;
   transition: none !important;
 }
 
-/* the database warning sits above everything */
 #dbWarn { position: fixed; top: 0; left: 0; right: 0; z-index: 60; background: #5a3a10; color: #ffe8a3; padding: .4em .8em; font-size: .9em; text-align: center; }
 
 /* =========================================================
-   LAYOUT
+   LAYOUT (desktop)
    ========================================================= */
 #board { position: absolute; inset: 0; display: flex; flex-direction: column; overflow: hidden; }
 #top { display: flex; flex-wrap: wrap; row-gap: .4em; gap: .5em; align-items: center; padding: .5em .8em; background: #17171f; border-bottom: 1px solid #2c2c3e; position: relative; z-index: 50; }
@@ -37,8 +32,7 @@ body.reduce-motion *, body.reduce-motion *::before, body.reduce-motion *::after 
 #dragLayer { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 3; }
 #animLayer { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 4; }
 
-/* minor events shrink to small chips on the left of the board */
-#sideStack { position: absolute; left: .5em; top: 38%; display: flex; flex-direction: column; gap: .3em; max-width: 34%; pointer-events: none; z-index: 6; }
+#sideStack { position: absolute; display: flex; flex-direction: column; gap: .3em; max-width: 34%; pointer-events: none; z-index: 6; }
 
 #bottom { display: flex; flex-direction: column; height: clamp(200px, 32vh, 320px); border-top: 1px solid #2c2c3e; overflow: hidden; }
 #bottom.minimized { height: auto; }
@@ -60,16 +54,20 @@ body.reduce-motion *, body.reduce-motion *::before, body.reduce-motion *::after 
 #buycol.dragging #sellzone { display: flex; }
 #buycol.dragging #buyside button { pointer-events: none; }
 
-#cx { position: absolute; left: 12px; top: 60px; display: none; z-index: 8; }
+#cx { position: absolute; display: none; z-index: 8; }
 #wheel { position: absolute; width: 0; height: 0; z-index: 5; display: none; }
-#fx { position: absolute; left: 50%; top: 38%; transform: translate(-50%, -50%); display: flex; flex-direction: column; align-items: center; gap: .5em; pointer-events: none; z-index: 6; max-width: 90%; }
-#rollStage { position: absolute; left: 50%; top: 16%; transform: translateX(-50%); display: flex; flex-wrap: wrap; gap: .6em; justify-content: center; pointer-events: none; z-index: 7; max-width: 95%; }
+#fx { position: absolute; display: flex; flex-direction: column; align-items: center; gap: .5em; pointer-events: none; z-index: 6; }
+#rollStage { position: absolute; display: flex; flex-wrap: wrap; gap: .6em; pointer-events: none; z-index: 7; }
 #todo { position: absolute; right: .5em; top: calc(var(--top-h) + .4em); max-height: calc(100% - var(--top-h) - var(--bottom-h) - .8em); width: clamp(170px, 19vw, 280px); overflow: auto; background: #0f0f18ee; border: 1px solid #2c2c3e; border-radius: .6em; padding: .5em .7em; font-size: clamp(11px, .95vw, 14px); line-height: 1.4; z-index: 7; }
 #tip { position: fixed; display: none; pointer-events: none; --pc: #8a8aff; background: #0b0b12f5; border: 2px solid var(--pc); border-radius: .8em; padding: .5em .6em; font-size: clamp(12px, 1.05vw, 15px); line-height: 1.45; z-index: 9; min-width: 12em; max-width: 19em; box-shadow: 0 8px 24px #000c; }
 #modal { position: fixed; inset: 0; background: #06060acc; display: none; align-items: center; justify-content: center; z-index: 20; padding: 1em; }
 #helpOverlay { position: fixed; inset: 0; background: #06060add; display: flex; align-items: center; justify-content: center; z-index: 25; padding: 1em; }
 #carry { position: fixed; display: none; pointer-events: none; z-index: 31; background: #000e; border: 1px solid #ffe066; border-radius: .5em; padding: .3em .6em; line-height: 1.5; white-space: nowrap; }
 #defeated { position: absolute; left: 50%; top: calc(var(--top-h) + 8px); transform: translateX(-50%); display: none; z-index: 8; background: #5a1010ee; color: #ffd0d0; border: 1px solid #ff5252; border-radius: .6em; padding: .35em .9em; font-weight: 700; pointer-events: none; }
+
+/* one-time pinch hint on touch screens */
+.pinch-hint { position: fixed; left: 50%; top: 42%; transform: translate(-50%, -50%); background: #000ef0; border: 1px solid #8a8aff; border-radius: .8em; padding: .7em 1em; text-align: center; font-size: 1em; line-height: 1.5; z-index: 30; max-width: 80%; box-shadow: 0 8px 24px #000c; cursor: pointer; }
+.pinch-hint small { color: #c8c8d8; }
 
 /* =========================================================
    CONTROLS
@@ -85,7 +83,9 @@ button.on { background: #4a6cf7; border-color: #4a6cf7; }
 .muted { color: #a8a8bb; }
 .roomcode { font-family: ui-monospace, monospace; font-size: 1.6em; letter-spacing: .15em; font-weight: 800; color: #ffe8a3; background: #17171f; border-color: #ffe8a3; padding: .2em .6em; }
 
-/* touch screens: every tap target at least 44 px */
+/* layout-specific controls: each is shown only where it is useful */
+.phone-only, .bar-end { display: none; }
+
 @media (pointer: coarse) {
   button, select { min-height: 44px; min-width: 44px; }
   .sec-head { min-height: 44px; }
@@ -95,7 +95,7 @@ button.on { background: #4a6cf7; border-color: #4a6cf7; }
 }
 
 /* =========================================================
-   V CURRENCY: each V carries a double strike-through
+   V CURRENCY
    ========================================================= */
 .vs { position: relative; display: inline-block; font-weight: 800; }
 .vs::before, .vs::after { content: ''; position: absolute; left: -.15em; right: -.15em; height: .09em; background: currentColor; top: 40%; }
@@ -108,13 +108,14 @@ button.on { background: #4a6cf7; border-color: #4a6cf7; }
 .buy-body { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: .3em; }
 .bsection { flex: none; font-size: clamp(8px, 2.6cqh, 11px); font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: #a8a8bb; }
 .bgrid { flex: 1 1 0; min-height: 0; display: grid; gap: .3em; grid-auto-rows: 1fr; }
+.buy-status { flex: none; font-size: .78em; color: #c8c8d8; text-align: center; padding: .15em .2em; }
 .bopt { --cc: #8a8aa0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: .1em; min-height: 44px; padding: .2em; background: linear-gradient(160deg, color-mix(in srgb, var(--cc) 30%, #1a1a24), #15151d); border: 2px solid var(--cc); border-radius: .55em; box-shadow: 0 2px 6px #000a; font-size: clamp(8px, 3.4cqh, 14px); line-height: 1.1; }
 .bopt .bo-icon { font-size: clamp(12px, 7cqh, 26px); line-height: 1; }
 .bopt .bo-label { font-weight: 700; }
 .bopt .bo-cost { font-size: .85em; color: #d0d0dc; }
 .bopt.on { background: var(--cc); color: #000; box-shadow: 0 0 12px var(--cc); }
 .bopt.on .bo-cost { color: #000; }
-.bopt:disabled { filter: grayscale(.85); opacity: .4; }
+.bopt.is-off { filter: grayscale(.9); opacity: .5; border-style: dashed; }
 .bopt.b-stone { --cc: #9a9a9a; }
 .bopt.b-gold { --cc: #ffd54f; }
 .bopt.b-hero { --cc: #7cf0ff; }
@@ -122,7 +123,6 @@ button.on { background: #4a6cf7; border-color: #4a6cf7; }
 .bopt.b-def { --cc: #3b82f6; }
 .bopt.b-rng { --cc: #34c759; }
 .bopt.b-int { --cc: #a855f7; }
-.buy-note { flex: 1; display: flex; align-items: center; justify-content: center; font-size: .85em; color: #a8a8bb; text-align: center; padding: .4em; }
 
 /* =========================================================
    TRAVERSAL CARDS
@@ -158,11 +158,13 @@ button.on { background: #4a6cf7; border-color: #4a6cf7; }
 #svg.apoc-flash { animation: apocFlash 1.6s ease-out; }
 @keyframes apocFlash { 0% { background: #ffffff; } 20% { background: #ff3d3d; } 100% { background: #4a1d1d; } }
 polygon { cursor: pointer; }
+polygon.tex { pointer-events: none; cursor: pointer; }
 polygon.ok { stroke: #ffe066 !important; stroke-width: 1.5 !important; }
+polygon.hint { stroke: #ffffffd0 !important; stroke-width: 1.4 !important; stroke-dasharray: 3 3; animation: march 1.6s linear infinite; }
 polygon.rm { stroke: #ff9f6e !important; stroke-width: 2 !important; stroke-dasharray: 6 4; animation: march 2.4s linear infinite; }
 polygon.cand { fill: #15151c; stroke: #8ab4ff; stroke-dasharray: 6 4; stroke-width: 1; animation: march 2.4s linear infinite; }
 .barglow { fill: none; stroke-width: 1.2; pointer-events: none; }
-g[data-k]:hover circle, g[data-k]:hover rect { stroke: #fff; stroke-width: 2; }
+g[data-k]:hover circle, g[data-k]:hover rect, g[data-k]:hover polygon:not(.tex) { stroke: #fff; stroke-width: 2; }
 polygon[data-tip]:hover { filter: brightness(1.35); }
 .mute { opacity: .28; }
 text { pointer-events: none; text-anchor: middle; dominant-baseline: central; font-family: system-ui, sans-serif; }
@@ -173,10 +175,17 @@ text { pointer-events: none; text-anchor: middle; dominant-baseline: central; fo
 .ring-selh { stroke: #7cf0ff; }
 .ring-o { stroke: #ffd54f; }
 .ring-nk { stroke: #ff3d3d; stroke-width: 1.5; }
+.ring-hint { fill: none; stroke: #ff9a9a; stroke-width: 1.2; stroke-dasharray: 2 2; pointer-events: none; animation: march 1s linear infinite; }
 .ring-march { fill: none; stroke: #ffffffcc; stroke-width: 1; stroke-dasharray: 2 2; pointer-events: none; animation: march 1s linear infinite; }
 .ring-mc { fill: none; stroke: #c77dff; stroke-width: 1.2; stroke-dasharray: 2 3; pointer-events: none; }
 .ring-flash { fill: none; stroke: #ffe066; stroke-width: 2.2; pointer-events: none; animation: pulse .6s ease-in-out infinite; }
 .mc-chain { stroke: rgba(199, 125, 255, .55); stroke-width: 3; stroke-dasharray: 5 3; stroke-linecap: round; pointer-events: none; }
+
+/* the Nuke glows and shakes when it takes damage */
+.nuke-core { animation: nukeGlow 2.4s ease-in-out infinite; }
+@keyframes nukeGlow { 0%, 100% { filter: drop-shadow(0 0 2px #ff3d3d); } 50% { filter: drop-shadow(0 0 8px #ff3d3d); } }
+.nuke-hit { animation: nukeShake .45s linear 1; }
+@keyframes nukeShake { 0%, 100% { transform: translate(0, 0); } 20% { transform: translate(-3px, 2px); } 40% { transform: translate(3px, -2px); } 60% { transform: translate(-2px, -1px); } 80% { transform: translate(2px, 1px); } }
 
 /* =========================================================
    TOP BAR
@@ -202,11 +211,17 @@ text { pointer-events: none; text-anchor: middle; dominant-baseline: central; fo
 /* =========================================================
    ROLL DISPLAY
    ========================================================= */
-.roll-card { background: #000ee0; border: 1px solid #8a8aff; border-radius: .7em; padding: .45em .8em; text-align: center; min-width: 7em; box-shadow: 0 6px 20px #000c; animation: rollIn .35s ease-out, rollOut .5s ease-in 1.9s forwards; }
+.roll-card { background: #000ee0; border: 2px solid #9a9a9a; border-radius: .7em; padding: .45em .8em; text-align: center; min-width: 7em; box-shadow: 0 6px 20px #000c; animation: rollIn .35s ease-out, rollOut .5s ease-in 1.9s forwards; transition: border-color .25s; }
+.roll-card.win { border-color: #34c759; }
+.roll-card.lose { border-color: #e5484d; }
+.palette-cb .roll-card.win { border-color: #009E73; }
+.palette-cb .roll-card.lose { border-color: #D55E00; }
 .roll-label { font-size: .68em; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: #c8c8d8; }
 .roll-dice { display: flex; gap: .4em; justify-content: center; margin: .3em 0; }
-.roll-die { width: 2.3em; height: 2.3em; background: #f4f4f4; color: #111; border-radius: .4em; display: flex; align-items: center; justify-content: center; font-weight: 900; font-size: 1.45em; animation: tumble .7s cubic-bezier(.2, .8, .3, 1) both; }
+.roll-die { width: 2.3em; height: 2.3em; background-color: #f4f4f4; color: #111; border-radius: .4em; display: flex; align-items: center; justify-content: center; font-weight: 900; font-size: 1.45em; animation: tumble .7s cubic-bezier(.2, .8, .3, 1) both; }
 .roll-die.d6 { font-size: 1.2em; }
+.roll-die.d20-die { background: none; width: 3.2em; height: 3.2em; padding: 0; }
+.roll-die.hatch, .die.hatch { background-image: repeating-linear-gradient(45deg, transparent 0 4px, rgba(0, 0, 0, .35) 4px 6px); }
 .roll-total { font-size: 1.25em; font-weight: 900; color: #ffe8a3; }
 .roll-total small { display: block; font-size: .6em; font-weight: 600; color: #c8c8d8; }
 .roll-pair { display: flex; gap: .9em; justify-content: center; }
@@ -218,7 +233,6 @@ text { pointer-events: none; text-anchor: middle; dominant-baseline: central; fo
 
 /* =========================================================
    BANNERS
-   Important banners are large and centred; minor ones are chips at the left.
    ========================================================= */
 .fx { background: #000d; border: 1px solid #8a8aff; border-radius: .7em; padding: .5em .9em; font-size: 1.15em; font-weight: 700; line-height: 1.7; text-align: center; animation: fxin .3s ease-out, fxout .4s ease-in 2.6s forwards; }
 .fx span { display: inline-block; animation: pop .35s both; animation-delay: var(--d, 0s); }
@@ -295,7 +309,6 @@ text { pointer-events: none; text-anchor: middle; dominant-baseline: central; fo
 .name-in { width: 7em; font-size: .9em; padding: .3em; border-radius: .4em; border: 1px solid #556; background: #0e0e12; color: inherit; text-align: center; }
 .plain-code { font-family: ui-monospace, monospace; user-select: text; -webkit-user-select: text; color: #ffe8a3; font-weight: 700; }
 
-/* log: rounds are collapsible groups, newest first */
 .logfull { text-align: left; max-height: 60vh; overflow: auto; font: .85em/1.45 ui-monospace, monospace; background: #0a0a0e; padding: .5em .7em; border-radius: .5em; border: 1px solid #2c2c3e; }
 .logfull details { border-bottom: 1px solid #22222e; padding: .2em 0; }
 .logfull summary { cursor: pointer; font-family: system-ui, sans-serif; font-weight: 700; color: #ffe8a3; padding: .3em 0; min-height: 36px; }
@@ -303,25 +316,72 @@ text { pointer-events: none; text-anchor: middle; dominant-baseline: central; fo
 
 /* =========================================================
    COLOUR-BLIND SAFE PALETTE
-   Banner frames and log colours use the Okabe-Ito set.
    ========================================================= */
 .palette-cb .lg-v { color: #F0E442; }
 .palette-cb .lg-hero { color: #56B4E9; }
 .palette-cb .lg-obj { color: #E69F00; }
 .palette-cb .lg-dmg { color: #D55E00; }
-.palette-cb .pchip.cur { color: #000; }
 
 /* =========================================================
-   PHONES
+   PHONE PORTRAIT
+   Banners form a strip under the top bar. The bottom bar holds
+   the panel tabs and End Turn. The Hand or Buy panel opens above it.
    ========================================================= */
-@media (max-width: 700px) {
-  #bottom { height: clamp(260px, 42vh, 380px); }
+@media (orientation: portrait) and (max-width: 700px) {
+  .phone-only, .bar-end { display: inline-block; }
+  .top-end, .desk-only { display: none !important; }
+
+  #top { padding: .35em .5em; gap: .3em; }
+  .chip { font-size: .75em; }
+  .pchip { font-size: .7em; }
+
+  #bottom { height: auto; }
+  #bottom:not(.minimized) { height: clamp(260px, 44vh, 400px); }
+  #bar { padding: .3em .4em; }
+  .msg { flex-basis: 100%; order: -1; }
+  #panels { flex-direction: row; }
+  #bottom[data-drawer="hand"] #buycol { display: none; }
+  #bottom[data-drawer="buy"] #handcol { display: none; }
   #handcol { flex: 1 1 0; min-width: 0; }
-  #buycol { flex: 0 0 40%; width: 40%; min-width: 0; margin-left: .3em; }
+  #buycol { flex: 0 0 46%; width: 46%; min-width: 0; margin-left: .3em; }
   #buyside { padding: .3em; }
   .tcard { width: 4.6em; min-height: 6.6em; }
   .tcard .tc-art { font-size: 1.6em; }
-  #rollStage { top: 12%; }
   .roll-die { width: 2em; height: 2em; font-size: 1.2em; }
-  #sideStack { max-width: 42%; }
+  .roll-die.d20-die { width: 2.6em; height: 2.6em; }
+  #todo { width: 42%; font-size: 11px; max-height: 30%; opacity: .92; }
+  .side-chip { font-size: .7em; }
+  .fx.event { font-size: .85em; }
+  .event-headline { font-size: 1.3em; }
+}
+
+/* =========================================================
+   PHONE LANDSCAPE
+   The board takes the left side; Hand and Buy stack on the right.
+   ========================================================= */
+@media (orientation: landscape) and (max-height: 540px) {
+  #board { display: grid; grid-template-columns: minmax(0, 1fr) minmax(230px, 40%); grid-template-rows: auto minmax(0, 1fr); }
+  #top { grid-column: 1 / 3; grid-row: 1; padding: .3em .5em; }
+  #svgwrap { grid-column: 1; grid-row: 2; min-width: 0; }
+  #bottom { grid-column: 2; grid-row: 2; height: auto; min-height: 0; border-top: 0; border-left: 1px solid #2c2c3e; }
+  #bottom.minimized #panels { display: flex; }
+  #panels { flex-direction: column; min-height: 0; }
+  #handcol, #buycol { flex: 1 1 0; width: auto; margin: 0; border-left: 0; min-height: 0; }
+  #buycol { border-top: 1px solid #2c2c3e; }
+  #bottom[data-drawer] #handcol, #bottom[data-drawer] #buycol { display: flex; }
+  #hand, #buyside { min-height: 0; }
+  .sec-head { display: none; }
+  #bar { flex-wrap: nowrap; overflow-x: auto; }
+  .msg { flex: 1 1 4em; min-width: 3em; }
+  .top-end { display: inline-block; }
+  .desk-only { display: none !important; }
+  .phone-only, .bar-end { display: none !important; }
+  .tcard { width: 4.4em; min-height: 6.4em; }
+  .tcard .tc-art { font-size: 1.5em; }
+  #todo { left: .5em; right: auto; top: auto; bottom: .5em; width: min(30%, 220px); max-height: 40%; font-size: 11px; }
+  .roll-die { width: 2em; height: 2em; font-size: 1.1em; }
+  .roll-die.d20-die { width: 2.5em; height: 2.5em; }
+  .fx.event { font-size: .8em; }
+  .event-headline { font-size: 1.25em; }
+  .side-chip { font-size: .7em; }
 }
