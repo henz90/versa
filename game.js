@@ -18,7 +18,7 @@
    1. CONFIGURATION
    ============================================================= */
 
-const APP_VERSION = '1.1.0';
+const APP_VERSION = '1.2.0';
 const EXPECTED_SCHEMA_VERSION = '3';
 
 const SUPABASE_URL = 'https://jbdfcqqobtatxmmhmipa.supabase.co';
@@ -78,10 +78,10 @@ const ROUND = { placementEnds: 5, attacksFrom: 4, declineFrom: 7 };
 const RULES = { maxHeroes: 3, maxObjects: 3, maxSkill: 5, maxBarrier: 12, actionCost: 5, heroCost: 30 };
 
 // banner timing
-const IMPORTANT_BANNER_MS = 5200;   // how long a large banner stays
-const IMPORTANT_GAP_MS = 2600;      // wait before the next queued event
-const MINOR_GAP_MS = 900;           // minor events move through the queue faster
-const MINOR_CHIP_MS = 2400;         // how long a side chip stays
+const IMPORTANT_BANNER_MS = 5200;
+const IMPORTANT_GAP_MS = 2600;
+const MINOR_GAP_MS = 900;
+const MINOR_CHIP_MS = 2400;
 const ROLL_MS = 2400;
 const FLASH_LIMIT = 8;
 const PROJECTILE_MS = 600;
@@ -121,7 +121,6 @@ const LOADOUT_NAME_PATTERN = /^[A-Za-z0-9 ]{0,12}$/;
 const TUTORIAL_KEY = 'versa-tutorial-done';
 const SETTINGS_KEY = 'versa-settings';
 
-// settings the player can change; saved in this browser only
 const DEFAULT_SETTINGS = { volume: 70, muted: false, palette: 'standard', reduceMotion: false, largeText: false };
 let settings = { ...DEFAULT_SETTINGS, ...JSON.parse(localStorage.getItem(SETTINGS_KEY) || '{}') };
 
@@ -151,6 +150,24 @@ function colourLog(text) {
   });
 }
 
+// a d20 drawn as a flattened icosahedron: a hexagonal outline with the front facets, squashed vertically
+function d20Svg(value) {
+  const rim = [[50, 4], [92, 28], [92, 72], [50, 96], [8, 72], [8, 28]];
+  const rimPoints = rim.map(p => p.join(',')).join(' ');
+  const spokes = rim.map(([x, y]) => `<line x1="50" y1="50" x2="${x}" y2="${y}"/>`).join('');
+  return `<svg class="d20" viewBox="0 0 100 100" aria-hidden="true" style="width:100%;height:100%;display:block;overflow:visible">
+    <g transform="translate(50 50) scale(1 .8) translate(-50 -50)" fill="#f4f4f4" stroke="#111" stroke-width="3" stroke-linejoin="round">
+      <polygon points="${rimPoints}"/>
+      <g fill="none" stroke="#111" stroke-width="2">${spokes}<polygon points="50,22 72,62 28,62"/></g>
+    </g>
+    <text x="50" y="52" text-anchor="middle" dominant-baseline="central" font-size="${value >= 10 ? 30 : 36}" font-weight="900" fill="#111">${value}</text>
+  </svg>`;
+}
+
+// a d20 face for a banner, tumbling in like the other dice
+const d20BannerFace = (value, delay) =>
+  `<span class="die-d20" style="display:inline-block;width:2.1em;height:2.1em;vertical-align:middle;margin:0 .15em;animation:roll .7s cubic-bezier(.2,.8,.3,1) both;animation-delay:${delay}s">${d20Svg(value)}</span>`;
+
 /* =============================================================
    3. HEX GEOMETRY
    ============================================================= */
@@ -173,14 +190,6 @@ function hexPoints(cube, radius = HEX_RADIUS - 4) {
 
 /* =============================================================
    4. CLIENT STATE
-   G             shared game state, written only by the server
-   PRIV          this player's hand, pool, and the types of tiles they placed
-   presenceSeen  seconds since each player's last heartbeat, as the server measured them
-   savedNames    this player's hero and object names, kept across games
-   loadoutDraft  names being typed in the lobby, kept while the modal redraws
-   flashKeys     units named in the current banners, highlighted until the queue empties
-   bannerQueue   events waiting to be shown, in order
-   overlayState  which overlay is open (tutorial, help or settings) and its step
    ============================================================= */
 
 let G = null;
@@ -250,6 +259,7 @@ const unitRef = unit => (G.heroes.includes(unit) ? { kind: 'h', i: G.heroes.inde
 const unitFromRef = ref => (ref.kind === 'h' ? G.heroes[ref.i] : G.objs[ref.i]);
 const carryable = hero => objectsAt(hero.c);
 const maxRangeWith = (hero, objects) => hero.s.rng + Math.max(0, ...objects.map(o => o.s.rng || 0));
+// a hero's reach: its own Range plus the highest Range of any object on its tile
 const reach = hero => maxRangeWith(hero, carryable(hero));
 
 const isControllingNow = () => !!G && !G.over && G.cur !== myIndex()
@@ -331,6 +341,41 @@ function frameFor(source) {
   return palette[source] || palette.general;
 }
 
+/* ---------- joining a roll to the result it produced ---------- */
+
+// a develop bonus roll: "+2 bonus", the result that follows it is "+2 Strength", "Object DEF 2", "▲ Barrier L3"
+const isBonusRoll = event => !!event && event.source === 'develop' && /^\+\d+ bonus$/.test(event.headline || '');
+const isBonusResult = event => !!event && event.source === 'develop'
+  && !isBonusRoll(event) && !['Natural 20!', 'Failed'].includes(event.headline);
+
+// one banner for a roll and what it did, instead of two banners back to back
+function mergeRollEvents(list) {
+  const out = [];
+  for (let i = 0; i < list.length; i++) {
+    const first = list[i], next = list[i + 1];
+    if (isBonusRoll(first) && isBonusResult(next)) {
+      const bonus = first.headline.match(/\+(\d+)/)[1];
+      const total = (first.detail || '').match(/total (\d+)/);
+      const heroPart = (first.detail || '').split(' · ').slice(1).join(' · ');
+      const detail = [total ? `total ${total[1]}` : null, `+${bonus} bonus`, heroPart].filter(Boolean).join(' · ');
+      out.push({
+        ...next,
+        source: 'develop',
+        dice: first.dice,
+        detail,
+        tone: next.tone || first.tone,
+        affected: next.affected && next.affected.length ? next.affected : first.affected,
+        actor: first.actor,
+        target: first.target,
+      });
+      i++;
+    } else {
+      out.push(first);
+    }
+  }
+  return out;
+}
+
 // a large banner: source, headline, detail, who acted and who was affected, then the rolls
 function eventCardHtml(event) {
   const source = SOURCE_STYLE[event.source] || SOURCE_STYLE.general;
@@ -362,17 +407,24 @@ function unitsLine(event) {
   return names.length ? `<div class="event-who">Affected: ${names.map(name => escapeHtml(name)).join(', ')}</div>` : '';
 }
 
+// d20 rolls use the icosahedron; the 2d6 barrier and movement rolls keep square dice
+function isD20Event(event, rawHeadline) {
+  return !(event.source === 'move' || rawHeadline === 'Through' || rawHeadline === 'Blocked');
+}
+
 function diceBlock(event, rawHeadline) {
   const dice = event.dice || [];
   if (!dice.length) return '';
+  const d20 = isD20Event(event, rawHeadline);
+  const face = (value, delay) => (d20 ? d20BannerFace(value, delay) : dieHtml(value, delay));
   const isAttack = event.source === 'combat' && (rawHeadline === 'Hit' || rawHeadline === 'Miss') && dice.length === 2;
   if (isAttack) {
     return `<div class="event-roll-pair">
-      <div><small>Attacker</small>${dieHtml(dice[0], 0)}</div>
-      <div><small>Defender</small>${dieHtml(dice[1], 0.15)}</div>
+      <div><small>Attacker</small>${face(dice[0], 0)}</div>
+      <div><small>Defender</small>${face(dice[1], 0.15)}</div>
     </div>`;
   }
-  return `<div class="event-dice">${dice.map((value, i) => dieHtml(value, i * 0.15)).join(' ')}</div>`;
+  return `<div class="event-dice">${dice.map((value, i) => face(value, i * 0.15)).join(' ')}</div>`;
 }
 
 // highlights units named in the current banners; cleared when the queue empties
@@ -391,9 +443,9 @@ function clearFlash() {
 
 /* ---------- banner queue ---------- */
 
-// adds the action's events to the queue; when full, the oldest minor event is dropped first
 function enqueueEvents(events) {
-  events.filter(event => event && (event.headline || event.t)).forEach(event => bannerQueue.push(event));
+  const usable = events.filter(event => event && (event.headline || event.t));
+  mergeRollEvents(usable).forEach(event => bannerQueue.push(event));
   while (bannerQueue.length > BANNER_QUEUE_MAX) {
     const minorIndex = bannerQueue.findIndex(event => !isImportantEvent(event));
     bannerQueue.splice(minorIndex >= 0 ? minorIndex : 0, 1);
@@ -401,7 +453,6 @@ function enqueueEvents(events) {
   pumpBanners();
 }
 
-// shows one queued event at a time; each waits for its own length before the next starts
 function pumpBanners() {
   if (bannerBusy) return;
   const next = bannerQueue.shift();
@@ -411,7 +462,6 @@ function pumpBanners() {
   setTimeout(() => { bannerBusy = false; pumpBanners(); }, wait);
 }
 
-// shows one event; returns how long the queue should wait before the next
 function presentEvent(event) {
   const important = isImportantEvent(event);
   const source = SOURCE_STYLE[event.source] ? event.source : 'general';
@@ -435,7 +485,6 @@ function presentEvent(event) {
   return IMPORTANT_GAP_MS;
 }
 
-// a small chip at the left for events that matter less to me
 function showSideChip(event, source) {
   const stack = el('sideStack');
   const chip = document.createElement('div');
@@ -449,13 +498,11 @@ function showSideChip(event, source) {
   setTimeout(() => chip.remove(), MINOR_CHIP_MS);
 }
 
-// screen readers hear each banner once
 function announce(event) {
   const live = el('live');
   if (live) live.textContent = [event.headline || event.t, event.detail].filter(Boolean).join('. ');
 }
 
-// a card for the player who just rejoined or missed updates; the log has the full history
 function showRecap(events, title) {
   const card = document.createElement('div');
   card.className = 'side-card';
@@ -490,7 +537,6 @@ function applyRemoteState(state) {
     if (tile.own === me && !tile.disc && priv.secretSkills[key]) tile.sk = priv.secretSkills[key];
   });
 
-  // first load, or a gap in the update sequence: show the last action as a recap, not as banners
   const gap = hadGame && state.seq > lastSeenSeq + 1;
   if ((!hadGame || gap) && G.events && G.events.length) {
     showRecap(G.events, hadGame ? 'Missed updates' : 'Last action');
@@ -642,7 +688,6 @@ async function copyRoomCode() {
   toast(`Room code ${ROOM} copied`);
 }
 
-// leaving a game in progress is a concession: the server removes the player's pieces
 async function leaveRoom() {
   if (G && !G.over && ROOM) {
     const ok = confirm('Concede this game? Your heroes and objects will be removed, and you cannot rejoin.');
@@ -672,8 +717,6 @@ function toast(message) {
   el('fx').appendChild(node);
   setTimeout(() => node.remove(), 2600);
 }
-
-/* Names are saved per player and copied into each game when the host starts it. */
 
 async function loadSavedNames() {
   const { data, error } = await db.from('player_names').select('hero_names, object_names').eq('uid', ME).maybeSingle();
@@ -857,7 +900,7 @@ function openAttackChoice(attackerIdx, defenderIdx) {
   const mindOk = canMindControl(attacker, defender) && (!lock || lock === 'mind');
   if (!attackOk && !mindOk) {
     if (lock) return setMessage(`This hero already used ${lock === 'mind' ? 'Mind Control' : 'Combat'} this turn`);
-    if (!inRange) return setMessage('Out of range');
+    if (!inRange) return setMessage(`Out of range: this hero's reach is ${reach(attacker)} (its Range plus the best object Range on its tile)`);
     if (G.rd < ROUND.attacksFrom) return setMessage('Attacks and Mind Control unlock in round 4');
     return setMessage('No attack or Mind Control available to this hero on that target');
   }
@@ -867,6 +910,14 @@ function openAttackChoice(attackerIdx, defenderIdx) {
       { v: 'atk', ic: '⚔️', t: 'Combat', dis: !attackOk },
       { v: 'mind', ic: '🧠', t: 'Mind Control', dis: !mindOk },
     ],
+  });
+}
+
+// several enemy heroes on one tile: the player picks which one the attack is aimed at
+function openTargetPick(attackerIdx, cube, enemyIdxs) {
+  openWheel({
+    cube, kind: 'targetPick', heroIndex: attackerIdx,
+    items: enemyIdxs.map(i => ({ v: 't' + i, ic: '🧍', t: `${G.pl[G.heroes[i].p].name} ${heroName(G.heroes[i])}` })),
   });
 }
 
@@ -1144,8 +1195,12 @@ function handleDrop(heroIdx, point) {
     else setMessage('Nuke attack needs range and an attack action left');
     return;
   }
-  const enemyIdx = G.heroes.findIndex(h => h.alive && h.p !== myIndex() && sameTile(h.c, cube));
-  if (enemyIdx >= 0) return openAttackChoice(heroIdx, enemyIdx);
+  const enemies = G.heroes
+    .map((h, i) => ({ h, i }))
+    .filter(({ h }) => h.alive && h.p !== myIndex() && sameTile(h.c, cube))
+    .map(({ i }) => i);
+  if (enemies.length === 1) return openAttackChoice(heroIdx, enemies[0]);
+  if (enemies.length > 1) return openTargetPick(heroIdx, cube, enemies);
   moveTo(heroIdx, cube);
 }
 
@@ -1389,6 +1444,7 @@ function pickWheelItem(value) {
     },
     buildDir: () => openWheel({ cube: wheel.cube, kind: 'roll', dir: value, unit: null, items: rollItems() }),
     carry: () => (value === 'go' ? confirmCarry() : toggleCarry(value)),
+    targetPick: () => openAttackChoice(wheel.heroIndex, +value.slice(1)),
     attackChoice: () => {
       if (value === 'atk') submitAction({ type: 'attack', hero: wheel.heroIndex, target: wheel.targetIndex });
       else submitAction({ type: 'mind_control', hero: wheel.heroIndex, target: wheel.targetIndex });
@@ -1482,8 +1538,11 @@ function rollTotalsHtml(event) {
 }
 
 function rollCardHtml(event) {
-  const twoD6 = event.dice.length === 2 && (event.source === 'move' || event.headline === 'Through' || event.headline === 'Blocked');
-  const faces = event.dice.map(v => `<div class="roll-die${twoD6 ? ' d6' : ''}" aria-hidden="true">${v}</div>`).join('');
+  const rawHeadline = event.headline || '';
+  const twoD6 = event.dice.length === 2 && !isD20Event(event, rawHeadline);
+  const faces = event.dice.map(v => (twoD6
+    ? `<div class="roll-die d6" aria-hidden="true">${v}</div>`
+    : `<div class="roll-die d20-die" style="background:none;width:3.2em;height:3.2em;padding:0" aria-hidden="true">${d20Svg(v)}</div>`)).join('');
   const showFaces = event.dice.length <= 2;
   const spoken = `${rollLabel(event)}: ${event.dice.join(' and ')}`;
   return `<div class="roll-card" role="img" aria-label="${escapeHtml(spoken)}">
@@ -1534,7 +1593,6 @@ function animateProjectile(event) {
 
 /* ---------- sound ---------- */
 
-// sound is synthesised with the Web Audio API, so no audio files are needed
 let audioCtx = null;
 let masterGain = null;
 
@@ -1551,7 +1609,6 @@ function audioContext() {
   return audioCtx;
 }
 
-// the slider uses a squared curve so small changes near the bottom are audible
 function applySettings() {
   PLAYER_COLORS = (PALETTES[settings.palette] || PALETTES.standard).players;
   document.body.classList.toggle('palette-cb', settings.palette === 'cb');
@@ -1569,7 +1626,6 @@ function saveSettings() {
   applySettings();
 }
 
-// a short tone that slides to slideTo when given
 function tone(freq, dur = 0.15, opts = {}) {
   const ctx = audioContext();
   if (!ctx || settings.muted || !masterGain) return;
@@ -1587,7 +1643,6 @@ function tone(freq, dur = 0.15, opts = {}) {
   osc.stop(t + dur + 0.02);
 }
 
-// a burst of noise, for impacts and scrapes
 function noise(dur = 0.2, vol = 0.2, delay = 0) {
   const ctx = audioContext();
   if (!ctx || settings.muted || !masterGain) return;
@@ -1662,13 +1717,14 @@ function heroTooltip(hero) {
   return {
     kind: 'hero', color: PLAYER_COLORS[hero.p],
     html: `<div class="th">🧍 ${escapeHtml(heroLabel(hero))}</div>${statGrid(hero.s)}${damageBar(hero.dmg, hero.s.def)}
-      <div class="tsub">Damage ${hero.dmg} of ${hero.s.def}</div>${actions}${control}`,
+      <div class="tsub">Damage ${hero.dmg} of ${hero.s.def}</div>${actions}
+      <div class="tsub">Reach ${reach(hero)}${carryable(hero).length ? ' (includes object Range on this tile)' : ''}</div>${control}`,
   };
 }
 
 function objectTooltip(obj) {
   const ownerNote = isMine(obj) ? '' : ' · owned by another player; taking it makes it yours';
-  const rangeNote = obj.s.rng > 0 ? `Adds ${obj.s.rng} range: the hero must take it along to move that far` : '';
+  const rangeNote = obj.s.rng > 0 ? `Range ${obj.s.rng}: a hero on this tile gains this Range for attacks and Mind Control` : '';
   const title = obj.nm || `${G.pl[obj.p].name}'s object`;
   return {
     kind: 'object', color: PLAYER_COLORS[obj.p],
@@ -1815,7 +1871,6 @@ function nukeSvg(nuke) {
     + ring + `</g>`;
 }
 
-// the Apocalypse watermark is drawn at higher opacity so it reads on bright screens
 function apocalypseSymbol() {
   return `<text x="0" y="0" font-size="${APOCALYPSE_SYMBOL_SIZE}" fill="#ff6b6b" opacity=".4">☢</text>`;
 }
@@ -2029,12 +2084,9 @@ function drawTodo() {
 }
 
 /* =============================================================
-   25. LOG AND MODAL (log, name, lobby, game over)
-   The log is grouped by round. Each round is collapsible; the
-   newest round is open. Within a round, newest lines come first.
+   25. LOG AND MODAL
    ============================================================= */
 
-// splits the server's newest-first log into rounds, oldest round first
 function logRounds() {
   const oldestFirst = [...(G.log || [])].reverse();
   const rounds = [{ title: 'Start of game', lines: [] }];
@@ -2198,14 +2250,12 @@ function runAction(action) {
 
 /* =============================================================
    28. OVERLAYS: TUTORIAL, HELP AND SETTINGS
-   One overlay at a time. Its content only changes when the
-   player acts on it, so sliders keep their position.
    ============================================================= */
 
 const TUTORIAL_STEPS = [
   { title: 'Welcome to VERSA', body: 'A turn-based battle royale for two to six players. Your heroes move across a hex map, fight, and build. The last player with living heroes wins.' },
   { title: 'Your turn', body: 'Each turn you get 5 Versa (V). In the early rounds you place a hex tile next to your own. Each hero can move, attack, and develop. Press End Turn when you are finished.' },
-  { title: 'Moving heroes', body: 'Drag a hero onto an empty tile to move it. Objects on its tile can come along. Drag a hero onto an enemy hero to choose Combat or Mind Control, once attacks unlock in round 4.' },
+  { title: 'Moving heroes', body: 'Drag a hero onto an empty tile to move it. Objects on its tile can come along. Drag a hero onto an enemy hero to choose Combat or Mind Control, once attacks unlock in round 4. If several enemies share a tile, you pick which one.' },
   { title: 'Rolls', body: 'Every roll appears at the top of the board with its dice and total. An attack shows the attacker and defender side by side. A barrier check uses two dice (2d6) and must beat the barrier level first.' },
   { title: 'Buying', body: 'The Buy panel costs 5 V for barriers, objects, and skill points. A hero costs 30 V. Barriers can be raised or lowered by anyone, but the first builder keeps ownership.' },
   { title: 'Traversal cards', body: 'Drag a card into the Buy panel to sell it: 5 V for the gold card, 2 V for the others. Drag a skill card onto one of your heroes or objects to use it. Drag the gold 5 V card onto the open board to play it.' },
@@ -2223,6 +2273,10 @@ const REFERENCE_SECTIONS = [
     'Each hero has two actions per turn. A hero may move once and use one Combat or Mind Control per turn. A failed attempt can be retried.',
     'Develop rolls d20 plus Intelligence. You need 10 or more. The bonus is 1 to 3 points. A natural 20 lets the hero act again.',
     'Heroes heal fully at the start of their owner\'s turn. Objects heal the same way.',
+  ] },
+  { title: 'Reach and Range', items: [
+    'A hero\'s reach is its own Range plus the highest Range of any object on its tile.',
+    'Objects on the hero\'s tile add their Range to attacks and Mind Control, as well as to moves when carried.',
   ] },
   { title: 'Combat', items: [
     'A barrier on the target tile must be beaten first with two dice (2d6).',
@@ -2367,7 +2421,6 @@ function wireEvents() {
     if (G) cancelMode();
   });
   window.addEventListener('resize', () => { if (G || ROOM || username) render(); });
-  // browsers only allow sound after a user gesture, so the audio context is created on the first press
   window.addEventListener('pointerdown', () => audioContext(), { once: true });
 
   el('helpOverlay').addEventListener('click', handleOverlayClick);
@@ -2399,8 +2452,6 @@ function wireEvents() {
 
 /* =============================================================
    30. STARTUP
-   Every second: refresh the countdown. Every five seconds: send a
-   heartbeat and check for penalties. Both stop once the game is over.
    ============================================================= */
 
 async function checkDatabaseVersion() {
