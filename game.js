@@ -12,6 +12,7 @@
     22 board drawing    23 panels        24 to-do
     25 modal            26 render        27 buttons      28 wiring
     29 startup
+   The sound and animation helpers sit in section 21.
    ============================================================= */
 
 /* =============================================================
@@ -55,11 +56,11 @@ const zoomMax = () => (isPhone() ? 4000 : 1800);
 const ROUND = { placementEnds: 5, attacksFrom: 4, declineFrom: 7 };
 const RULES = { maxHeroes: 3, maxObjects: 3, maxSkill: 5, maxBarrier: 12, actionCost: 5, heroCost: 30 };
 
-// banner timing: each event card stays for EVENT_CARD_MS and the next one starts EVENT_GAP_MS later
+// timing: banners stay EVENT_CARD_MS and start EVENT_GAP_MS apart; each roll shows ROLL_MS
 const EVENT_CARD_MS = 5200;
 const EVENT_GAP_MS = 2600;
-// how long units named in an event stay highlighted on the board
-const FLASH_MS = 4200;
+const ROLL_MS = 2400;
+const PROJECTILE_MS = 600;
 
 // frame colour and icon for each event source; keys must match add_event's list in sql/20_helpers.sql
 const SOURCE_STYLE = {
@@ -87,6 +88,11 @@ const DEFENDER_HEADLINES = {
   Defeated: 'Your hero fell',
   'Object lost': 'Your object fell',
 };
+
+// events that send a projectile from the first hero to the second
+const PROJECTILE_HEADLINES = ['Hit', 'Miss', 'Controlled', 'Renewed', 'Resisted', 'Released'];
+// projectile events that end in an impact ring
+const IMPACT_HEADLINES = ['Hit', 'Controlled', 'Renewed'];
 
 const MUST_CHOOSE = ['moveBonus'];
 const DISCOVERY_CHOICE = 'DISCOVERY_CHOICE';
@@ -148,7 +154,7 @@ function hexPoints(cube, radius = HEX_RADIUS - 4) {
    presenceSeen  seconds since each player's last heartbeat, as the server measured them
    savedNames    this player's hero and object names, kept across games
    loadoutDraft  names being typed in the lobby, kept while the modal redraws
-   flashKeys     units named in the latest event, e.g. 'h2' or 'o0', highlighted briefly
+   flashKeys     units named in the current action, e.g. 'h2' or 'o0'; cleared when the action ends
    ui            local interaction state: open menus, the active mode, messages
    ============================================================= */
 
@@ -176,7 +182,7 @@ let lastAnimatedSeq = null;
 let savedNames = null;
 let loadoutDraft = null;
 let flashKeys = new Set();
-let flashTimer = null;
+let sequenceTimer = null;
 const seenTodo = new Set();
 
 const touches = new Map();
@@ -320,7 +326,7 @@ function unitsLine(event) {
   return names.length ? `<div class="event-who">Affected: ${names.map(name => escapeHtml(name)).join(', ')}</div>` : '';
 }
 
-// an attack shows both rolls labelled by side; other events show their dice in a row
+// dice in the banner, for when the roll display has already gone
 function diceBlock(event, rawHeadline) {
   const dice = event.dice || [];
   if (!dice.length) return '';
@@ -334,26 +340,42 @@ function diceBlock(event, rawHeadline) {
   return `<div class="event-dice">${dice.map((value, i) => dieHtml(value, i * 0.15)).join(' ')}</div>`;
 }
 
-// highlights the named heroes and objects on the board for a few seconds
+// highlights the named heroes and objects while the current action's banners are shown
 function flashUnits(units) {
   flashKeys = new Set(units.map(u => (u.kind === 'hero' ? 'h' : 'o') + u.i));
-  clearTimeout(flashTimer);
-  flashTimer = setTimeout(() => { flashKeys = new Set(); drawBoard(); }, FLASH_MS);
   drawBoard();
 }
 
-// shows each event of the latest action one after another, slowly enough to read
+// removes the gold pulses; called when an action ends and when a new one starts
+function clearFlash() {
+  if (flashKeys.size === 0) return;
+  flashKeys = new Set();
+  drawBoard();
+}
+
+// shows each event of the latest action in turn, slowly enough to read
 function playEvents(events) {
-  events
-    .filter(event => event && (event.headline || event.t))
-    .forEach((event, index) => {
-      const tone = ['good', 'bad', 'info', 'gold'].includes(event.tone) ? event.tone : 'info';
-      const source = SOURCE_STYLE[event.source] ? event.source : 'general';
-      setTimeout(() => {
-        if (event.affected && event.affected.length) flashUnits(event.affected);
-        showFloat(eventCardHtml(event), `event slow tone-${tone} src-${source}`, EVENT_CARD_MS);
-      }, index * EVENT_GAP_MS);
-    });
+  const list = events.filter(event => event && (event.headline || event.t));
+  list.forEach((event, index) => {
+    setTimeout(() => presentEvent(event), index * EVENT_GAP_MS);
+  });
+  clearTimeout(sequenceTimer);
+  sequenceTimer = setTimeout(clearFlash, list.length * EVENT_GAP_MS);
+}
+
+// one event: the banner, the roll display, the sound, and any attack animation
+function presentEvent(event) {
+  const tone = ['good', 'bad', 'info', 'gold'].includes(event.tone) ? event.tone : 'info';
+  const source = SOURCE_STYLE[event.source] ? event.source : 'general';
+  if (event.affected && event.affected.length) flashUnits(event.affected);
+  const hasDice = (event.dice || []).length > 0;
+  if (hasDice) {
+    SOUNDS.roll();
+    showRollStage(event);
+  }
+  setTimeout(() => playOutcomeSound(event), hasDice ? 450 : 0);
+  if (isProjectileEvent(event)) animateProjectile(event);
+  showFloat(eventCardHtml(event), `event slow tone-${tone} src-${source}`, EVENT_CARD_MS);
 }
 
 function applyRemoteState(state) {
@@ -396,6 +418,8 @@ function onRoomUpdate(row) {
 // sends one action to the server; the server applies the rules and publishes the result
 async function submitAction(action) {
   setMessage('');
+  clearFlash();
+  SOUNDS.tick();
   console.debug('submit_action payload', JSON.stringify(action));
   const { data, error } = await db.rpc('submit_action', { p_room: ROOM, p_action: action });
   const message = error ? error.message : '';
@@ -540,6 +564,7 @@ async function leaveRoom() {
   gameOverDismissed = false;
   logOpen = false;
   loadoutDraft = null;
+  clearFlash();
   localStorage.removeItem('versa-room');
   render();
 }
@@ -875,7 +900,7 @@ function tileUnderPoint(point) {
   return hit ? hit.c : null;
 }
 
-// the board and the drag layer share one viewBox, so a point means the same place on both
+// the board and the overlay layers share one viewBox, so a point means the same place on each
 function setViewBox(svg) {
   const rect = svg.getBoundingClientRect();
   const aspect = rect.width ? rect.height / rect.width : 0.6;
@@ -1322,7 +1347,7 @@ function pickWheelItem(value) {
 }
 
 /* =============================================================
-   21. FLOATING FEEDBACK AND TOOLTIPS
+   21. FEEDBACK: BANNERS, ROLLS, ANIMATION AND SOUND
    ============================================================= */
 
 function showFloat(html, extraClass = '', durationMs = 3000) {
@@ -1339,8 +1364,188 @@ function playApocalypseAnimation() {
   void svg.offsetWidth;
   svg.classList.add('apoc-flash');
   setTimeout(() => svg.classList.remove('apoc-flash'), 1700);
+  SOUNDS.fanfare();
   showFloat('<span>☢ APOCALYPSE</span> barriers and objects are destroyed', 'nat');
 }
+
+/* ---------- roll display ---------- */
+
+// the kind of roll, for its label
+function rollLabel(event) {
+  const headline = event.headline || '';
+  if (headline === 'Through' || headline === 'Blocked') return '2d6 barrier check';
+  if (event.source === 'combat' && event.dice.length === 2) return 'Attack · d20 vs d20';
+  if (event.source === 'mind' && event.dice.length === 2) return 'Mind Control · d20 vs d20';
+  if (event.source === 'move') return '2d6 movement';
+  if (event.source === 'develop') return 'Develop · d20';
+  return 'Roll · d20';
+}
+
+// the totals: the attacker and defender totals from the banner text, or the dice sum for 2d6
+function rollTotalsHtml(event) {
+  const dice = event.dice;
+  const detail = event.detail || '';
+  const versus = detail.match(/(\d+)\s*vs\s*(\d+)/);
+  const isPairRoll = dice.length === 2 && (event.source === 'combat' || event.source === 'mind') && versus;
+  if (isPairRoll) {
+    return `<div class="roll-pair">
+      <div><small>Attacker</small>${versus[1]}</div>
+      <div><small>Defender</small>${versus[2]}</div>
+    </div>`;
+  }
+  if (dice.length === 2) {
+    const sum = dice[0] + dice[1];
+    return `Total ${sum}`;
+  }
+  const total = detail.match(/total (\d+)/) || detail.match(/got (\d+)/);
+  return total ? `Total ${total[1]}` : `${dice[0]}`;
+}
+
+function rollCardHtml(event) {
+  const twoD6 = event.dice.length === 2 && (event.source === 'move' || event.headline === 'Through' || event.headline === 'Blocked');
+  const faces = event.dice.map(v => `<div class="roll-die${twoD6 ? ' d6' : ''}">${v}</div>`).join('');
+  const isSingleOrPair = event.dice.length <= 2;
+  return `<div class="roll-card">
+    <div class="roll-label">${rollLabel(event)}</div>
+    <div class="roll-dice">${isSingleOrPair ? faces : ''}</div>
+    <div class="roll-total">${rollTotalsHtml(event)}</div>
+  </div>`;
+}
+
+function showRollStage(event) {
+  const stage = el('rollStage');
+  const wrapper = document.createElement('div');
+  wrapper.innerHTML = rollCardHtml(event);
+  const card = wrapper.firstElementChild;
+  stage.appendChild(card);
+  setTimeout(() => card.remove(), ROLL_MS);
+}
+
+/* ---------- attack animation ---------- */
+
+// an event that names two heroes and is one of the attack or Mind Control results
+function isProjectileEvent(event) {
+  const heroes = (event.affected || []).filter(u => u.kind === 'hero');
+  return PROJECTILE_HEADLINES.includes(event.headline) && heroes.length >= 2
+    && (event.source === 'combat' || event.source === 'mind');
+}
+
+// a projectile flies from the attacking hero to the target; hits and captures end with an impact ring
+function animateProjectile(event) {
+  const heroes = event.affected.filter(u => u.kind === 'hero');
+  const attacker = G.heroes[heroes[0].i];
+  const target = G.heroes[heroes[1].i];
+  if (!attacker || !target) return;
+  const [x1, y1] = heroPosition(attacker);
+  const [x2, y2] = heroPosition(target);
+  const colour = event.source === 'mind' ? '#c77dff' : '#ffe066';
+  const impact = IMPACT_HEADLINES.includes(event.headline);
+  const layer = el('animLayer');
+  setViewBox(layer);
+  const beginImpact = `${PROJECTILE_MS / 1000}s`;
+  layer.innerHTML = `<circle r="5" fill="${colour}">
+      <animateMotion dur="${PROJECTILE_MS / 1000}s" fill="freeze" path="M${x1},${y1} L${x2},${y2}"/>
+    </circle>`
+    + (impact ? `<circle cx="${x2}" cy="${y2}" r="4" fill="none" stroke="${colour}" stroke-width="3">
+      <animate attributeName="r" from="4" to="30" dur="0.5s" begin="${beginImpact}" fill="freeze"/>
+      <animate attributeName="opacity" from="1" to="0" dur="0.5s" begin="${beginImpact}" fill="freeze"/>
+    </circle>` : '');
+  setTimeout(() => { if (el('animLayer')) el('animLayer').innerHTML = ''; }, PROJECTILE_MS + 800);
+}
+
+/* ---------- sound ---------- */
+
+// sound is synthesised with the Web Audio API, so no audio files are needed
+let audioCtx = null;
+let soundMuted = localStorage.getItem('versa-muted') === '1';
+
+function audioContext() {
+  if (!audioCtx) {
+    const Ctor = window.AudioContext || window.webkitAudioContext;
+    if (!Ctor) return null;
+    audioCtx = new Ctor();
+  }
+  if (audioCtx.state === 'suspended') audioCtx.resume();
+  return audioCtx;
+}
+
+// a short tone that slides to slideTo when given
+function tone(freq, dur = 0.15, opts = {}) {
+  const ctx = audioContext();
+  if (!ctx || soundMuted) return;
+  const { type = 'sine', vol = 0.15, slideTo = null, delay = 0 } = opts;
+  const t = ctx.currentTime + delay;
+  const osc = ctx.createOscillator();
+  const gain = ctx.createGain();
+  osc.type = type;
+  osc.frequency.setValueAtTime(freq, t);
+  if (slideTo) osc.frequency.exponentialRampToValueAtTime(slideTo, t + dur);
+  gain.gain.setValueAtTime(vol, t);
+  gain.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+  osc.connect(gain).connect(ctx.destination);
+  osc.start(t);
+  osc.stop(t + dur + 0.02);
+}
+
+// a burst of noise, for impacts and scrapes
+function noise(dur = 0.2, vol = 0.2, delay = 0) {
+  const ctx = audioContext();
+  if (!ctx || soundMuted) return;
+  const t = ctx.currentTime + delay;
+  const buffer = ctx.createBuffer(1, Math.floor(ctx.sampleRate * dur), ctx.sampleRate);
+  const data = buffer.getChannelData(0);
+  for (let i = 0; i < data.length; i++) data[i] = Math.random() * 2 - 1;
+  const src = ctx.createBufferSource();
+  const gain = ctx.createGain();
+  src.buffer = buffer;
+  gain.gain.setValueAtTime(vol, t);
+  gain.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+  src.connect(gain).connect(ctx.destination);
+  src.start(t);
+}
+
+const SOUNDS = {
+  roll: () => tone(880, 0.05, { type: 'square', vol: 0.04 }),
+  tick: () => tone(700, 0.05, { type: 'square', vol: 0.03 }),
+  hit: () => { tone(160, 0.25, { vol: 0.35, slideTo: 50 }); noise(0.15, 0.25); },
+  miss: () => tone(520, 0.35, { type: 'triangle', vol: 0.12, slideTo: 180 }),
+  clank: () => { tone(1200, 0.08, { type: 'square', vol: 0.08 }); tone(300, 0.2, { vol: 0.2, slideTo: 120, delay: 0.02 }); },
+  mind: () => [520, 660, 780, 1040].forEach((f, i) => tone(f, 0.14, { type: 'triangle', vol: 0.14, delay: i * 0.07 })),
+  chime: () => [660, 990].forEach((f, i) => tone(f, 0.25, { vol: 0.12, delay: i * 0.1 })),
+  coin: () => [1320, 1760].forEach((f, i) => tone(f, 0.12, { type: 'square', vol: 0.06, delay: i * 0.06 })),
+  down: () => tone(400, 0.6, { type: 'sawtooth', vol: 0.12, slideTo: 90 }),
+  fanfare: () => [523, 659, 784, 1046].forEach((f, i) => tone(f, 0.22, { type: 'triangle', vol: 0.16, delay: i * 0.12 })),
+  turn: () => [440, 554].forEach((f, i) => tone(f, 0.18, { vol: 0.1, delay: i * 0.12 })),
+};
+
+// the sound that goes with an event's result, chosen by source and headline
+function outcomeSoundName(event) {
+  const headline = event.headline || '';
+  if (headline === 'Natural 20!' || event.source === 'nuke') return 'fanfare';
+  if (event.source === 'turn') return 'turn';
+  if (['Defeated', 'Conceded', 'Disconnected'].includes(headline) || event.source === 'concede' || event.source === 'disconnect') return 'down';
+  if (headline === 'Hit' || headline === 'Object lost') return 'hit';
+  if (headline === 'Miss' || headline === 'Failed') return 'miss';
+  if (headline === 'Through' || headline === 'Blocked') return 'clank';
+  if (event.source === 'mind') return ['Resisted', 'Released', 'Freed'].includes(headline) ? 'miss' : 'mind';
+  if (event.source === 'barrier') return 'clank';
+  if (event.source === 'card' || headline.includes('Versa')) return 'coin';
+  if (event.source === 'develop' || event.source === 'object' || event.source === 'hero') return 'chime';
+  return 'tick';
+}
+
+function playOutcomeSound(event) {
+  SOUNDS[outcomeSoundName(event)]();
+}
+
+function toggleSound() {
+  soundMuted = !soundMuted;
+  localStorage.setItem('versa-muted', soundMuted ? '1' : '0');
+  if (!soundMuted) SOUNDS.tick();
+  render();
+}
+
+/* ---------- tooltips ---------- */
 
 const statGrid = stats => `<div class="tstats">${[
   ['✊', 'STR', stats.str], ['🛡️', 'DEF', stats.def], ['🏹', 'RNG', stats.rng], ['🧠', 'INT', stats.int],
@@ -1621,6 +1826,7 @@ function drawBottomBar() {
   el('bottom').classList.toggle('minimized', botMinimized);
   el('bar').innerHTML = `
     <span class="msg">${textWithV(ui.message)}</span>
+    <button class="sbtn" data-action="toggle-sound" title="Sound on or off">${soundMuted ? '🔇' : '🔊'}</button>
     <button class="sbtn" data-action="open-log">📜 Log</button>
     <button class="sbtn" data-action="minimize">${botMinimized ? '▴ Expand' : '▾ Minimize'}</button>`;
   const handSize = myIndex() >= 0 ? G.pl[myIndex()].hand.length : 0;
@@ -1858,6 +2064,7 @@ function runAction(action) {
     case 'cancel': return cancelMode();
     case 'review-board': gameOverDismissed = true; return render();
     case 'minimize': botMinimized = !botMinimized; return render();
+    case 'toggle-sound': return toggleSound();
     case 'open-log': logOpen = true; return render();
     case 'close-log': logOpen = false; return render();
     case 'show-hand':
@@ -1892,6 +2099,9 @@ function wireEvents() {
     cancelMode();
   });
   window.addEventListener('resize', () => { if (G || ROOM || username) render(); });
+
+  // browsers only allow sound after a user gesture, so the audio context is created on the first press
+  window.addEventListener('pointerdown', () => audioContext(), { once: true });
 
   el('wheel').addEventListener('click', event => {
     const button = event.target.closest('[data-w]');
