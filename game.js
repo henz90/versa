@@ -18,7 +18,7 @@
    1. CONFIGURATION
    ============================================================= */
 
-const APP_VERSION = '1.2.1';
+const APP_VERSION = '1.2.2';
 const EXPECTED_SCHEMA_VERSION = '3';
 
 const SUPABASE_URL = 'https://jbdfcqqobtatxmmhmipa.supabase.co';
@@ -30,6 +30,12 @@ const PALETTES = {
   cb: { players: ['#0072B2', '#E69F00', '#009E73', '#F0E442', '#CC79A7', '#D55E00'] },
 };
 let PLAYER_COLORS = PALETTES.standard.players;
+
+// die colours: grey while rolling, then green for success or red for failure
+const OUTCOME_COLOURS = {
+  standard: { pending: '#9a9a9a', win: '#34c759', lose: '#e5484d' },
+  cb: { pending: '#9a9a9a', win: '#009E73', lose: '#D55E00' },
+};
 
 const SOURCE_FRAME = {
   standard: {
@@ -80,7 +86,8 @@ const IMPORTANT_GAP_MS = 2600;
 const MINOR_GAP_MS = 900;
 const MINOR_CHIP_MS = 2400;
 const ROLL_MS = 2400;
-const FLASH_LIMIT = 8;
+const ROLL_TUMBLE_MS = 700;
+const FLASH_SAFETY_MS = 12000;
 const PROJECTILE_MS = 600;
 const BANNER_QUEUE_MAX = 8;
 
@@ -109,6 +116,10 @@ const DEFENDER_HEADLINES = {
   'Object lost': 'Your object fell',
 };
 
+// headlines whose roll succeeded or failed; the die colour follows
+const WIN_HEADLINES = ['Hit', 'Through', 'Controlled', 'Renewed'];
+const LOSE_HEADLINES = ['Miss', 'Blocked', 'Failed', 'Resisted', 'Freed', 'Released'];
+
 const PROJECTILE_HEADLINES = ['Hit', 'Miss', 'Controlled', 'Renewed', 'Resisted', 'Released'];
 const IMPACT_HEADLINES = ['Hit', 'Controlled', 'Renewed'];
 
@@ -122,7 +133,7 @@ const DEFAULT_SETTINGS = { volume: 70, muted: false, palette: 'standard', reduce
 let settings = { ...DEFAULT_SETTINGS, ...JSON.parse(localStorage.getItem(SETTINGS_KEY) || '{}') };
 
 /* =============================================================
-   2. UTILITIES
+   2. UTILITIES AND DICE DRAWING
    ============================================================= */
 
 const el = id => document.getElementById(id);
@@ -146,17 +157,25 @@ function colourLog(text) {
   });
 }
 
-// a d20 shown as a regular hexagon: six equal sides, the number in the centre
-function d20Svg(value) {
-  const points = [[96, 50], [73, 90], [27, 90], [4, 50], [27, 10], [73, 10]].map(p => p.join(',')).join(' ');
+// the die colour for a state: pending (grey), win (green) or lose (red)
+function outcomeFill(outcome) {
+  const palette = OUTCOME_COLOURS[settings.palette] || OUTCOME_COLOURS.standard;
+  return palette[outcome] || palette.pending;
+}
+
+const inkFor = outcome => (outcome === 'lose' ? '#ffffff' : '#111111');
+
+// a d20 shown as a regular hexagon with a point at the top and bottom; the number stays upright
+function d20Svg(value, outcome = 'pending') {
+  const points = '50,4 89.8,27 89.8,73 50,96 10.2,73 10.2,27';
   return `<svg class="d20" viewBox="0 0 100 100" aria-hidden="true" style="width:100%;height:100%;display:block;overflow:visible">
-    <polygon points="${points}" fill="#f4f4f4" stroke="#111" stroke-width="3" stroke-linejoin="round"/>
-    <text x="50" y="52" text-anchor="middle" dominant-baseline="central" font-size="${value >= 10 ? 30 : 36}" font-weight="900" fill="#111">${value}</text>
+    <polygon points="${points}" fill="${outcomeFill(outcome)}" stroke="#111" stroke-width="3" stroke-linejoin="round"/>
+    <text x="50" y="52" text-anchor="middle" dominant-baseline="central" font-size="${value >= 10 ? 30 : 36}" font-weight="900" fill="${inkFor(outcome)}">${value}</text>
   </svg>`;
 }
 
-const d20BannerFace = (value, delay) =>
-  `<span class="die-d20" style="display:inline-block;width:2.1em;height:2.1em;vertical-align:middle;margin:0 .15em;animation:roll .7s cubic-bezier(.2,.8,.3,1) both;animation-delay:${delay}s">${d20Svg(value)}</span>`;
+const d20BannerFace = (value, delay, outcome) =>
+  `<span class="die-d20" style="display:inline-block;width:2.1em;height:2.1em;vertical-align:middle;margin:0 .15em;animation:roll .7s cubic-bezier(.2,.8,.3,1) both;animation-delay:${delay}s">${d20Svg(value, outcome)}</span>`;
 
 /* =============================================================
    3. HEX GEOMETRY
@@ -208,6 +227,7 @@ let dbVersion = 'unknown';
 let savedNames = null;
 let loadoutDraft = null;
 let flashKeys = new Set();
+let flashTimer = null;
 let bannerQueue = [];
 let bannerBusy = false;
 let overlayState = { kind: null, step: 0, returnFocus: null };
@@ -329,6 +349,14 @@ function frameFor(source) {
   return palette[source] || palette.general;
 }
 
+// win or lose for the roll shown: Versa (movement) rolls are always a win
+function outcomeOf(event) {
+  if (event.source === 'move' || event.source === 'card') return 'win';
+  if (LOSE_HEADLINES.includes(event.headline)) return 'lose';
+  if (WIN_HEADLINES.includes(event.headline)) return 'win';
+  return 'win';
+}
+
 const isBonusRoll = event => !!event && event.source === 'develop' && /^\+\d+ bonus$/.test(event.headline || '');
 const isBonusResult = event => !!event && event.source === 'develop'
   && !isBonusRoll(event) && !['Natural 20!', 'Failed'].includes(event.headline);
@@ -397,8 +425,11 @@ function isD20Event(event, rawHeadline) {
 function diceBlock(event, rawHeadline) {
   const dice = event.dice || [];
   if (!dice.length) return '';
+  const outcome = outcomeOf(event);
   const d20 = isD20Event(event, rawHeadline);
-  const face = (value, delay) => (d20 ? d20BannerFace(value, delay) : dieHtml(value, delay));
+  const face = (value, delay) => (d20
+    ? d20BannerFace(value, delay, outcome)
+    : `<span class="die" style="--d:${delay}s;background:${outcomeFill(outcome)};color:${inkFor(outcome)}">${value}</span>`);
   const isAttack = event.source === 'combat' && (rawHeadline === 'Hit' || rawHeadline === 'Miss') && dice.length === 2;
   if (isAttack) {
     return `<div class="event-roll-pair">
@@ -409,17 +440,28 @@ function diceBlock(event, rawHeadline) {
   return `<div class="event-dice">${dice.map((value, i) => face(value, i * 0.15)).join(' ')}</div>`;
 }
 
+// highlights units named in the current banners; cleared when the queue empties or after a safety timeout
 function flashUnits(units) {
   const next = new Set(flashKeys);
   units.forEach(u => next.add((u.kind === 'hero' ? 'h' : 'o') + u.i));
   flashKeys = next;
+  clearTimeout(flashTimer);
+  flashTimer = setTimeout(clearFlash, FLASH_SAFETY_MS);
   drawBoard();
 }
 
 function clearFlash() {
+  clearTimeout(flashTimer);
   if (flashKeys.size === 0) return;
   flashKeys = new Set();
   drawBoard();
+}
+
+// a pulse is only kept for a unit that is still alive on the board
+function isLiveFlashKey(key) {
+  const index = Number(key.slice(1));
+  if (key[0] === 'h') return !!G.heroes[index] && G.heroes[index].alive;
+  return !!G.objs[index] && G.objs[index].alive && !G.objs[index].nuke;
 }
 
 /* ---------- banner queue ---------- */
@@ -1469,7 +1511,6 @@ function pickWheelItem(value) {
    Banners live in a column on the left so the board stays visible.
    ============================================================= */
 
-// places the banner column, roll cards and minor chips beside the board, not over it
 function placeFeedback() {
   const width = isPhone() ? '46%' : 'clamp(220px, 24vw, 320px)';
   const fx = el('fx');
@@ -1486,7 +1527,6 @@ function placeFeedback() {
   Object.assign(chips.style, {
     left: '.5em', top: 'auto', bottom: 'calc(var(--bottom-h) + .5em)', maxWidth: width,
   });
-  // the cancel button moves right of the column so it is not covered
   const cancel = el('cx');
   Object.assign(cancel.style, { left: `calc(${width} + 1.5em)`, top: 'calc(var(--top-h) + .5em)' });
 }
@@ -1542,19 +1582,32 @@ function rollTotalsHtml(event) {
   return total ? `Total ${total[1]}` : `${dice[0]}`;
 }
 
+// a roll card starts grey, then is painted green or red once the tumble finishes
 function rollCardHtml(event) {
   const rawHeadline = event.headline || '';
   const twoD6 = event.dice.length === 2 && !isD20Event(event, rawHeadline);
+  const pending = outcomeFill('pending');
   const faces = event.dice.map(v => (twoD6
-    ? `<div class="roll-die d6" aria-hidden="true">${v}</div>`
-    : `<div class="roll-die d20-die" style="background:none;width:3.2em;height:3.2em;padding:0" aria-hidden="true">${d20Svg(v)}</div>`)).join('');
+    ? `<div class="roll-die d6" style="background:${pending}" aria-hidden="true">${v}</div>`
+    : `<div class="roll-die d20-die" style="background:none;width:3.2em;height:3.2em;padding:0" aria-hidden="true">${d20Svg(v, 'pending')}</div>`)).join('');
   const showFaces = event.dice.length <= 2;
   const spoken = `${rollLabel(event)}: ${event.dice.join(' and ')}`;
-  return `<div class="roll-card" role="img" aria-label="${escapeHtml(spoken)}">
+  return `<div class="roll-card pending" role="img" aria-label="${escapeHtml(spoken)}">
     <div class="roll-label">${rollLabel(event)}</div>
     <div class="roll-dice">${showFaces ? faces : ''}</div>
     <div class="roll-total">${rollTotalsHtml(event)}</div>
   </div>`;
+}
+
+// paints the dice of a roll card green (win) or red (lose)
+function paintRoll(card, outcome) {
+  const fill = outcomeFill(outcome);
+  const ink = inkFor(outcome);
+  card.classList.remove('pending');
+  card.classList.add(outcome);
+  card.querySelectorAll('.d20-die polygon').forEach(poly => poly.setAttribute('fill', fill));
+  card.querySelectorAll('.d20-die text').forEach(text => text.setAttribute('fill', ink));
+  card.querySelectorAll('.roll-die.d6').forEach(die => { die.style.background = fill; die.style.color = ink; });
 }
 
 function showRollStage(event) {
@@ -1563,6 +1616,8 @@ function showRollStage(event) {
   wrapper.innerHTML = rollCardHtml(event);
   const card = wrapper.firstElementChild;
   stage.appendChild(card);
+  const outcome = outcomeOf(event);
+  setTimeout(() => { if (card.isConnected) paintRoll(card, outcome); }, ROLL_TUMBLE_MS);
   setTimeout(() => card.remove(), ROLL_MS);
 }
 
@@ -1835,7 +1890,7 @@ function heroSvg(hero, index) {
   const march = actable && hero.acts > 0 && !ui.mode && !drag ? `<circle class="ring-march" cx="${x}" cy="${y}" r="8"/>` : '';
   const attackRing = isEnemyInDragReach(hero) ? `<circle class="ring-atk" cx="${x}" cy="${y}" r="10"/>` : '';
   const skillRing = isDevelopSkillTarget(hero) ? `<circle class="ring-selh" cx="${x}" cy="${y}" r="10"/>` : '';
-  const flash = flashKeys.has('h' + index) ? `<circle class="ring-flash" cx="${x}" cy="${y}" r="12"/>` : '';
+  const flash = flashKeys.has('h' + index) && hero.alive ? `<circle class="ring-flash" cx="${x}" cy="${y}" r="12"/>` : '';
   const selected = ui.selectedIndex === index;
   const dots = actable
     ? `<text x="${x}" y="${y - 9}" font-size="6" fill="#ffe8a3" stroke="#000" stroke-width="1" paint-order="stroke">${'●'.repeat(hero.acts)}${'✕'.repeat(Math.max(0, 2 - hero.acts))}</text>`
@@ -1854,7 +1909,7 @@ function objectSvg(obj, index) {
   const x = hexX(obj.c) + (position - (row.length - 1) / 2) * 15;
   const y = hexY(obj.c) - 20;
   const ring = isDevelopSkillTarget(obj) ? `<rect class="ring-o" x="${x - 10}" y="${y - 10}" width="20" height="20" rx="4"/>` : '';
-  const flash = flashKeys.has('o' + index) ? `<rect class="ring-flash" x="${x - 10}" y="${y - 10}" width="20" height="20" rx="4"/>` : '';
+  const flash = flashKeys.has('o' + index) && obj.alive ? `<rect class="ring-flash" x="${x - 10}" y="${y - 10}" width="20" height="20" rx="4"/>` : '';
   const muted = ui.mode === 'develop' && ui.devType === 'skill' && !isDevelopSkillTarget(obj) ? 'mute' : '';
   tooltips['o' + index] = objectTooltip(obj);
   return `<g class="${muted}" data-obj="${index}" data-k="${cubeKey(obj.c)}" data-tip="o${index}">`
@@ -1885,6 +1940,8 @@ function drawBoard() {
   tooltips = {};
   svg.style.background = G && G.apoc ? APOCALYPSE_RED : '';
   if (!G) { svg.innerHTML = ''; return; }
+  // a gold pulse never outlives the unit it marks
+  flashKeys = new Set([...flashKeys].filter(isLiveFlashKey));
   setViewBox(svg);
   const mine = myIndex();
   let out = '';
@@ -2263,7 +2320,7 @@ const TUTORIAL_STEPS = [
   { title: 'Welcome to VERSA', body: 'A turn-based battle royale for two to six players. Your heroes move across a hex map, fight, and build. The last player with living heroes wins.' },
   { title: 'Your turn', body: 'Each turn you get 5 Versa (V). In the early rounds you place a hex tile next to your own. Each hero can move, attack, and develop. Press End Turn when you are finished.' },
   { title: 'Moving heroes', body: 'Drag a hero onto an empty tile to move it. Objects on its tile can come along. Drag a hero onto an enemy hero to choose Combat or Mind Control, once attacks unlock in round 4. If several enemies share a tile, you pick which one.' },
-  { title: 'Rolls', body: 'Every roll appears beside the board with its dice and total. An attack shows the attacker and defender side by side. A barrier check uses two dice (2d6) and must meet the barrier level before any d20 is rolled.' },
+  { title: 'Rolls', body: 'Every roll appears beside the board. Dice start grey and turn green on success or red on failure. A barrier check uses two dice (2d6) and must meet the barrier level before any d20 is rolled.' },
   { title: 'Buying', body: 'The Buy panel costs 5 V for barriers, objects, and skill points. A hero costs 30 V. Barriers can be raised or lowered by anyone, but the first builder keeps ownership.' },
   { title: 'Traversal cards', body: 'Drag a card into the Buy panel to sell it: 5 V for the gold card, 2 V for the others. Drag a skill card onto one of your heroes or objects to use it. Drag the gold 5 V card onto the open board to play it.' },
   { title: 'Banners and the log', body: 'Banners explain what happened, on the left of the screen, so the board stays visible. Ones that involve you are large; the rest shrink to chips at the bottom left. The 📜 Log button keeps the full history, grouped by round.' },
