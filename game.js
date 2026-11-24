@@ -8,7 +8,7 @@
     10 turn controls    11 placement           12 movement
     13 combat           14 develop and buying  15 UI helpers
     16 zoom and pan     17 board pointer       18 hand and selling
-    19 board clicks     20 wheel menus         21 feedback and layout
+    19 board clicks     20 wheel menus         21 layout, banners and sound
     22 board drawing    23 panels              24 to-do
     25 log and modal    26 render              27 buttons
     28 overlays         29 wiring              30 startup
@@ -18,7 +18,7 @@
    1. CONFIGURATION
    ============================================================= */
 
-const APP_VERSION = '1.3.0';
+const APP_VERSION = '1.3.1';
 const EXPECTED_SCHEMA_VERSION = '3';
 
 const SUPABASE_URL = 'https://jbdfcqqobtatxmmhmipa.supabase.co';
@@ -31,7 +31,6 @@ const PALETTES = {
 };
 let PLAYER_COLORS = PALETTES.standard.players;
 
-// die colours: grey while rolling, then green for success or red for failure
 const OUTCOME_COLOURS = {
   standard: { pending: '#9a9a9a', win: '#34c759', lose: '#e5484d' },
   cb: { pending: '#9a9a9a', win: '#009E73', lose: '#D55E00' },
@@ -75,9 +74,8 @@ const NUKE_OFFSET = 21;
 const NUKE_RADIUS = 7;
 const APOCALYPSE_SYMBOL_SIZE = Math.round(11 * Math.sqrt(3) * HEX_RADIUS);
 
-const isPhone = () => window.matchMedia('(max-width: 700px)').matches;
-const zoomMin = () => (isPhone() ? 120 : 380);
-const zoomMax = () => (isPhone() ? 4000 : 1800);
+const zoomMin = () => (window.matchMedia('(max-width: 700px)').matches ? 120 : 380);
+const zoomMax = () => (window.matchMedia('(max-width: 700px)').matches ? 4000 : 1800);
 
 const ROUND = { placementEnds: 5, attacksFrom: 4, declineFrom: 7 };
 const RULES = { maxHeroes: 3, maxObjects: 3, maxSkill: 5, maxBarrier: 12, actionCost: 5, heroCost: 30 };
@@ -94,32 +92,34 @@ const PROJECTILE_MS = 600;
 const BANNER_QUEUE_MAX = 8;
 const PINCH_HINT_MS = 8000;
 
+// banner symbols: the text on a banner is these symbols and numbers only
+const SYM = {
+  attack: '⚔', mind: '🧠', barrier: '🛑', develop: '🛠', object: '🔮', hero: '👤',
+  versa: '💰', move: '🏃', turn: '➜', round: '🎲', nat20: '🎯', nuke: '☢', concede: '🏳',
+  disconnect: '⏱', defended: '🛡', win: '✅', lose: '❌', up: '⬆', down: '⬇', kill: '☠', boom: '💥',
+};
+
+// the symbol for each source, used for the banner header and side chips
 const SOURCE_STYLE = {
-  combat: { icon: '⚔️', label: 'Combat' },
-  mind: { icon: '🧠', label: 'Mind Control' },
-  barrier: { icon: '🛑', label: 'Barrier' },
-  object: { icon: '🔮', label: 'Object' },
-  hero: { icon: '🧍', label: 'Hero' },
-  develop: { icon: '🛠', label: 'Develop' },
-  card: { icon: '💰', label: 'Traversal card' },
-  nuke: { icon: '☢', label: 'Nuke' },
-  turn: { icon: '➜', label: 'Turn' },
-  concede: { icon: '🏳', label: 'Concede' },
-  disconnect: { icon: '⏱', label: 'Disconnect' },
-  move: { icon: '🏃', label: 'Move' },
+  combat: { icon: SYM.attack, label: 'Attack' },
+  mind: { icon: SYM.mind, label: 'Mind Control' },
+  barrier: { icon: SYM.barrier, label: 'Barrier' },
+  object: { icon: SYM.object, label: 'Object' },
+  hero: { icon: SYM.hero, label: 'Hero' },
+  develop: { icon: SYM.develop, label: 'Develop' },
+  card: { icon: SYM.versa, label: 'Versa' },
+  nuke: { icon: SYM.nuke, label: 'Nuke' },
+  turn: { icon: SYM.turn, label: 'Turn' },
+  concede: { icon: SYM.concede, label: 'Concede' },
+  disconnect: { icon: SYM.disconnect, label: 'Disconnect' },
+  move: { icon: SYM.move, label: 'Move' },
   general: { icon: '•', label: '' },
 };
 
-const DEFENDER_HEADLINES = {
-  Hit: 'You were hit',
-  Miss: 'You held',
-  Through: 'Barrier failed',
-  Blocked: 'Barrier held',
-  Defeated: 'Your hero fell',
-  'Object lost': 'Your object fell',
-};
+// the defender's banner is marked with the shield, and its headline is the attack result seen from the defender's side
+const DEFENDER_MARK = SYM.defended;
 
-const WIN_HEADLINES = ['Hit', 'Through', 'Controlled', 'Renewed'];
+const WIN_HEADLINES = ['Hit', 'Through', 'Controlled', 'Renewed', 'Blocked_no'];
 const LOSE_HEADLINES = ['Miss', 'Blocked', 'Failed', 'Resisted', 'Freed', 'Released'];
 
 const PROJECTILE_HEADLINES = ['Hit', 'Miss', 'Controlled', 'Renewed', 'Resisted', 'Released'];
@@ -143,7 +143,6 @@ const el = id => document.getElementById(id);
 const escapeHtml = text => String(text).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 const markV = html => html.replace(/(\d+) ?V\b/g, '$1<span class="vs">V</span>');
 const textWithV = text => markV(escapeHtml(text));
-const dieHtml = (value, delay) => `<span class="die" style="--d:${delay}s">${value}</span>`;
 const isValidName = name => /^[A-Za-z0-9]{2,16}$/.test(name);
 
 const LOG_RULE = /(\d+\s?V\b)|(\bL\d+\b)|(\bH\d\b)|(\bobjects?\b)|(\bbarriers?\b)|(\b(?:hit|hits|miss|blocked|dies|destroyed|lost|damage|killed)\b)|(\b\d+\b)/gi;
@@ -160,7 +159,6 @@ function colourLog(text) {
   });
 }
 
-// the die colour for a state: pending (grey), win (green) or lose (red)
 function outcomeFill(outcome) {
   const palette = OUTCOME_COLOURS[settings.palette] || OUTCOME_COLOURS.standard;
   return palette[outcome] || palette.pending;
@@ -168,7 +166,6 @@ function outcomeFill(outcome) {
 
 const inkFor = outcome => (outcome === 'lose' ? '#ffffff' : '#111111');
 
-// a d20 as a regular hexagon with points at top and bottom; a failed roll gets a dashed inner hexagon
 function d20Svg(value, outcome = 'pending') {
   const points = '50,4 89.8,27 89.8,73 50,96 10.2,73 10.2,27';
   const hatch = outcome === 'lose'
@@ -182,7 +179,7 @@ function d20Svg(value, outcome = 'pending') {
 }
 
 const d20BannerFace = (value, delay, outcome) =>
-  `<span class="die-d20" style="display:inline-block;width:2.1em;height:2.1em;vertical-align:middle;margin:0 .15em;animation:roll .7s cubic-bezier(.2,.8,.3,1) both;animation-delay:${delay}s">${d20Svg(value, outcome)}</span>`;
+  `<span class="die-d20" style="--d:${delay}s">${d20Svg(value, outcome)}</span>`;
 
 /* =============================================================
    3. HEX GEOMETRY AND SHAPES
@@ -204,7 +201,6 @@ function hexPoints(cube, radius = HEX_RADIUS - 4) {
   }).join(' ');
 }
 
-// n-sided regular polygon around (x, y); the first point sits at the top
 function polyPoints(x, y, r, n, startAngle = -Math.PI / 2) {
   const pts = [];
   for (let i = 0; i < n; i++) {
@@ -224,7 +220,6 @@ function starPoints(x, y, r) {
   return pts.join(' ');
 }
 
-// each player's heroes have their own token shape, so players are told apart without colour
 function tokenShape(player, x, y, r, fill, stroke, strokeWidth) {
   const attrs = `fill="${fill}" stroke="${stroke}" stroke-width="${strokeWidth}" stroke-linejoin="round"`;
   switch (player % 6) {
@@ -237,7 +232,6 @@ function tokenShape(player, x, y, r, fill, stroke, strokeWidth) {
   }
 }
 
-// patterns drawn over each tile type so the type reads without relying on colour
 const TERRAIN_DEFS = `<defs>
   <pattern id="pat-str" width="10" height="10" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
     <line x1="0" y1="0" x2="0" y2="10" stroke="#ffffff" stroke-opacity=".22" stroke-width="3"/></pattern>
@@ -409,7 +403,6 @@ function frameFor(source) {
   return palette[source] || palette.general;
 }
 
-// win or lose for the roll shown: Versa (movement) rolls are always a win
 function outcomeOf(event) {
   if (event.source === 'move' || event.source === 'card') return 'win';
   if (LOSE_HEADLINES.includes(event.headline)) return 'lose';
@@ -448,59 +441,123 @@ function mergeRollEvents(list) {
   return out;
 }
 
+/* ---------- symbol banners ----------
+   Each banner is a symbol header, a symbol line, and the dice.
+   Words are kept for screen readers only (see announce()). */
+
+// the number shown for a roll, taken from the banner detail when it carries one
+function shownTotal(event) {
+  const detail = event.detail || '';
+  const versus = detail.match(/(\d+)\s*vs\s*(\d+)/);
+  if (versus) return { a: Number(versus[1]), b: Number(versus[2]), kind: 'vs' };
+  const total = detail.match(/total (\d+)/) || detail.match(/got (\d+)/);
+  if (total) return { a: Number(total[1]), kind: 'single' };
+  return null;
+}
+
+// the symbol line for each event, built from the table approved for version 1.3.1
+function symbolLine(event, rawHeadline, youDefend) {
+  const won = outcomeOf(event) === 'win';
+  const mark = won ? SYM.win : SYM.lose;
+  const t = shownTotal(event);
+  const vs = t && t.kind === 'vs' ? `${t.a} vs ${t.b}` : '';
+  const single = t && t.kind === 'single' ? `${t.a}` : '';
+  const prefix = youDefend ? `${DEFENDER_MARK} ` : '';
+  switch (rawHeadline) {
+    case 'Hit': case 'Miss':
+      return `${prefix}${SYM.attack} ${mark} ${vs}`;
+    case 'Through':
+      return `${prefix}${SYM.barrier} ${SYM.win} ${t ? t.a : ''}${t && t.b ? '' : ''}`.trim();
+    case 'Blocked':
+      return `${prefix}${SYM.barrier} ${SYM.lose} ${t ? t.a : ''}`.trim();
+    case 'Controlled': case 'Renewed': case 'Resisted': case 'Freed': case 'Released':
+      return `${prefix}${SYM.mind} ${won ? SYM.win : SYM.lose} ${vs}`;
+    case 'Failed':
+      return `${prefix}${SYM.develop} ${SYM.lose} ${single}`;
+    case 'Natural 20!':
+      return `${SYM.nat20} 20`;
+    case 'Defeated':
+      return `${prefix}${SYM.kill}`;
+    case 'Object lost': case 'Object absorbs':
+      return `${prefix}${SYM.object} ${SYM.boom}`;
+    case 'Nuke':
+      return SYM.nuke;
+    case 'Concede': return SYM.concede;
+    case 'Disconnected': return SYM.disconnect;
+    default: break;
+  }
+  if (/^\+\d+ bonus$/.test(rawHeadline)) return `${prefix}${SYM.develop} ${SYM.win} ${rawHeadline.match(/\d+/)[0]}`;
+  if (/^▲ Barrier L(\d+)$/.test(rawHeadline)) return `${prefix}${SYM.barrier} ${SYM.up} L${rawHeadline.match(/\d+/)[0]}`;
+  if (/^▼ Barrier L(\d+)$/.test(rawHeadline)) return `${prefix}${SYM.barrier} ${SYM.down} L${rawHeadline.match(/\d+/)[0]}`;
+  if (rawHeadline === '▲ Barrier L3') return `${prefix}${SYM.barrier} ${SYM.up} L3`;
+  if (rawHeadline === '▼ Barrier removed') return `${prefix}${SYM.barrier} ${SYM.down} 0`;
+  if (/^Object DEF/.test(rawHeadline)) return `${prefix}${SYM.object} ${SYM.up} ${rawHeadline.match(/\d+/)[0]}`;
+  if (/^\+5 Versa$/.test(rawHeadline)) return `${SYM.versa} +5`;
+  if (/^\+\d+ (Strength|Defense|Range|Intelligence)$/.test(rawHeadline)) {
+    const skill = rawHeadline.split(' ')[1];
+    const key = Object.keys(SKILL_NAME).find(k => SKILL_NAME[k] === skill) || 'str';
+    return `${prefix}${SYM.develop} ${SKILL_ICON[key]} ${rawHeadline.match(/\d+/)[0]}`;
+  }
+  if (event.source === 'move') return `${SYM.move} ${mark} ${single}`;
+  if (event.source === 'turn') return `${SYM.turn} ${SYM.hero} R${G ? G.rd : ''}`;
+  return rawHeadline;
+}
+
+// the words, for screen readers and the log only
+function eventSpokenText(event) {
+  return [event.headline || event.t, event.detail].filter(Boolean).join('. ');
+}
+
 function eventCardHtml(event) {
   const source = SOURCE_STYLE[event.source] || SOURCE_STYLE.general;
   const rawHeadline = event.headline || event.t || 'Something happened';
   const youDefend = event.source === 'combat' && event.target === myIndex();
-  const headline = youDefend ? (DEFENDER_HEADLINES[rawHeadline] || rawHeadline) : rawHeadline;
-  const srcLine = source.label ? `<div class="event-source">${source.icon} ${source.label}</div>` : '';
-  const detail = event.detail ? `<div class="event-detail">${textWithV(event.detail)}</div>` : '';
-  return `<div class="event-card">${srcLine}
-    <div class="event-headline">${textWithV(headline)}</div>
-    ${detail}${playerWho(event)}${unitsLine(event)}${diceBlock(event, rawHeadline)}
+  const line = symbolLine(event, rawHeadline, youDefend);
+  const dice = diceBlock(event, rawHeadline);
+  const who = whoLine(event);
+  return `<div class="event-card" role="img" aria-label="${escapeHtml(eventSpokenText(event))}">
+    <div class="event-source" aria-hidden="true">${source.icon}${youDefend ? ` ${DEFENDER_MARK}` : ''}</div>
+    <div class="event-headline" aria-hidden="true">${markV(escapeHtml(line))}</div>
+    ${who}${dice}
   </div>`;
 }
 
-function playerWho(event) {
-  const parts = [];
-  if (event.actor != null && event.actor >= 0 && G.pl[event.actor]) parts.push(`by ${escapeHtml(G.pl[event.actor].name)}`);
-  if (event.target != null && event.target >= 0 && G.pl[event.target]) parts.push(`affects ${escapeHtml(G.pl[event.target].name)}`);
-  return parts.length ? `<div class="event-who">${parts.join(' · ')}</div>` : '';
+// who acted and who was hit, as colour dots and short names
+function whoLine(event) {
+  const dots = [];
+  const dot = i => (i != null && i >= 0 && G.pl[i]
+    ? `<span class="pdot" style="--c:${PLAYER_COLORS[i]}" title="${escapeHtml(G.pl[i].name)}"></span>`
+    : '');
+  if (event.actor != null && event.actor >= 0) dots.push(dot(event.actor));
+  if (event.target != null && event.target >= 0 && event.target !== event.actor) dots.push('→', dot(event.target));
+  (event.affected || []).forEach(u => {
+    if (u.kind === 'hero' && G.heroes[u.i]) {
+      const h = G.heroes[u.i];
+      dots.push(`<span class="hdot" style="--c:${PLAYER_COLORS[h.p]};--hc:${HERO_COLORS[(h.k - 1) % HERO_COLORS.length]}" title="${escapeHtml(heroLabel(h))}"></span>`);
+    }
+  });
+  return dots.length ? `<div class="event-who" aria-hidden="true">${dots.join(' ')}</div>` : '';
 }
 
-function unitsLine(event) {
-  if (!event.affected || !event.affected.length) return '';
-  const names = event.affected.map(u => {
-    if (u.kind === 'hero') return G.heroes[u.i] ? heroLabel(G.heroes[u.i]) : null;
-    const obj = G.objs[u.i];
-    return obj ? (obj.nm || `${G.pl[obj.p].name}'s object`) : null;
-  }).filter(Boolean);
-  return names.length ? `<div class="event-who">Affected: ${names.map(name => escapeHtml(name)).join(', ')}</div>` : '';
-}
-
-function isD20Event(event, rawHeadline) {
-  return !(event.source === 'move' || rawHeadline === 'Through' || rawHeadline === 'Blocked');
-}
-
+// the dice in a banner, painted as the outcome shows
 function diceBlock(event, rawHeadline) {
   const dice = event.dice || [];
   if (!dice.length) return '';
   const outcome = outcomeOf(event);
-  const d20 = isD20Event(event, rawHeadline);
+  const d20 = !(event.source === 'move' || rawHeadline === 'Through' || rawHeadline === 'Blocked');
   const face = (value, delay) => (d20
     ? d20BannerFace(value, delay, outcome)
     : `<span class="die${outcome === 'lose' ? ' hatch' : ''}" style="--d:${delay}s;background-color:${outcomeFill(outcome)};color:${inkFor(outcome)}">${value}</span>`);
   const isAttack = event.source === 'combat' && (rawHeadline === 'Hit' || rawHeadline === 'Miss') && dice.length === 2;
   if (isAttack) {
     return `<div class="event-roll-pair">
-      <div><small>Attacker</small>${face(dice[0], 0)}</div>
-      <div><small>Defender</small>${face(dice[1], 0.15)}</div>
+      <div><small aria-hidden="true">${SYM.attack}</small>${face(dice[0], 0)}</div>
+      <div><small aria-hidden="true">${DEFENDER_MARK}</small>${face(dice[1], 0.15)}</div>
     </div>`;
   }
   return `<div class="event-dice">${dice.map((value, i) => face(value, i * 0.15)).join(' ')}</div>`;
 }
 
-// highlights units named in the current banners; cleared when the queue empties or after a safety timeout
 function flashUnits(units) {
   const next = new Set(flashKeys);
   units.forEach(u => next.add((u.kind === 'hero' ? 'h' : 'o') + u.i));
@@ -517,7 +574,6 @@ function clearFlash() {
   drawBoard();
 }
 
-// a pulse is only kept for a unit that is still alive on the board
 function isLiveFlashKey(key) {
   const index = Number(key.slice(1));
   if (key[0] === 'h') return !!G.heroes[index] && G.heroes[index].alive;
@@ -568,14 +624,16 @@ function presentEvent(event) {
   return IMPORTANT_GAP_MS;
 }
 
+// side chips: one symbol and the short headline symbol, no words
 function showSideChip(event, source) {
   const stack = el('sideStack');
   const chip = document.createElement('div');
   chip.className = 'side-chip';
   chip.style.setProperty('--frame', frameFor(source));
-  const icon = (SOURCE_STYLE[source] || SOURCE_STYLE.general).icon;
-  const headline = event.headline || event.t || '';
-  chip.textContent = `${icon} ${headline}`;
+  const rawHeadline = event.headline || event.t || '';
+  const line = symbolLine(event, rawHeadline, event.target === myIndex());
+  chip.textContent = `${(SOURCE_STYLE[source] || SOURCE_STYLE.general).icon} ${line}`;
+  chip.setAttribute('aria-label', eventSpokenText(event));
   stack.appendChild(chip);
   while (stack.children.length > 4) stack.firstElementChild.remove();
   setTimeout(() => chip.remove(), MINOR_CHIP_MS);
@@ -583,7 +641,7 @@ function showSideChip(event, source) {
 
 function announce(event) {
   const live = el('live');
-  if (live) live.textContent = [event.headline || event.t, event.detail].filter(Boolean).join('. ');
+  if (live) live.textContent = eventSpokenText(event);
 }
 
 function showRecap(events, title) {
@@ -621,7 +679,6 @@ function applyRemoteState(state) {
     if (tile.own === me && !tile.disc && priv.secretSkills[key]) tile.sk = priv.secretSkills[key];
   });
 
-  // the Nuke shakes whenever its damage goes up
   const newNuke = G.objs.find(o => o.nuke);
   if (oldNuke && newNuke && newNuke.dmg > oldNuke.dmg) {
     nukeHitUntil = Date.now() + NUKE_SHAKE_MS;
@@ -808,8 +865,6 @@ function toast(message) {
   setTimeout(() => node.remove(), 2600);
 }
 
-/* Names are saved per player on the main screen, and copied into each game when the host starts it. */
-
 async function loadSavedNames() {
   const { data, error } = await db.from('player_names').select('hero_names, object_names').eq('uid', ME).maybeSingle();
   if (error) console.error('saved names failed to load:', error.message);
@@ -852,7 +907,6 @@ function unusedActionCount() {
   return G.heroes.filter(h => h.alive && actsForMe(h) && h.acts > 0).length;
 }
 
-// asks first when heroes still have actions, so a turn is not ended by accident
 function endTurnClick() {
   if (!isMyTurn()) return;
   if (!boardStepDone()) { setMessage('Finish your board step first'); return render(); }
@@ -1082,7 +1136,6 @@ function barrierBuyItems(cube) {
 
 const actingUnit = unit => ('k' in unit ? actsForMe(unit) : isMine(unit));
 
-// each Buy option, with the reason it is unavailable (empty when it can be bought)
 function buyOptions() {
   const mine = myIndex();
   const player = G.pl[mine >= 0 ? mine : G.cur];
@@ -1126,7 +1179,6 @@ function pickBuy(key) {
   render();
 }
 
-// the line under the Buy grid: what to do next, or how to find out why an option is greyed
 function buyStatusText() {
   if (ui.mode === 'barrier') return 'Tap a tile next to one of your heroes';
   if (ui.mode === 'obj' || ui.mode === 'hero') return 'Tap a tile with one of your heroes';
@@ -1601,21 +1653,15 @@ function pickWheelItem(value) {
 }
 
 /* =============================================================
-   21. LAYOUT, FEEDBACK, ANIMATION AND SOUND
-   Three layouts: desktop, phone portrait, phone landscape.
-   The same thresholds are used in the CSS media queries.
+   21. LAYOUT, BANNERS, ANIMATION AND SOUND
    ============================================================= */
 
-// which layout the screen is in, so JavaScript and CSS agree
 function layoutMode() {
   if (window.matchMedia('(orientation: landscape) and (max-height: 540px)').matches) return 'phone-landscape';
   if (window.matchMedia('(orientation: portrait) and (max-width: 700px)').matches) return 'phone-portrait';
   return 'desktop';
 }
 
-const isTouchLayout = () => ['phone-portrait', 'phone-landscape'].includes(layoutMode());
-
-// places banners, roll cards, chips and the cancel button for the current layout
 function placeFeedback() {
   const mode = layoutMode();
   const fx = el('fx'), rolls = el('rollStage'), chips = el('sideStack'), cancel = el('cx');
@@ -1624,7 +1670,6 @@ function placeFeedback() {
   });
 
   if (mode === 'phone-portrait') {
-    // a full-width strip under the top bar; rolls and chips sit above the bottom bar
     Object.assign(fx.style, { left: '.5em', right: '.5em', top: 'calc(var(--top-h) + .4em)', transform: 'none', alignItems: 'stretch' });
     Object.assign(rolls.style, { left: '3.6em', right: '.5em', bottom: 'calc(var(--bottom-h) + .5em)', top: 'auto', transform: 'none', justifyContent: 'center' });
     Object.assign(chips.style, { left: '.5em', right: '.5em', top: 'calc(var(--top-h) + 6em)', bottom: 'auto', maxWidth: 'none' });
@@ -1633,7 +1678,6 @@ function placeFeedback() {
   }
 
   if (mode === 'phone-landscape') {
-    // banners and rolls on the left of the board, chips bottom right, cancel beside the column
     Object.assign(fx.style, { left: '.5em', right: 'auto', top: 'calc(var(--top-h) + 6em)', width: '38%', maxWidth: '38%', transform: 'none', alignItems: 'stretch' });
     Object.assign(rolls.style, { left: '.5em', right: 'auto', top: 'calc(var(--top-h) + .5em)', width: '38%', maxWidth: '38%', transform: 'none', justifyContent: 'flex-start' });
     Object.assign(chips.style, { left: 'auto', right: '.5em', bottom: '.5em', top: 'auto', maxWidth: '38%' });
@@ -1664,7 +1708,7 @@ function playApocalypseAnimation() {
   svg.classList.add('apoc-flash');
   setTimeout(() => svg.classList.remove('apoc-flash'), 1700);
   SOUNDS.fanfare();
-  showFloat('<span>☢ APOCALYPSE</span> barriers and objects are destroyed', 'nat');
+  showFloat(`<span>☢</span> ${SYM.boom}`, 'nat', 2600);
 }
 
 function motionReduced() {
@@ -1675,48 +1719,42 @@ function motionReduced() {
 
 function rollLabel(event) {
   const headline = event.headline || '';
-  if (headline === 'Through' || headline === 'Blocked') return '2d6 barrier check';
-  if (event.source === 'combat' && event.dice.length === 2) return 'Attack · d20 vs d20';
-  if (event.source === 'mind' && event.dice.length === 2) return 'Mind Control · d20 vs d20';
-  if (event.source === 'move') return '2d6 movement';
-  if (event.source === 'develop') return 'Develop · d20';
-  return 'Roll · d20';
+  if (headline === 'Through' || headline === 'Blocked') return '2d6 · barrier';
+  if (event.source === 'combat' && event.dice.length === 2) return `${SYM.attack} d20 vs d20`;
+  if (event.source === 'mind' && event.dice.length === 2) return `${SYM.mind} d20 vs d20`;
+  if (event.source === 'move') return `${SYM.move} 2d6`;
+  if (event.source === 'develop') return `${SYM.develop} d20`;
+  return 'd20';
 }
 
 function rollTotalsHtml(event) {
   const dice = event.dice;
-  const detail = event.detail || '';
-  const versus = detail.match(/(\d+)\s*vs\s*(\d+)/);
-  const isPairRoll = dice.length === 2 && (event.source === 'combat' || event.source === 'mind') && versus;
-  if (isPairRoll) {
+  const t = shownTotal(event);
+  if (dice.length === 2 && t && t.kind === 'vs') {
     return `<div class="roll-pair">
-      <div><small>Attacker</small>${versus[1]}</div>
-      <div><small>Defender</small>${versus[2]}</div>
+      <div><small aria-hidden="true">${SYM.attack}</small>${t.a}</div>
+      <div><small aria-hidden="true">${DEFENDER_MARK}</small>${t.b}</div>
     </div>`;
   }
-  if (dice.length === 2) return `Total ${dice[0] + dice[1]}`;
-  const total = detail.match(/total (\d+)/) || detail.match(/got (\d+)/);
-  return total ? `Total ${total[1]}` : `${dice[0]}`;
+  if (dice.length === 2) return `${dice[0] + dice[1]}`;
+  return t ? `${t.a}` : `${dice[0]}`;
 }
 
-// a roll card starts grey, then is painted green or red once the tumble finishes
 function rollCardHtml(event) {
   const rawHeadline = event.headline || '';
-  const twoD6 = event.dice.length === 2 && !isD20Event(event, rawHeadline);
+  const twoD6 = event.dice.length === 2 && (event.source === 'move' || rawHeadline === 'Through' || rawHeadline === 'Blocked');
   const pending = outcomeFill('pending');
   const faces = event.dice.map(v => (twoD6
     ? `<div class="roll-die d6" data-v="${v}" style="background-color:${pending}" aria-hidden="true">${v}</div>`
     : `<div class="roll-die d20-die" data-v="${v}" aria-hidden="true">${d20Svg(v, 'pending')}</div>`)).join('');
-  const showFaces = event.dice.length <= 2;
   const spoken = `${rollLabel(event)}: ${event.dice.join(' and ')}`;
   return `<div class="roll-card pending" role="img" aria-label="${escapeHtml(spoken)}">
-    <div class="roll-label">${rollLabel(event)}</div>
-    <div class="roll-dice">${showFaces ? faces : ''}</div>
-    <div class="roll-total">${rollTotalsHtml(event)}</div>
+    <div class="roll-label" aria-hidden="true">${rollLabel(event)}</div>
+    <div class="roll-dice">${faces}</div>
+    <div class="roll-total" aria-hidden="true">${rollTotalsHtml(event)}</div>
   </div>`;
 }
 
-// paints a roll card green (win) or red (lose); failed dice also get a hatched pattern
 function paintRoll(card, outcome) {
   const fill = outcomeFill(outcome), ink = inkFor(outcome);
   card.classList.remove('pending');
@@ -1898,7 +1936,8 @@ function showPinchHint() {
 }
 
 function maybePinchHint() {
-  if (!G || !isTouchLayout() || localStorage.getItem(PINCH_KEY)) return;
+  const touch = layoutMode() === 'phone-portrait' || layoutMode() === 'phone-landscape';
+  if (!G || !touch || localStorage.getItem(PINCH_KEY)) return;
   showPinchHint();
 }
 
@@ -1966,7 +2005,6 @@ function tileTooltip(tile) {
 }
 
 function onBoardHover(event) {
-  // hovering a hero shows its action hints; the board redraws only when the hovered hero changes
   const heroNode = event.target.closest('[data-hero]');
   const idx = heroNode ? +heroNode.dataset.hero : null;
   if (idx !== hoverIdx) {
@@ -1989,7 +2027,6 @@ function onBoardHover(event) {
    22. BOARD DRAWING
    ============================================================= */
 
-// the tiles a selected (or hovered) hero can move to, and the enemies it can attack
 function hintSets() {
   const empty = { moves: new Set(), attacks: new Set() };
   if (!G || G.over || ui.mode || ui.wheel || (drag && drag.moved)) return empty;
@@ -2212,7 +2249,6 @@ function updateSellZone() {
   zone.firstChild.textContent = sellHint != null ? `Drop to Sell: +${sellHint}V` : '';
 }
 
-// the bottom bar: on phones it also holds the panel tabs and End Turn, within reach of the thumb
 function drawBottomBar() {
   const mode = layoutMode();
   const bottom = el('bottom');
@@ -2519,14 +2555,18 @@ const TUTORIAL_STEPS = [
   { title: 'Welcome to VERSA', body: 'A turn-based battle royale for two to six players. Your heroes move across a hex map, fight, and build. The last player with living heroes wins.' },
   { title: 'Your turn', body: 'Each turn you get 5 Versa (V). In the early rounds you place a hex tile next to your own. Each hero can move, attack, and develop. Press End Turn when you are finished.' },
   { title: 'Moving heroes', body: 'Select or hover a hero to see where it can go (dotted tiles) and who it can attack (dotted rings). Drag a hero onto an empty tile to move it. Drag it onto an enemy to choose Combat or Mind Control, once attacks unlock in round 4.' },
-  { title: 'Rolls', body: 'Every roll appears beside the board. Dice start grey and turn green on success or red on failure; failed dice are hatched. A barrier check uses two dice (2d6) and must meet the barrier level before any d20 is rolled.' },
+  { title: 'Banners', body: 'Banners use symbols. ⚔ is an attack, 🛑 a barrier, 🧠 Mind Control, 🛠 develop, 💰 Versa. ✅ means success and ❌ failure. A 🛡 at the front means the action was aimed at you.' },
+  { title: 'Rolls', body: 'Dice start grey and turn green on success or red on failure; failed dice are hatched. A barrier check uses two dice and must meet the barrier level before any d20 is rolled.' },
   { title: 'Buying', body: 'The Buy panel costs 5 V for barriers, objects, and skill points. A hero costs 30 V. Greyed options show why they are unavailable when tapped. Barriers can be raised or lowered by anyone, but the first builder keeps ownership.' },
   { title: 'Traversal cards', body: 'Drag a card into the Buy panel to sell it: 5 V for the gold card, 2 V for the others. Drag a skill card onto one of your heroes or objects to use it. Drag the gold 5 V card onto the open board to play it.' },
-  { title: 'Banners and the log', body: 'Banners explain what happened. On a phone they run along the top; on a larger screen they sit on the left, so the board stays visible. The 📜 Log button keeps the full history, grouped by round.' },
   { title: 'Phones', body: 'On a phone in portrait, tap 🃏 or 🛒 in the bottom bar to open the Hand or Buy panel, and End in the bottom bar to end your turn. Turn the phone sideways to see the board with both panels beside it.' },
 ];
 
 const REFERENCE_SECTIONS = [
+  { title: 'Banner symbols', items: [
+    '⚔ attack · 🧠 Mind Control · 🛑 barrier · 🛠 develop · 🔮 object · 🏃 move · 💰 Versa',
+    '✅ success · ❌ failure · 🛡 aimed at you · ☠ hero defeated · 🎯 natural 20 · ☢ Nuke · ➜ turn',
+  ] },
   { title: 'Phases', items: [
     'Rounds 1 to 3 are Peace: no attacks.',
     'Rounds 4 and 5 are War: attacks open, and placement ends after round 5.',
@@ -2702,7 +2742,6 @@ function wireEvents() {
     const button = event.target.closest('[data-w]');
     if (button && !button.disabled) pickWheelItem(button.dataset.w);
   });
-  // unavailable options explain themselves when tapped instead of doing nothing
   el('buyside').addEventListener('click', event => {
     const button = event.target.closest('[data-buy]');
     if (!button) return;
