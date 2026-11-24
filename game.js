@@ -18,21 +18,19 @@
    1. CONFIGURATION
    ============================================================= */
 
-const APP_VERSION = '1.2.0';
+const APP_VERSION = '1.2.1';
 const EXPECTED_SCHEMA_VERSION = '3';
 
 const SUPABASE_URL = 'https://jbdfcqqobtatxmmhmipa.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_74fKEI9ilefM-7pR8A8bnw_cIYLsfqu';
 const db = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-// player colours for each palette; the Okabe-Ito set stays distinguishable for colour-blind players
 const PALETTES = {
   standard: { players: ['#e4572e', '#29b6f6', '#66bb6a', '#ffca28', '#ab47bc', '#ff8a65'] },
   cb: { players: ['#0072B2', '#E69F00', '#009E73', '#F0E442', '#CC79A7', '#D55E00'] },
 };
 let PLAYER_COLORS = PALETTES.standard.players;
 
-// banner frame colour for each event source, per palette
 const SOURCE_FRAME = {
   standard: {
     combat: '#ff5252', mind: '#c77dff', barrier: '#9a9a9a', object: '#ffd54f', hero: '#7cf0ff',
@@ -77,7 +75,6 @@ const zoomMax = () => (isPhone() ? 4000 : 1800);
 const ROUND = { placementEnds: 5, attacksFrom: 4, declineFrom: 7 };
 const RULES = { maxHeroes: 3, maxObjects: 3, maxSkill: 5, maxBarrier: 12, actionCost: 5, heroCost: 30 };
 
-// banner timing
 const IMPORTANT_BANNER_MS = 5200;
 const IMPORTANT_GAP_MS = 2600;
 const MINOR_GAP_MS = 900;
@@ -135,7 +132,6 @@ const textWithV = text => markV(escapeHtml(text));
 const dieHtml = (value, delay) => `<span class="die" style="--d:${delay}s">${value}</span>`;
 const isValidName = name => /^[A-Za-z0-9]{2,16}$/.test(name);
 
-// one pass over a log line: each kind of thing gets its own colour
 const LOG_RULE = /(\d+\s?V\b)|(\bL\d+\b)|(\bH\d\b)|(\bobjects?\b)|(\bbarriers?\b)|(\b(?:hit|hits|miss|blocked|dies|destroyed|lost|damage|killed)\b)|(\b\d+\b)/gi;
 
 function colourLog(text) {
@@ -150,21 +146,15 @@ function colourLog(text) {
   });
 }
 
-// a d20 drawn as a flattened icosahedron: a hexagonal outline with the front facets, squashed vertically
+// a d20 shown as a regular hexagon: six equal sides, the number in the centre
 function d20Svg(value) {
-  const rim = [[50, 4], [92, 28], [92, 72], [50, 96], [8, 72], [8, 28]];
-  const rimPoints = rim.map(p => p.join(',')).join(' ');
-  const spokes = rim.map(([x, y]) => `<line x1="50" y1="50" x2="${x}" y2="${y}"/>`).join('');
+  const points = [[96, 50], [73, 90], [27, 90], [4, 50], [27, 10], [73, 10]].map(p => p.join(',')).join(' ');
   return `<svg class="d20" viewBox="0 0 100 100" aria-hidden="true" style="width:100%;height:100%;display:block;overflow:visible">
-    <g transform="translate(50 50) scale(1 .8) translate(-50 -50)" fill="#f4f4f4" stroke="#111" stroke-width="3" stroke-linejoin="round">
-      <polygon points="${rimPoints}"/>
-      <g fill="none" stroke="#111" stroke-width="2">${spokes}<polygon points="50,22 72,62 28,62"/></g>
-    </g>
+    <polygon points="${points}" fill="#f4f4f4" stroke="#111" stroke-width="3" stroke-linejoin="round"/>
     <text x="50" y="52" text-anchor="middle" dominant-baseline="central" font-size="${value >= 10 ? 30 : 36}" font-weight="900" fill="#111">${value}</text>
   </svg>`;
 }
 
-// a d20 face for a banner, tumbling in like the other dice
 const d20BannerFace = (value, delay) =>
   `<span class="die-d20" style="display:inline-block;width:2.1em;height:2.1em;vertical-align:middle;margin:0 .15em;animation:roll .7s cubic-bezier(.2,.8,.3,1) both;animation-delay:${delay}s">${d20Svg(value)}</span>`;
 
@@ -259,7 +249,6 @@ const unitRef = unit => (G.heroes.includes(unit) ? { kind: 'h', i: G.heroes.inde
 const unitFromRef = ref => (ref.kind === 'h' ? G.heroes[ref.i] : G.objs[ref.i]);
 const carryable = hero => objectsAt(hero.c);
 const maxRangeWith = (hero, objects) => hero.s.rng + Math.max(0, ...objects.map(o => o.s.rng || 0));
-// a hero's reach: its own Range plus the highest Range of any object on its tile
 const reach = hero => maxRangeWith(hero, carryable(hero));
 
 const isControllingNow = () => !!G && !G.over && G.cur !== myIndex()
@@ -327,7 +316,6 @@ async function loadMyPrivateData() {
   };
 }
 
-// a banner is important if it involves me, changes the turn, or is a major game event
 function isImportantEvent(event) {
   if (!event || !G) return false;
   if (event.target === myIndex() || event.actor === myIndex()) return true;
@@ -341,14 +329,10 @@ function frameFor(source) {
   return palette[source] || palette.general;
 }
 
-/* ---------- joining a roll to the result it produced ---------- */
-
-// a develop bonus roll: "+2 bonus", the result that follows it is "+2 Strength", "Object DEF 2", "▲ Barrier L3"
 const isBonusRoll = event => !!event && event.source === 'develop' && /^\+\d+ bonus$/.test(event.headline || '');
 const isBonusResult = event => !!event && event.source === 'develop'
   && !isBonusRoll(event) && !['Natural 20!', 'Failed'].includes(event.headline);
 
-// one banner for a roll and what it did, instead of two banners back to back
 function mergeRollEvents(list) {
   const out = [];
   for (let i = 0; i < list.length; i++) {
@@ -376,7 +360,6 @@ function mergeRollEvents(list) {
   return out;
 }
 
-// a large banner: source, headline, detail, who acted and who was affected, then the rolls
 function eventCardHtml(event) {
   const source = SOURCE_STYLE[event.source] || SOURCE_STYLE.general;
   const rawHeadline = event.headline || event.t || 'Something happened';
@@ -407,7 +390,6 @@ function unitsLine(event) {
   return names.length ? `<div class="event-who">Affected: ${names.map(name => escapeHtml(name)).join(', ')}</div>` : '';
 }
 
-// d20 rolls use the icosahedron; the 2d6 barrier and movement rolls keep square dice
 function isD20Event(event, rawHeadline) {
   return !(event.source === 'move' || rawHeadline === 'Through' || rawHeadline === 'Blocked');
 }
@@ -427,7 +409,6 @@ function diceBlock(event, rawHeadline) {
   return `<div class="event-dice">${dice.map((value, i) => face(value, i * 0.15)).join(' ')}</div>`;
 }
 
-// highlights units named in the current banners; cleared when the queue empties
 function flashUnits(units) {
   const next = new Set(flashKeys);
   units.forEach(u => next.add((u.kind === 'hero' ? 'h' : 'o') + u.i));
@@ -702,7 +683,6 @@ async function leaveRoom() {
   presenceSeen = { data: {}, at: 0 };
   gameOverDismissed = false;
   logOpen = false;
-  loadoutDraft = null;
   lastSeenSeq = 0;
   bannerQueue = [];
   clearFlash();
@@ -717,6 +697,8 @@ function toast(message) {
   el('fx').appendChild(node);
   setTimeout(() => node.remove(), 2600);
 }
+
+/* Names are saved per player on the main screen, and copied into each game when the host starts it. */
 
 async function loadSavedNames() {
   const { data, error } = await db.from('player_names').select('hero_names, object_names').eq('uid', ME).maybeSingle();
@@ -738,6 +720,7 @@ function nameFields(group, placeholder) {
 }
 
 async function saveLoadout() {
+  if (!loadoutDraft) return;
   const heroes = loadoutDraft.heroes.map(name => name.trim());
   const objects = loadoutDraft.objects.map(name => name.trim());
   if ([...heroes, ...objects].some(name => !LOADOUT_NAME_PATTERN.test(name))) {
@@ -913,7 +896,6 @@ function openAttackChoice(attackerIdx, defenderIdx) {
   });
 }
 
-// several enemy heroes on one tile: the player picks which one the attack is aimed at
 function openTargetPick(attackerIdx, cube, enemyIdxs) {
   openWheel({
     cube, kind: 'targetPick', heroIndex: attackerIdx,
@@ -1484,7 +1466,30 @@ function pickWheelItem(value) {
 
 /* =============================================================
    21. FEEDBACK: BANNERS, ROLLS, ANIMATION AND SOUND
+   Banners live in a column on the left so the board stays visible.
    ============================================================= */
+
+// places the banner column, roll cards and minor chips beside the board, not over it
+function placeFeedback() {
+  const width = isPhone() ? '46%' : 'clamp(220px, 24vw, 320px)';
+  const fx = el('fx');
+  Object.assign(fx.style, {
+    left: '.5em', right: 'auto', top: 'calc(var(--top-h) + 9em)', bottom: 'auto',
+    transform: 'none', width, maxWidth: width, alignItems: 'stretch', pointerEvents: 'none',
+  });
+  const rolls = el('rollStage');
+  Object.assign(rolls.style, {
+    left: '.5em', right: 'auto', top: 'calc(var(--top-h) + .5em)', transform: 'none',
+    width, maxWidth: width, justifyContent: 'flex-start', pointerEvents: 'none',
+  });
+  const chips = el('sideStack');
+  Object.assign(chips.style, {
+    left: '.5em', top: 'auto', bottom: 'calc(var(--bottom-h) + .5em)', maxWidth: width,
+  });
+  // the cancel button moves right of the column so it is not covered
+  const cancel = el('cx');
+  Object.assign(cancel.style, { left: `calc(${width} + 1.5em)`, top: 'calc(var(--top-h) + .5em)' });
+}
 
 function showFloat(html, extraClass = '', durationMs = 3000, frame = null) {
   const node = document.createElement('div');
@@ -2129,8 +2134,13 @@ function drawModal() {
       <input id="nameIn" maxlength="16" aria-label="Username">
       <div class="row"><button class="endb" data-action="save-name">Continue</button></div></div>`;
   } else if (!ROOM) {
+    if (!loadoutDraft) loadoutDraft = loadoutFromSaved();
     html = `<div class="card"><h2 style="margin:0">Play VERSA</h2>
       <div class="muted">Playing as <b>${escapeHtml(username)}</b></div>
+      <div class="muted">Your hero and object names are kept for every game. Blank names use the defaults.</div>
+      <div class="name-row"><span>Heroes</span>${nameFields('heroes', 'Hero')}</div>
+      <div class="name-row"><span>Objects</span>${nameFields('objects', 'Object')}</div>
+      <div class="row"><button data-action="save-loadout">Save names</button></div>
       <div class="row"><button class="endb" data-action="create-room">Create room</button></div>
       <div class="row"><input id="codeIn" maxlength="6" placeholder="Room code" aria-label="Room code"><button data-action="join-room">Join room</button></div>
       <div class="row"><button class="ghost" data-action="rename">Change username</button></div></div>`;
@@ -2138,7 +2148,6 @@ function drawModal() {
     html = `<div class="card"><h2 style="margin:0">Loading room ${escapeHtml(ROOM)}…</h2>
       <div class="row"><button class="ghost" data-action="leave">Back to lobby</button></div></div>`;
   } else if (!G && ROOM_ROW) {
-    if (!loadoutDraft) loadoutDraft = loadoutFromSaved();
     const players = ROOM_ROW.players || [];
     const startButton = ROOM_ROW.host === ME
       ? `<div class="row"><button class="endb" data-action="start-game" ${players.length < 2 ? 'disabled' : ''}>Start game</button></div>`
@@ -2147,10 +2156,7 @@ function drawModal() {
       <div class="muted">Click the code to copy it, then share it with your opponent. The first player is chosen at random.</div>
       <div class="row"><button class="roomcode" data-action="copy-room" title="Copy room code">${ROOM}</button></div>
       <div>${players.map((p, i) => `<div style="color:${PLAYER_COLORS[i]}">${i + 1}. ${escapeHtml(p.name)}${p.uid === ME ? ' (you)' : ''}</div>`).join('')}</div>
-      <div class="muted">Your names are kept for every game. Blank names use the defaults. Names are copied in when the game starts, so changes made during a game apply from the next game.</div>
-      <div class="name-row"><span>Heroes</span>${nameFields('heroes', 'Hero')}</div>
-      <div class="name-row"><span>Objects</span>${nameFields('objects', 'Object')}</div>
-      <div class="row"><button data-action="save-loadout">Save names</button></div>
+      <div class="muted">Names are set on the main screen and copied in when the game starts.</div>
       ${startButton}
       <div class="row"><button class="ghost" data-action="leave">Leave room</button></div></div>`;
   } else if (G && G.over && !gameOverDismissed) {
@@ -2203,6 +2209,7 @@ function render() {
     el('bar').innerHTML = '';
   }
   drawModal();
+  placeFeedback();
   document.body.classList.toggle('wait', (!!G && !isMyTurn() && !isControllingNow()) || isDefeated());
 }
 
@@ -2256,10 +2263,10 @@ const TUTORIAL_STEPS = [
   { title: 'Welcome to VERSA', body: 'A turn-based battle royale for two to six players. Your heroes move across a hex map, fight, and build. The last player with living heroes wins.' },
   { title: 'Your turn', body: 'Each turn you get 5 Versa (V). In the early rounds you place a hex tile next to your own. Each hero can move, attack, and develop. Press End Turn when you are finished.' },
   { title: 'Moving heroes', body: 'Drag a hero onto an empty tile to move it. Objects on its tile can come along. Drag a hero onto an enemy hero to choose Combat or Mind Control, once attacks unlock in round 4. If several enemies share a tile, you pick which one.' },
-  { title: 'Rolls', body: 'Every roll appears at the top of the board with its dice and total. An attack shows the attacker and defender side by side. A barrier check uses two dice (2d6) and must beat the barrier level first.' },
+  { title: 'Rolls', body: 'Every roll appears beside the board with its dice and total. An attack shows the attacker and defender side by side. A barrier check uses two dice (2d6) and must meet the barrier level before any d20 is rolled.' },
   { title: 'Buying', body: 'The Buy panel costs 5 V for barriers, objects, and skill points. A hero costs 30 V. Barriers can be raised or lowered by anyone, but the first builder keeps ownership.' },
   { title: 'Traversal cards', body: 'Drag a card into the Buy panel to sell it: 5 V for the gold card, 2 V for the others. Drag a skill card onto one of your heroes or objects to use it. Drag the gold 5 V card onto the open board to play it.' },
-  { title: 'Banners and the log', body: 'Banners explain what happened. Ones that involve you are large; the rest shrink to chips on the left. The 📜 Log button keeps the full history, grouped by round.' },
+  { title: 'Banners and the log', body: 'Banners explain what happened, on the left of the screen, so the board stays visible. Ones that involve you are large; the rest shrink to chips at the bottom left. The 📜 Log button keeps the full history, grouped by round.' },
   { title: 'Settings and help', body: 'Use ⚙ for volume, colour-blind safe colours, reduced motion, and larger text. Use ❓ at any time to reopen this tutorial or read the rules. Concede with the button at the top right if you want to leave.' },
 ];
 
@@ -2279,9 +2286,9 @@ const REFERENCE_SECTIONS = [
     'Objects on the hero\'s tile add their Range to attacks and Mind Control, as well as to moves when carried.',
   ] },
   { title: 'Combat', items: [
-    'A barrier on the target tile must be beaten first with two dice (2d6).',
-    'Then both sides roll d20 plus Strength (attacker) or Defense (defender), with any object bonuses. A tie is a miss.',
-    'An object absorbs damage first; the rest hits the hero. A natural 20 gives another attack.',
+    'A barrier on the target tile is checked first with two dice (2d6). If the total is below the barrier level, the attack fails and no d20 is rolled.',
+    'If the barrier is met, both sides roll d20 plus Strength (attacker) or Defense (defender), with any object bonuses. A tie is a miss.',
+    'An object absorbs damage first; the rest hits the hero. A natural 20 gives another attack, but only when the barrier check was met.',
   ] },
   { title: 'Mind Control', items: [
     'Roll d20 plus Intelligence against the target\'s d20 plus Intelligence, plus any barrier and object bonuses. Ties go to the defender.',
@@ -2366,7 +2373,7 @@ function settingsHtml() {
       </select></label>
     ${check('reduceMotion', 'Reduce motion')}
     ${check('largeText', 'Larger text')}
-    <p class="muted">Hero and object names are set in the lobby and apply from the next game you start.</p>
+    <p class="muted">Hero and object names are set on the main screen and apply from the next game you start.</p>
     <p class="muted">App ${APP_VERSION} · database ${escapeHtml(dbVersion)} (expects ${EXPECTED_SCHEMA_VERSION})</p>
     <div class="ov-actions"><button class="endb" data-ov="close">Close</button></div></div>`;
 }
@@ -2420,7 +2427,7 @@ function wireEvents() {
     if (logOpen) { logOpen = false; return render(); }
     if (G) cancelMode();
   });
-  window.addEventListener('resize', () => { if (G || ROOM || username) render(); });
+  window.addEventListener('resize', () => { if (G || ROOM || username) render(); else placeFeedback(); });
   window.addEventListener('pointerdown', () => audioContext(), { once: true });
 
   el('helpOverlay').addEventListener('click', handleOverlayClick);
