@@ -18,8 +18,8 @@
    1. CONFIGURATION
    ============================================================= */
 
-const APP_VERSION = '1.3.2';
-const EXPECTED_SCHEMA_VERSION = '3';
+const APP_VERSION = '1.4.0';
+const EXPECTED_SCHEMA_VERSION = '4';
 
 const SUPABASE_URL = 'https://jbdfcqqobtatxmmhmipa.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_74fKEI9ilefM-7pR8A8bnw_cIYLsfqu';
@@ -137,13 +137,25 @@ let settings = { ...DEFAULT_SETTINGS, ...JSON.parse(localStorage.getItem(SETTING
 
 /* =============================================================
    2. UTILITIES AND DICE DRAWING
+   Every value written into innerHTML goes through escapeHtml.
    ============================================================= */
 
 const el = id => document.getElementById(id);
-const escapeHtml = text => String(text).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+// escapes the five characters that can change HTML's meaning, so text is safe in content and attributes
+const HTML_ESCAPES = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
+const escapeHtml = text => String(text).replace(/[&<>"']/g, character => HTML_ESCAPES[character]);
+
+// adds the V superscript to any amount written as a number followed by V (input must already be escaped)
 const markV = html => html.replace(/(\d+) ?V\b/g, '$1<span class="vs">V</span>');
 const textWithV = text => markV(escapeHtml(text));
 const isValidName = name => /^[A-Za-z0-9]{2,16}$/.test(name);
+
+// turns a value read from the page into a list index, or null if it does not name an item in the list
+function indexFromPage(value, list) {
+  const index = Number(value);
+  return Number.isInteger(index) && index >= 0 && index < list.length ? index : null;
+}
 
 const LOG_RULE = /(\d+\s?V\b)|(\bL\d+\b)|(\bH\d\b)|(\bobjects?\b)|(\bbarriers?\b)|(\b(?:hit|hits|miss|blocked|dies|destroyed|lost|damage|killed)\b)|(\b\d+\b)/gi;
 
@@ -357,6 +369,7 @@ const barrierColor = cube => {
 
 /* =============================================================
    6. ACTION RULES
+   These only decide what is offered. The server checks every action again.
    ============================================================= */
 
 const ownerHasRemovableTile = owner =>
@@ -541,7 +554,7 @@ function eventCardHtml(event) {
   const line = symbolLine(event, rawHeadline, youDefend);
   const dice = diceBlock(event, rawHeadline);
   const who = whoLine(event);
-  return `<div class="event-card" style="${bannerFillStyle(event)}" role="img" aria-label="${escapeHtml(eventSpokenText(event))}">
+  return `<div class="event-card" style="${escapeHtml(bannerFillStyle(event))}" role="img" aria-label="${escapeHtml(eventSpokenText(event))}">
     <div class="event-source" aria-hidden="true">${source.icon}${youDefend ? ` ${DEFENDER_MARK}` : ''}</div>
     <div class="event-headline" aria-hidden="true">${markV(escapeHtml(line))}</div>
     ${who}${dice}
@@ -736,7 +749,6 @@ async function submitAction(action) {
   setMessage('');
   clearFlash();
   SOUNDS.tick();
-  console.debug('submit_action payload', JSON.stringify(action));
   const { data, error } = await db.rpc('submit_action', { p_room: ROOM, p_action: action });
   const message = error ? error.message : '';
   if (message && !message.includes(DISCOVERY_CHOICE)) setMessage(message);
@@ -805,6 +817,8 @@ function sendEmoji(hero, emoji) {
 
 /* =============================================================
    9. LOBBY AND ROOMS
+   Room codes are created by the server (create_room). The browser
+   never writes to the rooms table directly.
    ============================================================= */
 
 function openRoomChannel(code) {
@@ -829,8 +843,7 @@ async function enterRoom(code) {
 }
 
 async function createRoom() {
-  const code = Math.random().toString(36).slice(2, 8).toUpperCase();
-  const { error } = await db.from('rooms').insert({ code, host: ME, players: [{ uid: ME, name: username }], state: null, seq: 0 });
+  const { data: code, error } = await db.rpc('create_room', { p_name: username });
   if (error) return toast(error.message);
   enterRoom(code);
 }
@@ -1030,7 +1043,8 @@ function carryItems() {
 }
 
 function toggleCarry(value) {
-  const idx = +value.slice(1);
+  const idx = indexFromPage(value.slice(1), G.objs);
+  if (idx === null) return setMessage('That object is no longer on this tile');
   const list = ui.carry.objectIndexes;
   const at = list.indexOf(idx);
   if (at >= 0) list.splice(at, 1);
@@ -1301,7 +1315,8 @@ function onBoardPointerDown(event) {
   if (touches.size > 1) return;
   if (event.target.closest('[data-nuke]')) return;
   const heroNode = event.target.closest('[data-hero]');
-  const hero = heroNode ? G.heroes[+heroNode.dataset.hero] : null;
+  const heroPosition = heroNode ? indexFromPage(heroNode.dataset.hero, G.heroes) : null;
+  const hero = heroPosition === null ? null : G.heroes[heroPosition];
   const canDrag = hero && !ui.mode && boardStepDone()
     && (canAct(hero, 'move') || canAct(hero, 'attack') || canHitNuke(hero));
   if (canDrag) {
@@ -1406,10 +1421,10 @@ function cardHtml(card, index) {
   const name = CARD_NAME[card] || card;
   const icon = CARD_ICON[card] || '?';
   const value = card === 'v' ? '5 Versa' : '+1 point';
-  return `<div class="tcard ${card}" data-card="${index}" role="img" aria-label="${escapeHtml(name)} card, ${value}">
+  return `<div class="tcard ${escapeHtml(card)}" data-card="${index}" role="img" aria-label="${escapeHtml(name)} card, ${value}">
     <div class="tc-top" aria-hidden="true">${card === 'v' ? 'Versa' : 'Skill'}</div>
     <div class="tc-art" aria-hidden="true">${icon}</div>
-    <div class="tc-name" aria-hidden="true">${name}</div>
+    <div class="tc-name" aria-hidden="true">${escapeHtml(name)}</div>
     <div class="tc-value" aria-hidden="true">${value}</div>
   </div>`;
 }
@@ -1429,7 +1444,9 @@ function onCardPointerDown(event) {
   if (!isMyTurn() || event.button !== 0) return;
   const cardEl = event.target.closest('.tcard');
   if (!cardEl) return;
-  cardDrag = { index: +cardEl.dataset.card, startX: event.clientX, startY: event.clientY, moved: false, ghost: null, node: cardEl };
+  const cardIndex = indexFromPage(cardEl.dataset.card, G.pl[myIndex()].hand);
+  if (cardIndex === null) return;
+  cardDrag = { index: cardIndex, startX: event.clientX, startY: event.clientY, moved: false, ghost: null, node: cardEl };
 }
 
 function onCardPointerMove(event) {
@@ -1475,9 +1492,8 @@ function onCardPointerUp(event) {
   const target = under?.closest('[data-hero],[data-obj]');
   if (target) {
     if (card === 'v') return setMessage('The 5V card is played on open board or sold in the Buy panel');
-    const unit = target.dataset.hero !== undefined
-      ? { kind: 'h', i: +target.dataset.hero }
-      : { kind: 'o', i: +target.dataset.obj };
+    const unit = cardTargetUnit(target);
+    if (!unit) return setMessage('That is not one of the units you can use this card on');
     return submitAction({ type: 'apply_card', index: finished.index + 1, unit });
   }
 
@@ -1486,6 +1502,16 @@ function onCardPointerUp(event) {
   }
   setMessage('Drop a card in the Buy panel to sell it, on a hero or object to use it, or the 5V card on the board to play it');
   render();
+}
+
+// the hero or object under a card drop, with its index checked against the game state
+function cardTargetUnit(target) {
+  if (target.dataset.hero !== undefined) {
+    const index = indexFromPage(target.dataset.hero, G.heroes);
+    return index === null ? null : { kind: 'h', i: index };
+  }
+  const index = indexFromPage(target.dataset.obj, G.objs);
+  return index === null ? null : { kind: 'o', i: index };
 }
 
 /* =============================================================
@@ -1510,9 +1536,10 @@ function handleBoardClick(keyText, heroIndexText, objectIndexText, clickedNuke) 
   }
 
   const cube = keyToCube(keyText);
-  const heroIdx = heroIndexText !== undefined ? +heroIndexText : null;
+  const heroIdx = heroIndexText !== undefined ? indexFromPage(heroIndexText, G.heroes) : null;
   const hero = heroIdx !== null ? G.heroes[heroIdx] : null;
-  const object = objectIndexText !== undefined ? G.objs[+objectIndexText] : null;
+  const objectIdx = objectIndexText !== undefined ? indexFromPage(objectIndexText, G.objs) : null;
+  const object = objectIdx !== null ? G.objs[objectIdx] : null;
   const unit = hero || object;
 
   if (hero && isMine(hero) && hero.mc && !hero.mc.ceded && isMyTurn() && !ui.mode) {
@@ -1638,7 +1665,11 @@ function pickWheelItem(value) {
     },
     buildDir: () => openWheel({ cube: wheel.cube, kind: 'roll', dir: value, unit: null, items: rollItems() }),
     carry: () => (value === 'go' ? confirmCarry() : toggleCarry(value)),
-    targetPick: () => openAttackChoice(wheel.heroIndex, +value.slice(1)),
+    targetPick: () => {
+      const target = indexFromPage(value.slice(1), G.heroes);
+      if (target === null) return setMessage('That enemy is no longer there');
+      openAttackChoice(wheel.heroIndex, target);
+    },
     attackChoice: () => {
       if (value === 'atk') submitAction({ type: 'attack', hero: wheel.heroIndex, target: wheel.targetIndex });
       else submitAction({ type: 'mind_control', hero: wheel.heroIndex, target: wheel.targetIndex });
@@ -1665,8 +1696,10 @@ function pickWheelItem(value) {
     },
     roll: () => sendDevelop(wheel, value === 'take'),
     moveBonus: () => {
-      const bonus = value === 'hero' ? { mode: 'hero' } : { mode: 'obj', index: +value.slice(1) };
-      sendMove(wheel.heroIndex, wheel.target, wheel.objectIndexes, bonus);
+      if (value === 'hero') return sendMove(wheel.heroIndex, wheel.target, wheel.objectIndexes, { mode: 'hero' });
+      const index = indexFromPage(value.slice(1), G.objs);
+      if (index === null) return setMessage('That object is no longer there');
+      sendMove(wheel.heroIndex, wheel.target, wheel.objectIndexes, { mode: 'obj', index });
     },
   };
 
@@ -1716,6 +1749,7 @@ function placeFeedback() {
   Object.assign(cancel.style, { left: `calc(${width} + 1.5em)`, top: 'calc(var(--top-h) + .5em)' });
 }
 
+// html passed here must already be escaped where it contains data
 function showFloat(html, extraClass = '', durationMs = 3000, frame = null) {
   const node = document.createElement('div');
   node.className = 'fx ' + extraClass;
@@ -1994,8 +2028,8 @@ function objectTooltip(obj) {
   const title = obj.nm || `${G.pl[obj.p].name}'s object`;
   return {
     kind: 'object', color: PLAYER_COLORS[obj.p],
-    html: `<div class="th">${obj.sym || '🧱'} ${escapeHtml(title)}</div>${statGrid(obj.s)}${damageBar(obj.dmg, obj.s.def)}
-      <div class="tsub">Damage ${obj.dmg} of ${obj.s.def}</div><div class="tsub">${rangeNote}${ownerNote}</div>`,
+    html: `<div class="th">${escapeHtml(obj.sym || '🧱')} ${escapeHtml(title)}</div>${statGrid(obj.s)}${damageBar(obj.dmg, obj.s.def)}
+      <div class="tsub">Damage ${obj.dmg} of ${obj.s.def}</div><div class="tsub">${escapeHtml(rangeNote)}${escapeHtml(ownerNote)}</div>`,
   };
 }
 
@@ -2030,7 +2064,7 @@ function tileTooltip(tile) {
 
 function onBoardHover(event) {
   const heroNode = event.target.closest('[data-hero]');
-  const idx = heroNode ? +heroNode.dataset.hero : null;
+  const idx = heroNode ? indexFromPage(heroNode.dataset.hero, G.heroes) : null;
   if (idx !== hoverIdx) {
     hoverIdx = idx;
     drawBoard();
@@ -2098,7 +2132,7 @@ function tileSvg(tile, mine) {
   return `<polygon data-k="${key}" data-tip="t${key}" class="${cls}" fill="${fill}" stroke="${stroke}" stroke-width="1.5" points="${hexPoints(cube)}"/>`
     + texture
     + glow
-    + `<text x="${hexX(cube)}" y="${hexY(cube)}" font-size="${label.length > 2 ? 22 : 34}" fill="#fff">${label}</text>`
+    + `<text x="${hexX(cube)}" y="${hexY(cube)}" font-size="${label.length > 2 ? 22 : 34}" fill="#fff">${escapeHtml(label)}</text>`
     + barrierTag;
 }
 
@@ -2153,8 +2187,8 @@ function objectSvg(obj, index) {
   return `<g class="${muted}" data-obj="${index}" data-k="${cubeKey(obj.c)}" data-tip="o${index}">`
     + `<rect x="${x - 7}" y="${y - 7}" width="14" height="14" rx="3" fill="${PLAYER_COLORS[obj.p]}" stroke="#0e0e12" stroke-width="1"/>`
     + ring + flash
-    + `<text x="${x}" y="${y - 1}" font-size="9">${obj.sym || '🧱'}</text>`
-    + `<text x="${x + 5}" y="${y + 5}" font-size="5" font-weight="bold" fill="#fff" stroke="#000" stroke-width=".8" paint-order="stroke">${obj.s.def}</text>`
+    + `<text x="${x}" y="${y - 1}" font-size="9">${escapeHtml(obj.sym || '🧱')}</text>`
+    + `<text x="${x + 5}" y="${y + 5}" font-size="5" font-weight="bold" fill="#fff" stroke="#000" stroke-width=".8" paint-order="stroke">${escapeHtml(obj.s.def)}</text>`
     + `</g>`;
 }
 
@@ -2254,7 +2288,7 @@ function drawBuySide() {
     return `<button class="bopt ${item.cls} ${isActive(item) ? 'on' : ''} ${item.reason ? 'is-off' : ''}"
       data-buy="${item.key}" data-reason="${escapeHtml(item.reason || '')}" aria-disabled="${!!item.reason}"
       aria-pressed="${isActive(item)}" title="${escapeHtml(item.reason || `${item.label} · ${item.cost}`)}" aria-label="${escapeHtml(label)}">
-      <span class="bo-icon" aria-hidden="true">${item.icon}</span><span class="bo-label">${item.label}</span><span class="bo-cost">${markV(item.cost)}</span>
+      <span class="bo-icon" aria-hidden="true">${item.icon}</span><span class="bo-label">${escapeHtml(item.label)}</span><span class="bo-cost">${markV(item.cost)}</span>
     </button>`;
   };
   const body = `<div class="bsection">Structures</div>
@@ -2308,10 +2342,10 @@ function drawWheel() {
   const buttons = wheel.items.map((item, i) => {
     const angle = -Math.PI / 2 + i * 2 * Math.PI / count;
     const emojiClass = wheel.kind === 'emoji' ? 'emoji-btn' : '';
-    return `<button class="wbtn ${emojiClass} ${item.on ? 'on' : ''}" data-w="${item.v}" ${item.dis ? 'disabled' : ''}
+    return `<button class="wbtn ${emojiClass} ${item.on ? 'on' : ''}" data-w="${escapeHtml(item.v)}" ${item.dis ? 'disabled' : ''}
       aria-label="${escapeHtml(item.t || item.ic)}"
       style="left:calc(${Math.cos(angle).toFixed(3)} * var(--r));top:calc(${Math.sin(angle).toFixed(3)} * var(--r))">
-      <span class="wi" aria-hidden="true">${item.ic}</span>${item.t ? `<small>${markV(item.t)}</small>` : ''}</button>`;
+      <span class="wi" aria-hidden="true">${escapeHtml(item.ic)}</span>${item.t ? `<small>${markV(escapeHtml(item.t))}</small>` : ''}</button>`;
   }).join('');
   const closeButton = MUST_CHOOSE.includes(wheel.kind) ? '' : '<button class="wbtn wx" data-w="x" aria-label="Close menu">✕</button>';
   wheelEl.innerHTML = buttons + closeButton;
@@ -2463,7 +2497,7 @@ function drawModal() {
       : '<div class="muted">Waiting for the host to start…</div>';
     html = `<div class="card"><h2 style="margin:0">Room</h2>
       <div class="muted">Click the code to copy it, then share it with your opponent. The first player is chosen at random.</div>
-      <div class="row"><button class="roomcode" data-action="copy-room" title="Copy room code">${ROOM}</button></div>
+      <div class="row"><button class="roomcode" data-action="copy-room" title="Copy room code">${escapeHtml(ROOM)}</button></div>
       <div>${players.map((p, i) => `<div style="color:${PLAYER_COLORS[i]}">${i + 1}. ${escapeHtml(p.name)}${p.uid === ME ? ' (you)' : ''}</div>`).join('')}</div>
       <div class="muted">Names are set on the main screen and copied in when the game starts.</div>
       ${startButton}
@@ -2696,7 +2730,7 @@ function settingsHtml() {
     ${check('reduceMotion', 'Reduce motion')}
     ${check('largeText', 'Larger text')}
     <p class="muted">Hero and object names are set on the main screen and apply from the next game you start.</p>
-    <p class="muted">App ${APP_VERSION} · database ${escapeHtml(dbVersion)} (expects ${EXPECTED_SCHEMA_VERSION})</p>
+    <p class="muted">App ${escapeHtml(APP_VERSION)} · database ${escapeHtml(dbVersion)} (expects ${escapeHtml(EXPECTED_SCHEMA_VERSION)})</p>
     <div class="ov-actions"><button class="endb" data-ov="close">Close</button></div></div>`;
 }
 
