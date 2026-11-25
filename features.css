@@ -1,0 +1,18 @@
+/* =========================================================
+   VERSA comprehension features (build 1): legend styles
+   ========================================================= */
+
+/* the hidden pattern definitions used by the terrain keys */
+.legend-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
+
+.legend-card { max-height: 88vh; }
+
+.legend-section { display: flex; flex-direction: column; gap: .35em; }
+.legend-section h3 { margin: .6em 0 .1em; font-size: 1em; color: #ffe8a3; text-align: left; }
+
+.legend-row { display: flex; align-items: center; gap: .6em; min-height: 36px; text-align: left; font-size: .95em; }
+.legend-key { flex: none; width: 2.2em; height: 2.2em; display: flex; align-items: center; justify-content: center; }
+.legend-key svg { width: 100%; height: 100%; display: block; }
+.legend-key .roll-die { width: 1.9em; height: 1.9em; animation: none; }
+.legend-glyph { flex: none; width: 2.2em; text-align: center; font-size: 1.3em; }
+.legend-text small { color: #a8a8bb; }
