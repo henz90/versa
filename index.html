@@ -3,6 +3,8 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self' https://jbdfcqqobtatxmmhmipa.supabase.co wss://jbdfcqqobtatxmmhmipa.supabase.co; font-src 'self'; object-src 'none'; base-uri 'self'; form-action 'none'">
+  <meta name="referrer" content="strict-origin-when-cross-origin">
   <title>VERSA</title>
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cpolygon points='16,2 28,9 28,23 16,30 4,23 4,9' fill='%2324243a' stroke='%23ffe066' stroke-width='3'/%3E%3C/svg%3E">
   <link rel="stylesheet" href="styles.css">
@@ -44,7 +46,9 @@
   <div id="modal"></div>
   <div id="helpOverlay" role="dialog" aria-modal="true" aria-labelledby="helpTitle" hidden></div>
 
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.119.2/dist/umd/supabase.js"
+    integrity="sha384-A97u3Qnt9GZHURO9YJZRe7VQgGUeFzcv6I1oIGnUTxQrCxnpQMwR0/G8F2zt9abZ"
+    crossorigin="anonymous"></script>
   <script src="game.js"></script>
   <script src="features.js"></script>
 </body>
