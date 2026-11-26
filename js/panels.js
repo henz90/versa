@@ -2,8 +2,8 @@
    the wheel's position, the to-do list, the game log and the modal dialogs. */
 
 import {
-  SKILL_NAME, SKILL_ICON, CARD_NAME, CARD_ICON, RULES, ROUND, ROUND_PHASE_NAME_UNUSED,
-  OFFLINE_LIMIT_SECONDS, OFFLINE_SHOW_SECONDS, MUST_CHOOSE, LOADOUT_NAME_PATTERN,
+  SKILL_NAME, SKILL_ICON, CARD_NAME, CARD_ICON, RULES, ROUND, OFFLINE_LIMIT_SECONDS,
+   OFFLINE_SHOW_SECONDS, MUST_CHOOSE, LOADOUT_NAME_PATTERN,
 } from './config.js';
 import { state, settings, setMessage } from './state.js';
 import { escapeHtml, markV, textWithV, colourLog, isValidUsername } from './escape.js';
@@ -414,9 +414,3 @@ export function drawModal() {
   const nameInput = el('nameIn');
   if (nameInput) nameInput.value = state.username;
 }
-
-// the names allowed in the loadout fields, reused by the lobby's save check
-export { LOADOUT_NAME_PATTERN, SKILL_ICON, SKILL_NAME, currentRemovalOwner, ROUND_PHASE_NAME_UNUSED };
-
-// the points of an unused import list, kept so the module keeps its exports stable
-export const UNUSED_SETTINGS_REFERENCE = settings;
