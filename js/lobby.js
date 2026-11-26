@@ -11,16 +11,16 @@ import {
 import { applyRemoteState } from './sync.js';
 import { showEmojiBubble } from './emoji.js';
 
-// shows a short message that fades away, in the notification area
+// shows a short message that fades away
 export function toast(message) {
   const node = document.createElement('div');
   node.className = 'fx';
   node.textContent = message;
   el('fx').appendChild(node);
-  setTimeout(() => node.remove(), 2600);
+  setTimeout(() => node.remove(), TIMING.minorChipMs + 200);
 }
 
-// listens for changes to this room's row and for emoji sent by other players
+// listens for changes to this room's row, and for emoji sent by other players
 export function openRoomChannel(code) {
   if (state.channel) db.removeChannel(state.channel);
   state.channel = db.channel('room-' + code)
@@ -42,7 +42,7 @@ export function onRoomUpdate(row) {
   loadMyPrivateData().then(() => applyRemoteState(row.state));
 }
 
-// joins the room in the URL-free way: stores the code, subscribes, and loads its row
+// enters a room: stores the code, listens for it, and loads its row
 export async function enterRoom(code) {
   state.roomLoading = true;
   state.room = code;
@@ -63,17 +63,17 @@ export async function enterRoom(code) {
 export async function onCreateRoom() {
   const { code, message } = await createRoom();
   if (message) return toast(message);
-  enterRoom(code);
+  return enterRoom(code);
 }
 
 // joins a room by its code, then enters it
 export async function onJoinRoom(code) {
   const message = await joinRoom(code);
   if (message) return toast(message);
-  enterRoom(code);
+  return enterRoom(code);
 }
 
-// starts the game (host only); the server checks the player count and host
+// starts the game (host only); the server checks the player count and the host
 export async function onStartGame() {
   const message = await startGame();
   if (message) toast(message);
@@ -94,7 +94,7 @@ export async function copyRoomCode() {
   toast(`Room code ${state.room} copied`);
 }
 
-// leaves the room: a player still in a game concedes first, after confirmation
+// leaves the room; a player still in a game concedes first, after confirmation
 export async function leaveRoom() {
   const game = state.game;
   if (game && !game.winner && state.room) {
@@ -115,7 +115,7 @@ export async function leaveRoom() {
   state.lastSeenSequence = 0;
   state.bannerQueue = [];
   localStorage.removeItem('versa-room');
-  render();
+  return render();
 }
 
 // loads the saved names for the signed-in player, then redraws the lobby
@@ -125,7 +125,7 @@ export async function loadSavedNames() {
   render();
 }
 
-// saves the name fields: each name must match the allowed pattern
+// saves the name fields; each name must match the allowed pattern
 export async function onSaveLoadout() {
   if (!state.loadoutDraft) return;
   const heroes = state.loadoutDraft.heroes.map(name => name.trim());
@@ -136,29 +136,23 @@ export async function onSaveLoadout() {
   const message = await saveLoadout(heroes, objects);
   if (message) return toast(message);
   state.savedNames = { hero_names: heroes, object_names: objects };
-  toast('Names saved for every game');
+  return toast('Names saved for every game');
 }
 
-// the field values typed into the name inputs, kept in the draft
+// records what is typed into the name fields, in the draft
 export function onLoadoutInput(event) {
   const { loadout, slot } = event.target.dataset;
   if (loadout && state.loadoutDraft) state.loadoutDraft[loadout][Number(slot)] = event.target.value;
 }
 
-// saves the username typed on the first screen, then opens the tutorial the first time
-export function onSaveUsername(overlayOpen) {
+// saves the username typed on the first screen; opens the tutorial the first time
+export function onSaveUsername(openOverlay) {
   const name = (el('nameIn')?.value || '').trim();
   if (!isValidUsername(name)) return toast('Use 2 to 16 letters or numbers');
   state.username = name;
   localStorage.setItem('versa-name', name);
   render();
-  if (!localStorage.getItem(TIMING_TUTORIAL_KEY_NAME())) overlayOpen('tutorial');
-}
-
-// the tutorial key, read here to avoid a second import of config for one name
-import { TUTORIAL_KEY } from './config.js';
-function TIMING_TUTORIAL_KEY_NAME() {
-  return TUTORIAL_KEY;
+  if (!localStorage.getItem(TUTORIAL_KEY)) openOverlay('tutorial');
 }
 
 // clears the saved username so the player can choose another
