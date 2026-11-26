@@ -427,3 +427,14 @@ export function enqueueEvents(events) {
 export function clearBannerQueue() {
   state.bannerQueue = [];
 }
+
+// a flash over the whole board for the Apocalypse, with a fanfare
+export function playApocalypseAnimation() {
+  const svg = el('svg');
+  svg.classList.remove('apoc-flash');
+  void svg.offsetWidth;
+  svg.classList.add('apoc-flash');
+  setTimeout(() => svg.classList.remove('apoc-flash'), 1700);
+  SOUNDS.fanfare();
+  showFloat(`<span>☢</span> ${SYM.boom}`, 'nat', 2600);
+}
