@@ -19,6 +19,7 @@ export function textWithV(text) {
   return markV(escapeHtml(text));
 }
 
+// whether a name is a valid username: 2 to 16 letters or numbers
 export function isValidUsername(name) {
   return USERNAME_PATTERN.test(name);
 }
