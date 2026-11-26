@@ -1,36 +1,34 @@
-/* The panels around the board: the top bar, the Buy panel, the hand, the bottom bar,
-   the wheel's position, the to-do list, the game log and the modal dialogs. */
+/* The panels around the board: top bar, Buy panel, hand, bottom bar, wheel, to-do, log and modal. */
 
 import {
-  SKILL_NAME, SKILL_ICON, CARD_NAME, CARD_ICON, RULES, ROUND, OFFLINE_LIMIT_SECONDS,
-   OFFLINE_SHOW_SECONDS, MUST_CHOOSE, LOADOUT_NAME_PATTERN,
+  SKILL_NAME, CARD_NAME, CARD_ICON, RULES, ROUND, OFFLINE_LIMIT_SECONDS, OFFLINE_SHOW_SECONDS,
+  MUST_CHOOSE, LOADOUT_NAME_PATTERN,
 } from './config.js';
-import { state, settings, setMessage } from './state.js';
+import { state, settings } from './state.js';
 import { escapeHtml, markV, textWithV, colourLog, isValidUsername } from './escape.js';
 import {
   myIndex, isMyTurn, isAlive, isDefeated, heroCount, objectCount, heroName, heroLabel,
   boardStepDone, actsForMe, canAct, ownerHasRemovableTile, phaseName, isControllingNow,
-  currentRemovalOwner,
 } from './rules.js';
 import { screenPoint } from './board-position.js';
 import { layoutMode } from './layout.js';
 import { el } from './dom.js';
 import { hexX, hexY } from './geometry.js';
 
-// fills in saved hero and object names, padded to three each, for the name fields
+// pads saved hero and object names to three each, for the name fields
 export function padLoadout(saved) {
   const padded = list => [0, 1, 2].map(i => (list || [])[i] || '');
   return { heroes: padded(saved?.hero_names), objects: padded(saved?.object_names) };
 }
 
-// the seconds a player has been silent, from the last presence check
+// seconds a player has been silent, from the last presence check
 export function secondsSilent(uid) {
   const base = state.presenceSeen.data[uid];
   if (base == null) return null;
   return Number(base) + (Date.now() - state.presenceSeen.at) / 1000;
 }
 
-// the warnings about players who have gone quiet, shown in the top bar
+// warnings about players who have gone quiet, shown in the top bar
 export function offlineBadgesHtml() {
   if (!state.game) return '';
   return state.game.players.map((p, i) => {
@@ -42,13 +40,13 @@ export function offlineBadgesHtml() {
   }).join('');
 }
 
-// the top bar: whose turn, the round and phase, and each player's Versa and heroes
+// the top bar: whose turn, round and phase, each player's Versa and heroes, and the turn buttons
 export function drawTop() {
   const game = state.game;
   const current = game.players[game.current];
   const chips = game.players.map((p, i) => {
     const status = isAlive(i) ? `${heroCount(i)} heroes` : 'out';
-    return `<span class="pchip ${i === game.current ? 'cur' : ''} ${isAlive(i) ? '' : 'out'}" style="--c:${state.playerColors[i]}">${escapeHtml(p.name)} · ${markV(p.versa + ' V')} · ${status}</span>`;
+    return `<span class="pchip ${i === game.current ? 'cur' : ''} ${isAlive(i) ? '' : 'out'}" style="--c:${state.playerColors[i]}">${escapeHtml(p.name)} · ${markV(escapeHtml(p.versa) + ' V')} · ${status}</span>`;
   }).join('');
   const endButton = isMyTurn()
     ? `<button class="endb top-end" data-action="end-turn" ${boardStepDone() ? '' : 'disabled'}>➜ End Turn</button>`
@@ -60,7 +58,7 @@ export function drawTop() {
     : '<button class="ghost" data-action="leave">Leave</button>';
   el('top').innerHTML = `
     <span class="badge" style="background:${state.playerColors[game.current]}">${escapeHtml(current.name)}'s turn</span>
-    <span class="chip">Round ${game.round} · ${phaseName()}</span>
+    <span class="chip">Round ${escapeHtml(game.round)} · ${phaseName()}</span>
     ${game.apocalypse ? '<span class="alert">☢ Apocalypse</span>' : ''}
     ${game.winner ? `<span class="alert">🏆 ${escapeHtml(game.winner)}</span>` : ''}
     <span id="offline">${offlineBadgesHtml()}</span>
@@ -72,7 +70,7 @@ export function drawTop() {
   el('defeated').style.display = isDefeated() && !game.winner ? 'block' : 'none';
 }
 
-// the costs and reasons for each buy option; a reason is shown when the option is greyed out
+// the costs, and the reason each option is unavailable (shown when it is greyed out)
 export function buyOptions() {
   const mine = myIndex();
   const player = state.game.players[mine >= 0 ? mine : state.game.current];
@@ -102,7 +100,7 @@ export function buyOptions() {
   };
 }
 
-// the one-line instruction under the Buy panel, for whatever mode is active
+// the instruction under the Buy panel for whatever mode is active
 export function buyStatusText() {
   if (state.ui.mode === 'barrier') return 'Tap a tile next to one of your heroes';
   if (state.ui.mode === 'obj' || state.ui.mode === 'hero') return 'Tap a tile with one of your heroes';
@@ -133,10 +131,10 @@ export function drawBuySide() {
   const sellHint = state.pointer.sellHint;
   const sellText = sellHint != null ? `Drop to Sell: +${sellHint}V` : '';
   const sellZone = `<div id="sellzone">${sellText}<small>sold for cash, card returns to the deck</small></div>`;
-  el('buyside').innerHTML = `<div class="vside">${markV(viewer.versa + ' V')}</div><div class="buy-body">${body}</div>${sellZone}`;
+  el('buyside').innerHTML = `<div class="vside">${markV(escapeHtml(viewer.versa) + ' V')}</div><div class="buy-body">${body}</div>${sellZone}`;
 }
 
-// updates the sell zone text while a card is dragged, without redrawing the panel
+// updates the sell zone text during a card drag, without redrawing the panel
 export function updateSellZone() {
   const zone = el('sellzone');
   if (!zone) {
@@ -147,7 +145,7 @@ export function updateSellZone() {
   zone.firstChild.textContent = sellHint != null ? `Drop to Sell: +${sellHint}V` : '';
 }
 
-// the HTML of one traversal card in the hand
+// one traversal card in the hand
 export function cardHtml(card, index) {
   const name = CARD_NAME[card] || card;
   const icon = CARD_ICON[card] || '?';
@@ -168,7 +166,7 @@ export function drawHand() {
     hand.innerHTML = '<span class="muted">Spectating</span>';
     return;
   }
-  const cards = state.game.players[mine].hand || [];
+  const cards = state.priv ? state.priv.hand : [];
   if (!cards.length) {
     hand.innerHTML = '<span class="muted small">No traversal cards yet. Move a hero to draw one.</span>';
     return;
@@ -176,7 +174,7 @@ export function drawHand() {
   hand.innerHTML = cards.map((card, i) => cardHtml(card, i)).join('');
 }
 
-// the bottom bar: the message, End, the phone drawer buttons, and the utility buttons
+// the bottom bar: message, End, phone drawer buttons, and utility buttons
 export function drawBottomBar() {
   const mode = layoutMode();
   const bottom = el('bottom');
@@ -186,7 +184,7 @@ export function drawBottomBar() {
   bottom.classList.toggle('minimized', collapsed);
   bottom.dataset.drawer = phonePortrait && drawer ? drawer : '';
 
-  const handSize = state.game && myIndex() >= 0 ? (state.game.players[myIndex()].hand || []).length : 0;
+  const handSize = state.priv && state.priv.hand ? state.priv.hand.length : 0;
   const endEnabled = !!state.game && isMyTurn() && boardStepDone();
   const muteLabel = settings.muted ? 'Unmute sound' : 'Mute sound';
   el('bar').innerHTML = `
@@ -230,7 +228,7 @@ export function drawWheel() {
   wheelEl.innerHTML = buttons + closeButton;
 }
 
-// the cancel button shown while a placement or buy mode is waiting for a tap
+// the cancel button shown while a placement or buy mode waits for a tap
 export function drawCancel() {
   const cancel = el('cx');
   const mode = state.ui.mode;
@@ -300,7 +298,7 @@ export function todoItems() {
   return items;
 }
 
-// one line of the to-do list, with its sub-items; newly finished lines get a strike animation once
+// one line of the to-do list and its sub-items; a newly finished line strikes through once
 export function todoLineHtml(item, depth) {
   const key = `${state.game.round}|${state.game.current}|${item.text}`;
   const animate = item.done && !state.seenTodo.has(key);
@@ -329,7 +327,7 @@ export function logRounds() {
   return rounds.filter(round => round.lines.length > 0);
 }
 
-// the game log HTML: the newest round first, each line in its player's colour
+// the game log: the newest round first, each line in its player's colour
 export function logHtml() {
   const rounds = logRounds().reverse();
   if (!rounds.length) return '<div>No events yet.</div>';
@@ -345,14 +343,14 @@ export function logHtml() {
   }).join('');
 }
 
-// the name fields for the hero or object names on the main screen
+// the name fields for hero or object names on the main screen
 export function nameFields(group, placeholder) {
   return state.loadoutDraft[group].map((name, slot) =>
     `<input class="name-in" aria-label="${placeholder} name ${slot + 1}" data-loadout="${group}" data-slot="${slot}" maxlength="12"
       placeholder="${placeholder} ${slot + 1}" value="${escapeHtml(name)}">`).join('');
 }
 
-// the HTML of the room-lobby panel, showing players and the start button
+// the room lobby: players, the room code, and the start button for the host
 function roomHtml() {
   const row = state.roomRow;
   const players = row.players || [];
@@ -368,7 +366,7 @@ function roomHtml() {
     <div class="row"><button class="ghost" data-action="leave">Leave room</button></div></div>`;
 }
 
-// the modal dialog: username, main screen, room, loading, log or game over
+// the modal: username, main screen, room lobby, loading, log, or game over
 export function drawModal() {
   const modal = el('modal');
   let html = '';
@@ -414,3 +412,6 @@ export function drawModal() {
   const nameInput = el('nameIn');
   if (nameInput) nameInput.value = state.username;
 }
+
+// the loadout name pattern, re-exported for the lobby's save check
+export { LOADOUT_NAME_PATTERN };
