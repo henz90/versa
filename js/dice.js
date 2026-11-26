@@ -13,7 +13,7 @@ export function outcomeFill(outcome) {
 // text colour that stays readable on each outcome fill
 export const inkFor = outcome => (outcome === 'lose' ? '#ffffff' : '#111111');
 
-// the d20 hexagon. Used for every d20 roll; grey until painted green or red.
+// the d20 hexagon, used for every d20 roll; grey until painted green or red.
 // A failed roll gets a dashed inner outline so it reads without colour.
 export function d20Svg(value, outcome = 'pending') {
   const points = '50,4 89.8,27 89.8,73 50,96 10.2,73 10.2,27';
@@ -27,7 +27,7 @@ export function d20Svg(value, outcome = 'pending') {
   </svg>`;
 }
 
-// the 2d6 square die. Only barrier checks and movement use it; hatched when failed.
+// the 2d6 square die, used only for barrier checks and movement; hatched when failed
 export function d6Html(value, outcome = 'pending') {
   const hatch = outcome === 'lose' ? 'hatch' : '';
   return `<div class="roll-die d6 ${hatch}" data-v="${escapeHtml(value)}" style="background-color:${outcomeFill(outcome)};color:${inkFor(outcome)}" aria-hidden="true">${escapeHtml(value)}</div>`;
