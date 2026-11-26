@@ -93,3 +93,10 @@ export async function sendHeartbeat() {
 
 // the index a page value names, checked against the list it refers to (re-exported for input code)
 export { indexFromPage };
+
+// sends an emoji reaction to every player in the room, and shows it locally
+export function sendEmojiToRoom(hero, emoji) {
+  const payload = { uid: state.me, k: hero.slot, e: emoji };
+  if (state.channel) state.channel.send({ type: 'broadcast', event: 'emoji', payload });
+  return payload;
+}
