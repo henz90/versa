@@ -1,8 +1,10 @@
 /* Constants, palettes, timings, symbols and the database client.
-   Nothing here changes while the game runs (except the client's own state, which lives in state.js). */
+   Nothing here changes while the game runs. */
 
 export const APP_VERSION = '1.5.0';
-export const EXPECTED_SCHEMA_VERSION = '4';
+
+// the database schema version this page expects; must match sql/96_full_names.sql
+export const EXPECTED_SCHEMA_VERSION = '5';
 
 export const SUPABASE_URL = 'https://jbdfcqqobtatxmmhmipa.supabase.co';
 export const SUPABASE_KEY = 'sb_publishable_74fKEI9ilefM-7pR8A8bnw_cIYLsfqu';
