@@ -7,10 +7,10 @@ import { state } from './state.js';
 
 // where a hero is drawn: its tile's centre, offset when more than one hero shares the tile
 export function heroPosition(hero) {
-  const here = heroesAt(hero.c);
+  const here = heroesAt(hero.cube);
   const index = here.indexOf(hero);
   const count = here.length;
-  return [hexX(hero.c) + (index - (count - 1) / 2) * 13, hexY(hero.c) + 10];
+  return [hexX(hero.cube) + (index - (count - 1) / 2) * 13, hexY(hero.cube) + 10];
 }
 
 // sets the SVG's visible area from the current zoom and centre
