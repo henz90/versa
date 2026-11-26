@@ -10,6 +10,7 @@ export const sameTile = (a, b) => cubeKey(a) === cubeKey(b);
 // the number of steps between two tiles
 export const cubeDistance = (a, b) => (Math.abs(a[0] - b[0]) + Math.abs(a[1] - b[1]) + Math.abs(a[2] - b[2])) / 2;
 
+// the six tiles that touch a tile
 export const neighbours = cube => DIRECTIONS.map(d => [cube[0] + d[0], cube[1] + d[1], cube[2] + d[2]]);
 
 // screen position of a tile's centre, in board units
@@ -27,7 +28,7 @@ export function hexPoints(cube, radius = HEX_RADIUS - 4) {
   }).join(' ');
 }
 
-// the corner points of a regular polygon with n sides
+// the corner points of a regular polygon with the given number of sides
 export function polyPoints(x, y, radius, sides, startAngle = -Math.PI / 2) {
   const points = [];
   for (let i = 0; i < sides; i++) {
