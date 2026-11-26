@@ -1,15 +1,26 @@
-/* The one place that redraws the whole page. Other modules call render()
-   rather than importing each panel, which avoids circular imports. */
+/* The one place that redraws the whole page. Every module that changes state calls render()
+   instead of drawing panels itself. */
 
 import { state } from './state.js';
-import { syncModeWithRules } from './rules.js';
-import { drawBoard } from './board.js';
-import { drawTop, drawHand, drawBuySide, drawBottomBar, drawWheel, drawCancel, drawTodo, drawModal } from './panels.js';
+import { syncModeWithRules, isMyTurn, isControllingNow, isDefeated } from './rules.js';
+import { drawBoard } from './board-draw.js';
+import {
+  drawTop, drawHand, drawBuySide, drawBottomBar, drawWheel, drawCancel, drawTodo, drawModal,
+} from './panels.js';
 import { placeFeedback, maybePinchHint } from './layout.js';
+import { el } from './dom.js';
 
-// redraws everything that depends on the game state, then the layout
+// hides the panels that only appear during a game
+function clearGamePanels() {
+  el('wheel').style.display = 'none';
+  el('cx').style.display = 'none';
+  el('defeated').style.display = 'none';
+  ['top', 'hand', 'todo'].forEach(id => { el(id).innerHTML = ''; });
+}
+
+// redraws everything that depends on the state, then the layout
 export function render() {
-  if (state.game) syncModeWithRules();
+  syncModeWithRules();
   drawBoard();
   if (state.game) {
     drawTop();
@@ -22,26 +33,10 @@ export function render() {
     clearGamePanels();
   }
   drawBottomBar();
-  document.documentElement.style.setProperty('--top-h', document.getElementById('top').offsetHeight + 'px');
-  document.documentElement.style.setProperty('--bottom-h', document.getElementById('bottom').offsetHeight + 'px');
+  document.documentElement.style.setProperty('--top-h', el('top').offsetHeight + 'px');
+  document.documentElement.style.setProperty('--bottom-h', el('bottom').offsetHeight + 'px');
   drawModal();
   placeFeedback();
   maybePinchHint();
-  document.body.classList.toggle('wait', (!!state.game && !isWaiting()) || isDefeatedNow());
+  document.body.classList.toggle('wait', (!!state.game && !isMyTurn() && !isControllingNow()) || isDefeated());
 }
-
-// empties the panels that only show during a game
-function clearGamePanels() {
-  document.getElementById('wheel').style.display = 'none';
-  document.getElementById('cx').style.display = 'none';
-  document.getElementById('defeated').style.display = 'none';
-  ['top', 'hand', 'todo'].forEach(id => { document.getElementById(id).innerHTML = ''; });
-}
-
-// whether the player must wait for someone else's turn (used to dim the controls)
-function isWaiting() {
-  return state.game.current !== undefined && state.game.players[state.game.current].uid !== state.me && !isControllingNowFromRules();
-}
-
-// imported late so render.js itself has no import cycle with rules.js
-import { isControllingNow as isControllingNowFromRules, isDefeated as isDefeatedNow } from './rules.js';
