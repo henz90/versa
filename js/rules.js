@@ -154,3 +154,10 @@ export const syncModeWithRules = () => {
   if (!boardStepDone()) state.ui.mode = state.game.round <= ROUND.placementEnds ? 'place' : 'remove';
   else if (state.ui.mode === 'place' || state.ui.mode === 'remove') state.ui.mode = '';
 };
+
+// whether a flash key ('h3' or 'o1') still names a living unit
+export const isLiveFlashKey = key => {
+  const index = Number(key.slice(1));
+  if (key[0] === 'h') return !!state.game.heroes[index] && state.game.heroes[index].alive;
+  return !!state.game.objects[index] && state.game.objects[index].alive && !state.game.objects[index].isNuke;
+};
