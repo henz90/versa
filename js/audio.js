@@ -28,8 +28,7 @@ export function applySettings() {
   const systemWantsLessMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   document.body.classList.toggle('reduce-motion', !!settings.reduceMotion || systemWantsLessMotion);
   if (masterGain) {
-    const level = settings.muted ? 0 : Math.pow(settings.volume / 100, 2) * 0.8;
-    masterGain.gain.value = level;
+    masterGain.gain.value = settings.muted ? 0 : Math.pow(settings.volume / 100, 2) * 0.8;
   }
 }
 
