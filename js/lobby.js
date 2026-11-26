@@ -1,18 +1,15 @@
 /* The lobby: names, creating and joining rooms, starting a game, and the realtime link to a room. */
 
-import { LOADOUT_NAME_PATTERN, TIMING, USERNAME_PATTERN } from './config.js';
+import { LOADOUT_NAME_PATTERN, TIMING, TUTORIAL_KEY, db } from './config.js';
 import { state } from './state.js';
 import { isValidUsername } from './escape.js';
 import { el } from './dom.js';
 import { render } from './render.js';
-import { db } from './config.js';
 import {
-  loadMyPrivateData, createRoom, joinRoom, startGame, fetchRoom, fetchSavedNames, saveLoadout,
-  sendEmojiToRoom, submitAction,
+  loadMyPrivateData, createRoom, joinRoom, startGame, fetchRoom, fetchSavedNames, saveLoadout, submitAction,
 } from './server.js';
 import { applyRemoteState } from './sync.js';
 import { showEmojiBubble } from './emoji.js';
-import { padLoadout, nameFields } from './panels.js';
 
 // shows a short message that fades away, in the notification area
 export function toast(message) {
