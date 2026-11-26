@@ -3,22 +3,22 @@
 
 import { ROUND, RULES, MUST_CHOOSE } from './config.js';
 import { state } from './state.js';
-import { cubeDistance, cubeKey, neighbours, sameTile } from './geometry.js';
+import { cubeDistance, cubeKey, sameTile } from './geometry.js';
 
 // the tile at a cube position, or undefined if none is there
 export const tileAt = cube => state.game.tiles[cubeKey(cube)];
 
 // heroes alive on a tile
-export const heroesAt = cube => state.game.heroes.filter(hero => hero.alive && sameTile(hero.c, cube));
+export const heroesAt = cube => state.game.heroes.filter(hero => hero.alive && sameTile(hero.cube, cube));
 
 // living objects on a tile (not the Nuke)
-export const objectsAt = cube => state.game.objects.filter(obj => obj.alive && sameTile(obj.c, cube));
+export const objectsAt = cube => state.game.objects.filter(obj => obj.alive && sameTile(obj.cube, cube));
 
 // the Nuke on a tile, if there is one
-export const nukeAt = cube => state.game.objects.find(obj => obj.alive && obj.nuke && sameTile(obj.c, cube));
+export const nukeAt = cube => state.game.objects.find(obj => obj.alive && obj.isNuke && sameTile(obj.cube, cube));
 
 // how many living objects a player owns (the Nuke is never counted)
-export const objectCount = player => state.game.objects.filter(obj => obj.alive && !obj.nuke && obj.player === player).length;
+export const objectCount = player => state.game.objects.filter(obj => obj.alive && !obj.isNuke && obj.player === player).length;
 
 // how many living heroes a player has
 export const heroCount = player => state.game.heroes.filter(hero => hero.alive && hero.player === player).length;
@@ -33,7 +33,7 @@ export const myIndex = () => (state.game ? state.game.players.findIndex(p => p.u
 export const isMine = unit => unit.player === myIndex();
 
 // whether it is the signed-in player's turn
-export const isMyTurn = () => !!state.game && !state.game.over && state.game.players[state.game.current]?.uid === state.me;
+export const isMyTurn = () => !!state.game && !state.game.winner && state.game.players[state.game.current]?.uid === state.me;
 
 // whether the signed-in player has lost every hero
 export const isDefeated = () => myIndex() >= 0 && !isAlive(myIndex());
@@ -55,23 +55,25 @@ export const unitRef = unit => (state.game.heroes.includes(unit)
   ? { kind: 'h', i: state.game.heroes.indexOf(unit) }
   : { kind: 'o', i: state.game.objects.indexOf(unit) });
 
+// the hero or object a reference points to
 export const unitFromRef = ref => (ref.kind === 'h' ? state.game.heroes[ref.i] : state.game.objects[ref.i]);
 
 // the objects a hero can carry: the ones on its tile
-export const carryable = hero => objectsAt(hero.c);
+export const carryable = hero => objectsAt(hero.cube);
 
 // the best Range a hero can use: its own plus the best object Range on its tile
-export const maxRangeWith = (hero, objects) => hero.stats.rng + Math.max(0, ...objects.map(obj => obj.stats.rng || 0));
+export const maxRangeWith = (hero, objects) => hero.stats.range + Math.max(0, ...objects.map(obj => obj.stats.range || 0));
 export const reach = hero => maxRangeWith(hero, carryable(hero));
 
 // whether the signed-in player is controlling another player's hero right now
-export const isControllingNow = () => !!state.game && !state.game.over && state.game.current !== myIndex()
-  && state.game.heroes.some(hero => hero.alive && hero.player === state.game.current && hero.mc && hero.mc.ceded && hero.mc.by === myIndex());
+export const isControllingNow = () => !!state.game && !state.game.winner && state.game.current !== myIndex()
+  && state.game.heroes.some(hero => hero.alive && hero.player === state.game.current
+    && hero.mindControl && hero.mindControl.ceded && hero.mindControl.by === myIndex());
 
 // whether the signed-in player may give orders to this hero now
-export const actsForMe = hero => !!state.game && !state.game.over && hero.alive && (
-  (isMine(hero) && isMyTurn() && !hero.mc)
-  || (!!hero.mc && hero.mc.ceded && hero.mc.by === myIndex() && hero.player === state.game.current));
+export const actsForMe = hero => !!state.game && !state.game.winner && hero.alive && (
+  (isMine(hero) && isMyTurn() && !hero.mindControl)
+  || (!!hero.mindControl && hero.mindControl.ceded && hero.mindControl.by === myIndex() && hero.player === state.game.current));
 
 // the attack or Mind Control already used this turn, if any (a hero may use one per turn)
 export const combatLock = hero => (hero.tries.find(t => t.type === 'attack' || t.type === 'mind') || {}).type || null;
@@ -96,7 +98,7 @@ export const barrierColor = cube => {
 
 // whether an owner has a tile they may give up in the Decline phase
 export const ownerHasRemovableTile = owner =>
-  Object.values(state.game.tiles).some(tile => !tile.groundZero && tile.owner === owner && !heroesAt(tile.c).length);
+  Object.values(state.game.tiles).some(tile => !tile.groundZero && tile.owner === owner && !heroesAt(tile.cube).length);
 
 // the next player who still has a tile to give up
 export const currentRemovalOwner = () => state.game.removalOrder.find(ownerHasRemovableTile);
@@ -105,14 +107,15 @@ export const currentRemovalOwner = () => state.game.removalOrder.find(ownerHasRe
 export const needsRemoval = () => state.game.round >= ROUND.declineFrom && currentRemovalOwner() !== undefined;
 
 // whether the current player still has a tile to place this turn
-export const needsPlacement = () => state.game.round <= ROUND.placementEnds && state.game.players[state.game.current].poolCount > 0;
+export const needsPlacement = () => state.game.round <= ROUND.placementEnds
+  && state.game.players[state.game.current].poolCount > 0;
 
 // whether the turn's board step (placing or removing a tile) is still due
 export const needsBoardStep = () => (state.game.round <= ROUND.placementEnds ? needsPlacement() : needsRemoval());
 export const boardStepDone = () => state.game.boardStepDone || !needsBoardStep();
 
 // whether a hero may repeat an action type (a failed attempt may be retried)
-export const canRepeat = (hero, type) => !hero.tries.some(t => t.type === type && !t.fail) || hero.ok[type];
+export const canRepeat = (hero, type) => !hero.tries.some(t => t.type === type && !t.fail) || !!hero.repeatable[type];
 
 // whether a hero may perform an action now
 export const canAct = (hero, type) => actsForMe(hero) && boardStepDone()
@@ -123,10 +126,11 @@ export const canHitNuke = hero => actsForMe(hero) && boardStepDone() && hero.act
 
 // a hero under a Mind Control cooldown cannot be controlled again straight away
 export const canBeMindControlled = target => target.alive
-  && !(target.mcCooldown != null && (state.game.round === target.mcCooldown || state.game.round === target.mcCooldown + 1));
+  && !(target.mindControlCooldown != null
+    && (state.game.round === target.mindControlCooldown || state.game.round === target.mindControlCooldown + 1));
 
 // whether one hero is within reach of another
-export const inRangeOf = (attacker, target) => cubeDistance(attacker.c, target.c) <= reach(attacker);
+export const inRangeOf = (attacker, target) => cubeDistance(attacker.cube, target.cube) <= reach(attacker);
 
 // whether a hero may attempt Mind Control on a target now
 export const canMindControl = (attacker, target) => actsForMe(attacker) && boardStepDone()
@@ -137,8 +141,16 @@ export const canMindControl = (attacker, target) => actsForMe(attacker) && board
 // whether a unit can be the target of a skill purchase or a skill point from develop
 export const actingUnit = unit => ('slot' in unit ? actsForMe(unit) : isMine(unit));
 
-// the wheel kinds that must be answered
+// whether a wheel must be answered rather than closed
 export const mustChoose = wheel => !!wheel && MUST_CHOOSE.includes(wheel.kind);
 
-// whether the Hero, Object or Barrier button in the Buy panel is the one that is active
-export const isBuyModeActive = key => state.ui.mode === key;
+// whether a Decline removal is needed, and whether the turn can end
+export const syncModeWithRules = () => {
+  if (!state.game) return;
+  if (!isMyTurn() || state.game.winner) {
+    if (state.ui.mode === 'place' || state.ui.mode === 'remove') state.ui.mode = '';
+    return;
+  }
+  if (!boardStepDone()) state.ui.mode = state.game.round <= ROUND.placementEnds ? 'place' : 'remove';
+  else if (state.ui.mode === 'place' || state.ui.mode === 'remove') state.ui.mode = '';
+};
