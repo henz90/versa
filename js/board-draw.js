@@ -1,9 +1,9 @@
 /* The board: tiles, heroes, objects and the Nuke, drawn as SVG each time the state changes.
-   This module draws only. Input (clicks, drags, zoom) lives in input.js. */
+   Drawing only. Input (clicks, drags, zoom) lives in input.js. */
 
 import {
   HEX_RADIUS, NUKE_RADIUS, TIMING, TILE_COLORS, TERRAIN_PATTERN, HERO_COLORS, NEUTRAL_FILL,
-  GROUND_ZERO_FILL, UNOWNED_STROKE, APOCALYPSE_RED, ROUND, RULES, SKILL_ICON,
+  GROUND_ZERO_FILL, UNOWNED_STROKE, APOCALYPSE_RED, ROUND, RULES,
 } from './config.js';
 import {
   TERRAIN_DEFS, tokenShape, hexX, hexY, hexPoints, nukePoint, cubeKey, cubeDistance, neighbours, sameTile,
@@ -13,7 +13,7 @@ import { escapeHtml } from './escape.js';
 import {
   tileAt, heroesAt, objectsAt, myIndex, actsForMe, canAct, canMindControl, reach, inRangeOf,
   selectedHero, actingUnit, barrierColor, knowsTileType, needsRemoval, currentRemovalOwner, objectCount,
-  isLiveFlashKey as unitIsAlive,
+  isLiveFlashKey,
 } from './rules.js';
 import { heroPosition, setViewBoxFor } from './board-position.js';
 import { heroTooltip, objectTooltip, nukeTooltip, tileTooltip } from './tooltips.js';
@@ -96,7 +96,7 @@ export function hintSets() {
 // the symbol for each skill, drawn on a tile
 const TILE_SYMBOL = { str: '✊', def: '🛡️', rng: '🏹', int: '🧠', bar: '🛑' };
 
-// the SVG for one tile: its fill, terrain pattern, barrier glow and symbol
+// the SVG for one tile: fill, terrain pattern, barrier glow and symbol
 export function tileSvg(tile) {
   const cube = tile.cube;
   const key = cubeKey(cube);
@@ -216,11 +216,6 @@ export function nukeSvg(nuke) {
 export function apocalypseSymbol() {
   const size = Math.round(11 * Math.sqrt(3) * HEX_RADIUS);
   return `<text x="0" y="0" font-size="${size}" fill="#ff6b6b" opacity=".4">☢</text>`;
-}
-
-// whether a highlighted unit is still alive, so flashes on the dead are dropped
-export function isLiveFlashKey(key) {
-  return unitIsAlive(key);
 }
 
 // highlights the units named by an event for a short time
