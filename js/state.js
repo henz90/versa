@@ -1,5 +1,5 @@
-/* The client's state. One object holds everything the page knows, and modules
-   read and update its properties. The server remains the authority on rules. */
+/* The client's state. One object holds everything the page knows.
+   Property names match the server's full names (see sql/96_full_names.sql). */
 
 import { DEFAULT_SETTINGS, PALETTES, SETTINGS_KEY } from './config.js';
 
@@ -8,7 +8,7 @@ export const settings = { ...DEFAULT_SETTINGS, ...JSON.parse(localStorage.getIte
 
 export const state = {
   game: null,            // the room's game state from the server, with private cards merged in
-  priv: null,            // this player's private pool, hand, and secret tile skills
+  priv: null,            // this player's private pool, hand and secret tile skills
   me: null,              // this player's user id
   room: null,            // the room code being played
   roomRow: null,         // the latest row from the rooms table (the lobby uses it)
@@ -53,8 +53,8 @@ export const state = {
   tooltips: {},
   presenceSeen: { data: {}, at: 0 },
   tick: 0,
-  lastAnimatedSeq: null,
-  lastSeenSeq: 0,
+  lastAnimatedSequence: null,
+  lastSeenSequence: 0,
   savedNames: null,
   loadoutDraft: null,
   overlay: { kind: null, step: 0, returnFocus: null },
