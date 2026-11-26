@@ -21,6 +21,7 @@ import {
 import { submitAction } from './server.js';
 import { render } from './render.js';
 import { pickBuy, explainBuyOption } from './buy.js';
+import { cancelMode } from './actions.js';
 import { onTouchDown, onTouchMove, onTouchUp, suppressClicksBriefly } from './zoom.js';
 
 // the hero under a pointer press, with its index in the game's hero list, or null
@@ -314,5 +315,3 @@ export function onEscape() {
   if (state.game) return cancelMode();
   return render();
 }
-
-import { cancelMode } from './actions.js';
