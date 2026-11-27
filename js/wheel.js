@@ -5,13 +5,12 @@ import { RULES, ROUND, MUST_CHOOSE, EMOJIS, SKILLS, SKILL_ICON, SKILL_NAME } fro
 import { state, setMessage } from './state.js';
 import { indexFromPage } from './escape.js';
 import {
-  tileAt, heroIndex, myIndex, isMine, reach, carryable, inRangeOf, combatLock, canAct, canMindControl,
-  actingUnit, selectedHero, unitFromRef, unitRef, heroName, heroLabel, maxRangeWith,
+  tileAt, heroIndex, myIndex, reach, carryable, inRangeOf, combatLock, canAct, canMindControl,
+  actingUnit, selectedHero, unitFromRef, unitRef, heroName, maxRangeWith,
 } from './rules.js';
 import { cubeDistance } from './geometry.js';
 import { submitAction, sendEmojiToRoom } from './server.js';
 import { render } from './render.js';
-import { objectsAt } from './rules.js';
 
 // opens a wheel menu on the board; the wheel records what kind of choice it is
 export function openWheel(wheel) {
@@ -64,13 +63,13 @@ export function toggleCarry(value) {
 
 // sends the move once the carry choice is made, after checking the hero can reach the tile
 export function confirmCarry() {
-  const { heroIndex, cube, objectIndexes } = state.ui.carry;
+  const { heroIndex: index, cube, objectIndexes } = state.ui.carry;
   state.ui.carry = null;
-  const range = maxRangeWith(state.game.heroes[heroIndex], objectIndexes.map(i => state.game.objects[i]));
-  if (cubeDistance(state.game.heroes[heroIndex].cube, cube) > range) {
+  const range = maxRangeWith(state.game.heroes[index], objectIndexes.map(i => state.game.objects[i]));
+  if (cubeDistance(state.game.heroes[index].cube, cube) > range) {
     return setMessage('Too far for its own range: take an object with range along');
   }
-  return sendMove(heroIndex, cube, objectIndexes, null);
+  return sendMove(index, cube, objectIndexes, null);
 }
 
 // sends a move; when the move reveals a skill tile with carried objects, asks where the point goes
@@ -209,6 +208,16 @@ export function openPlacementWheel(cube) {
   });
 }
 
+// whether a tile can take the chosen develop build
+function isValidDevelopTile(cube) {
+  const tile = tileAt(cube);
+  const hero = selectedHero();
+  if (!tile || !hero || cubeDistance(hero.cube, cube) > 1) return false;
+  if (state.ui.devType === 'barrier') return !state.game.apocalypse && !!tile.discovered;
+  if (state.ui.devType === 'object') return !state.game.apocalypse && !!tile.discovered;
+  return false;
+}
+
 // develop on a tile: the choice of what to build, or the skill target
 export function handleDevelopClick(cube, unit) {
   if (state.ui.devType === 'skill') {
@@ -218,7 +227,7 @@ export function handleDevelopClick(cube, unit) {
     openWheel({ cube: unit.cube, kind: 'developSkill', unit: unitRef(unit), items: skillItems() });
     return render();
   }
-  if (!state.game.round || !isValidDevelopTile(cube)) {
+  if (!isValidDevelopTile(cube)) {
     state.ui.mode = '';
     state.ui.devType = null;
     return render();
@@ -226,16 +235,6 @@ export function handleDevelopClick(cube, unit) {
   if (state.ui.devType === 'barrier') openWheel({ cube, kind: 'buildDir', items: buildDirItems(cube) });
   else openWheel({ cube, kind: 'roll', unit: null, items: rollItems() });
   return render();
-}
-
-// whether a tile can take the chosen develop build
-function isValidDevelopTile(cube) {
-  const tile = tileAt(cube);
-  const hero = selectedHero();
-  if (!tile || !hero || cubeDistance(hero.cube, cube) > 1) return false;
-  if (state.ui.devType === 'barrier') return !state.game.apocalypse && !!tile.discovered;
-  if (state.ui.devType === 'object') return !state.game.apocalypse && !!tile.discovered;
-  return false;
 }
 
 // sends a develop: the roll for a barrier, object or skill
@@ -264,6 +263,9 @@ export async function sendDevelop(wheel, take) {
   }
   render();
 }
+
+// the full stat name for a skill code, used to read a unit's stats
+const skillStatName = skill => ({ str: 'strength', def: 'defense', rng: 'range', int: 'intelligence' })[skill];
 
 // the menu choice made on a wheel: each wheel kind has its own handler
 export function pickWheelItem(value) {
@@ -324,8 +326,5 @@ export function pickWheelItem(value) {
   closeWheel();
   const handler = handlers[wheel.kind];
   if (handler) handler();
-  render();
+  return render();
 }
-
-// the full stat name for a skill code, used to read a unit's stats
-const skillStatName = skill => ({ str: 'strength', def: 'defense', rng: 'range', int: 'intelligence' })[skill];
