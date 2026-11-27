@@ -284,6 +284,17 @@ export function showFloat(html, extraClass = '', durationMs = 3000, frame = null
   setTimeout(() => node.remove(), durationMs);
 }
 
+// a short flash over the whole board for the Apocalypse, with a fanfare
+export function playApocalypseAnimation() {
+  const svg = el('svg');
+  svg.classList.remove('apoc-flash');
+  void svg.offsetWidth;
+  svg.classList.add('apoc-flash');
+  setTimeout(() => svg.classList.remove('apoc-flash'), 1700);
+  SOUNDS.fanfare();
+  showFloat(`<span>☢</span> ${SYM.boom}`, 'nat', 2600);
+}
+
 // the label on a roll card: what was rolled
 export function rollLabel(event) {
   const headline = event.headline || '';
@@ -426,15 +437,4 @@ export function enqueueEvents(events) {
 // drops every queued banner, used when the player leaves a room
 export function clearBannerQueue() {
   state.bannerQueue = [];
-}
-
-// a flash over the whole board for the Apocalypse, with a fanfare
-export function playApocalypseAnimation() {
-  const svg = el('svg');
-  svg.classList.remove('apoc-flash');
-  void svg.offsetWidth;
-  svg.classList.add('apoc-flash');
-  setTimeout(() => svg.classList.remove('apoc-flash'), 1700);
-  SOUNDS.fanfare();
-  showFloat(`<span>☢</span> ${SYM.boom}`, 'nat', 2600);
 }
