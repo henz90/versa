@@ -4,9 +4,10 @@ import { CARD_SELL_VALUE, CARD_ICON, CARD_NAME } from './config.js';
 import { state, setMessage } from './state.js';
 import { el } from './dom.js';
 import { indexFromPage } from './escape.js';
-import { isMyTurn, myIndex } from './rules.js';
+import { isMyTurn } from './rules.js';
 import { submitAction } from './server.js';
 import { render } from './render.js';
+import { updateSellZone } from './panels.js';
 
 // the unit (hero or object) under a drop, with its index checked against the game state
 export function cardTargetUnit(target) {
@@ -38,7 +39,7 @@ export function onCardPointerMove(event) {
     card.node.classList.add('dragging-out');
     state.pointer.sellHint = CARD_SELL_VALUE[name] ?? 2;
     el('buycol').classList.add('dragging');
-    updateSellZoneHook();
+    updateSellZone();
     card.ghost = document.createElement('div');
     card.ghost.className = 'ghostc';
     card.ghost.textContent = `${CARD_ICON[name]} ${CARD_NAME[name]}`;
@@ -54,7 +55,7 @@ export function onCardPointerUp(event) {
   state.pointer.card = null;
   el('buycol').classList.remove('dragging');
   state.pointer.sellHint = null;
-  updateSellZoneHook();
+  updateSellZone();
   if (finished.ghost) finished.ghost.remove();
   if (finished.node) finished.node.classList.remove('dragging-out');
   if (!finished.moved) return;
@@ -85,17 +86,5 @@ export function onCardPointerUp(event) {
     return submitAction({ type: 'play_versa', index: finished.index + 1 });
   }
   setMessage('Drop a card in the Buy panel to sell it, on a hero or object to use it, or the 5V card on the board to play it');
-  render();
+  return render();
 }
-
-// the sell zone's text is updated in panels.js; imported late to keep the module graph acyclic at load time
-import { updateSellZone } from './panels.js';
-function updateSellZoneHook() {
-  updateSellZone();
-}
-
-// whether the pointer belongs to this module's card drag
-export const isCardDragging = () => !!state.pointer.card && state.pointer.card.moved;
-
-// unused by callers, kept for clarity of the card index rule
-export const handHasCard = index => !!myIndex() && index < (state.priv ? state.priv.hand.length : 0);
