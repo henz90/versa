@@ -1,8 +1,8 @@
 /* Overlays: the first-time tutorial, the rules and help screen, the settings panel, and the legend. */
 
 import {
-  TUTORIAL_KEY, APP_VERSION, EXPECTED_SCHEMA_VERSION, SYM, SKILL_ICON, TILE_COLORS, TERRAIN_PATTERN,
-  DEFENDER_MARK, HERO_COLORS, GROUND_ZERO_FILL, UNOWNED_STROKE, NEUTRAL_FILL, PALETTES, SKILL_NAME, SKILLS,
+  TUTORIAL_KEY, APP_VERSION, EXPECTED_SCHEMA_VERSION, SYM, TILE_COLORS, TERRAIN_PATTERN,
+  DEFENDER_MARK, HERO_COLORS, GROUND_ZERO_FILL, UNOWNED_STROKE, NEUTRAL_FILL,
 } from './config.js';
 import { state, settings } from './state.js';
 import { escapeHtml } from './escape.js';
@@ -65,7 +65,7 @@ const REFERENCE_SECTIONS = [
   ] },
 ];
 
-// the legend's rows: a key drawn in a small square, then its name and a short note
+// a legend row: a key drawn in a small box, then its name and a short note
 function legendRow(keyHtml, label, note) {
   return `<div class="legend-row"><span class="legend-key">${keyHtml}</span>`
     + `<span class="legend-text"><b>${escapeHtml(label)}</b>${note ? ` <small>${escapeHtml(note)}</small>` : ''}</span></div>`;
@@ -244,6 +244,3 @@ export function changeSetting(target) {
   if (key === 'palette' || key === 'reduceMotion') render();
   if (key === 'palette') renderOverlay();
 }
-
-// the skill codes, as the legend and settings reference them
-export const OVERLAY_SKILLS = SKILLS;
