@@ -5,13 +5,18 @@ import { TIMING } from './config.js';
 import { state } from './state.js';
 import { cubeKey } from './geometry.js';
 import { render } from './render.js';
-import { enqueueEvents, showRecap, playApocalypseAnimation } from './banners.js';
+import {
+  enqueueEvents, showRecap, playApocalypseAnimation, startOfMyTurnMoment,
+} from './banners.js';
+import { myIndex } from './rules.js';
 
 // merges a new game state with this player's private cards and secret tile skills, then shows it
 export function applyRemoteState(serverState) {
   if (state.game && serverState.sequence <= (state.game.sequence || 0)) return;
   const hadGame = !!state.game;
   const wasApocalypse = hadGame && !!state.game.apocalypse;
+  const previousCurrent = hadGame ? state.game.current : null;
+  const previousMine = hadGame ? myIndex() : -1;
   const oldNuke = hadGame ? state.game.objects.find(o => o.isNuke) : null;
   const priv = state.priv || { pool: [], hand: [], secretSkills: {} };
   const me = serverState.players.findIndex(p => p.uid === state.me);
@@ -50,6 +55,11 @@ export function applyRemoteState(serverState) {
   } else if (!hadGame) {
     state.lastAnimatedSequence = serverState.sequence;
   }
+
+  // the signature moment: the turn has just passed to this player (not on first load, not on a gap)
+  const turnPassedToMe = hadGame && !gap && previousCurrent !== state.game.current
+    && myIndex() >= 0 && state.game.current === myIndex() && previousMine !== myIndex();
+  if (turnPassedToMe && !state.game.winner) startOfMyTurnMoment();
 
   if (hadGame && !wasApocalypse && state.game.apocalypse) playApocalypseAnimation();
   render();
