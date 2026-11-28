@@ -385,3 +385,11 @@ text { pointer-events: none; text-anchor: middle; dominant-baseline: central; fo
   .event-headline { font-size: 1.4em; }
   .side-chip { font-size: .8em; }
 }
+
+/* signature moment: the turn badge pulses once when a turn passes to the signed-in player */
+@keyframes turnPulse { 0% { box-shadow: 0 0 0 0 #ffd54f; } 50% { box-shadow: 0 0 18px 6px #ffd54fcc; } 100% { box-shadow: 0 0 0 0 #ffd54f00; } }
+.badge.turn-pulse { animation: turnPulse 1.2s ease-out 1; }
+
+/* victory reveal: surviving heroes lined up under the winner's name */
+.lineup { display: flex; justify-content: center; flex-wrap: wrap; gap: .8em; margin: .6em 0; }
+.lineup-hero { display: flex; flex-direction: column; align-items: center; gap: .2em; font-size: .8em; }
