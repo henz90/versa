@@ -18,6 +18,9 @@ import {
 import { heroPosition, setViewBoxFor } from './board-position.js';
 import { heroTooltip, objectTooltip, nukeTooltip, tileTooltip } from './tooltips.js';
 
+// the corner radius of an object's square, in board units: softened so it reads as a block
+export const OBJECT_CORNER_RADIUS = 2;
+
 // whether a tile can be chosen in the current mode (place, remove, develop, buy)
 export function isValidTarget(cube) {
   const tile = tileAt(cube);
@@ -181,7 +184,7 @@ export function heroSvg(hero, index) {
     + token + mindControlRing + marching + attackRing + hintRing + skillRing + flash + actionDots + damage + `</g>`;
 }
 
-// the SVG for one object: a small square in its owner's colour with its defence value
+// the SVG for one object: a small square in its owner's colour with its defence value, corners softened
 export function objectSvg(obj, index) {
   const row = objectsAt(obj.cube).filter(o => !o.isNuke);
   const position = row.indexOf(obj);
@@ -194,7 +197,7 @@ export function objectSvg(obj, index) {
   const muted = state.ui.mode === 'develop' && state.ui.devType === 'skill' && !isDevelopSkillTarget(obj) ? 'mute' : '';
   state.tooltips['o' + index] = objectTooltip(obj);
   return `<g class="${muted}" data-obj="${index}" data-k="${cubeKey(obj.cube)}" data-tip="o${index}">`
-    + `<rect x="${x - 7}" y="${y - 7}" width="14" height="14" rx="3" fill="${state.playerColors[obj.player]}" stroke="#0e0e12" stroke-width="1"/>`
+    + `<rect x="${x - 7}" y="${y - 7}" width="14" height="14" rx="${OBJECT_CORNER_RADIUS}" fill="${state.playerColors[obj.player]}" stroke="#0e0e12" stroke-width="1"/>`
     + ring + flash
     + `<text x="${x}" y="${y - 1}" font-size="9">${escapeHtml(obj.symbol || '🧱')}</text>`
     + `<text x="${x + 5}" y="${y + 5}" font-size="5" font-weight="bold" fill="#fff" stroke="#000" stroke-width=".8" paint-order="stroke">${escapeHtml(obj.stats.defense)}</text>`
