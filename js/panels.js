@@ -88,7 +88,7 @@ export function buyOptions() {
   return {
     structures: [
       option('barrier', 'b-stone', '🛑', 'Barrier', '5V', reasonFor(RULES.actionCost, apocalypse)),
-      option('obj', 'b-gold', '🔮', 'Object', '5V', reasonFor(RULES.actionCost, apocalypse || objectsFull)),
+      option('obj', 'b-neutral', '🔮', 'Object', '5V', reasonFor(RULES.actionCost, apocalypse || objectsFull)),
       option('hero', 'b-hero', '👤', 'Hero', '30V', reasonFor(RULES.heroCost, heroesFull)),
     ],
     skills: [
