@@ -21,6 +21,9 @@ import { heroTooltip, objectTooltip, nukeTooltip, tileTooltip } from './tooltips
 // the corner radius of an object's square, in board units: softened so it reads as a block
 export const OBJECT_CORNER_RADIUS = 2;
 
+// how strong the tile bevel reads: the highlight and shade are drawn at this opacity
+export const BEVEL_OPACITY = 0.35;
+
 // whether a tile can be chosen in the current mode (place, remove, develop, buy)
 export function isValidTarget(cube) {
   const tile = tileAt(cube);
@@ -99,7 +102,15 @@ export function hintSets() {
 // the symbol for each skill, drawn on a tile
 const TILE_SYMBOL = { str: '✊', def: '🛡️', rng: '🏹', int: '🧠', bar: '🛑' };
 
-// the SVG for one tile: fill, terrain pattern, barrier glow and symbol
+// the bevel for a tile: a lighter upper-left edge and a darker lower-right edge, at low opacity
+function bevelSvg(cube) {
+  const upperLeft = [0, 1, 2].map(i => hexPoints(cube).split(' ')[i + 3]).join(' ');
+  const lightEdge = `<polyline points="${hexPoints(cube).split(' ').slice(3, 6).join(' ')}" fill="none" stroke="#ffffff" stroke-opacity="${BEVEL_OPACITY}" stroke-width="1.5" stroke-linejoin="round"/>`;
+  const darkEdge = `<polyline points="${hexPoints(cube).split(' ').slice(0, 3).join(' ')}" fill="none" stroke="#000000" stroke-opacity="${BEVEL_OPACITY}" stroke-width="1.5" stroke-linejoin="round"/>`;
+  return lightEdge + darkEdge + (upperLeft ? '' : '');
+}
+
+// the SVG for one tile: fill, terrain pattern, bevel, shadow, barrier glow and symbol
 export function tileSvg(tile) {
   const cube = tile.cube;
   const key = cubeKey(cube);
@@ -129,8 +140,9 @@ export function tileSvg(tile) {
     ? `<text x="${hexX(cube) + HEX_RADIUS * 0.5}" y="${hexY(cube) + HEX_RADIUS * 0.6}" font-size="8" font-weight="bold" fill="#ffd54f" stroke="#000" stroke-width="1" paint-order="stroke">🛑${tile.barrier}</text>`
     : '';
 
-  return `<polygon data-k="${key}" data-tip="t${key}" class="${classes}" fill="${fill}" stroke="${stroke}" stroke-width="1.5" points="${hexPoints(cube)}"/>`
+  return `<polygon data-k="${key}" data-tip="t${key}" class="${classes}" fill="${fill}" stroke="${stroke}" stroke-width="1.5" points="${hexPoints(cube)}" filter="url(#tile-shadow)"/>`
     + texture
+    + bevelSvg(cube)
     + glow
     + `<text x="${hexX(cube)}" y="${hexY(cube)}" font-size="${label.length > 2 ? 22 : 34}" fill="#fff">${escapeHtml(label)}</text>`
     + barrierTag;
@@ -158,7 +170,8 @@ export function isDevelopSkillTarget(unit) {
     && actingUnit(unit) && cubeDistance(unit.cube, hero.cube) <= 1;
 }
 
-// the SVG for one hero: its shape, rings for its state, and its actions left
+// the SVG for one hero: its shape, rings for its state, and its actions left.
+// Each hero breathes on its own beat: the delay is its index, so heroes do not move in unison.
 export function heroSvg(hero, index) {
   const [x, y] = heroPosition(hero);
   const actable = actsForMe(hero);
@@ -180,7 +193,8 @@ export function heroSvg(hero, index) {
   state.tooltips['h' + index] = heroTooltip(hero);
   const token = tokenShape(hero.player, x, y, 6, HERO_COLORS[index % HERO_COLORS.length],
     state.playerColors[hero.player], selected ? 2.5 : 1.5);
-  return `<g class="${muted}" data-hero="${index}" data-k="${cubeKey(hero.cube)}" data-tip="h${index}">`
+  const beat = `animation-delay:${(index * 0.4).toFixed(1)}s`;
+  return `<g class="hero-idle ${muted}" style="${beat}" data-hero="${index}" data-k="${cubeKey(hero.cube)}" data-tip="h${index}">`
     + token + mindControlRing + marching + attackRing + hintRing + skillRing + flash + actionDots + damage + `</g>`;
 }
 
