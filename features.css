@@ -29,3 +29,35 @@ polygon.tex[fill^="url(#pat-gz)"] { opacity: .9; }
 /* hero idle motion: a slow breath, scaled from the hero's centre; the start delay is set per hero */
 @keyframes heroBreathe { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.06); } }
 .hero-idle { transform-box: fill-box; transform-origin: center; animation: heroBreathe 3s ease-in-out infinite; }
+
+/* type scale: three sizes only, relative to the base size so large-text mode still scales.
+   headline 1.6em, body 1em (the base), label 0.75em. */
+:root { --type-headline: 1.6em; --type-body: 1em; --type-label: .75em; }
+
+/* headline: banner headlines, modal titles and the end card */
+.event-headline,
+.card h2,
+.ov-card h2 { font-size: var(--type-headline); line-height: 1.15; }
+
+/* body: panel text, buy labels, to-do lines, tooltips and log lines */
+.bo-label,
+.td,
+.msg,
+.tsub,
+.legend-text,
+.ov-row,
+.ov-ref li,
+.logfull,
+.logfull details > div { font-size: var(--type-body); }
+
+/* label: small captions, chips, stat labels, legend notes and offline badges */
+.chip,
+.pchip,
+.alert,
+.side-chip,
+.tstat small,
+.bsection,
+.legend-text small,
+.bo-cost,
+.roll-label,
+.lineup-hero small { font-size: var(--type-label); }
