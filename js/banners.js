@@ -14,8 +14,11 @@ import { SOUNDS } from './audio.js';
 import { flashUnits } from './board-draw.js';
 import { el } from './dom.js';
 
-// the coloured frame for a banner's source, following the palette
-export function frameFor(source) {
+// the coloured frame for a banner: object and barrier banners take the owner's colour; the rest follow the palette
+export function frameFor(source, actor) {
+  if ((source === 'object' || source === 'barrier') && actor != null && actor >= 0) {
+    return state.playerColors[actor];
+  }
   const palette = SOURCE_FRAME[settings.palette] || SOURCE_FRAME.standard;
   return palette[source] || palette.general;
 }
@@ -225,7 +228,7 @@ export function showSideChip(event, source) {
   const stack = el('sideStack');
   const chip = document.createElement('div');
   chip.className = 'side-chip';
-  chip.style.setProperty('--frame', frameFor(source));
+  chip.style.setProperty('--frame', frameFor(source, event.actor));
   const line = symbolLine(event, event.headline || '', event.target === myIndex());
   chip.textContent = `${(SOURCE_STYLE[source] || SOURCE_STYLE.general).icon} ${line}`;
   chip.setAttribute('aria-label', eventSpokenText(event));
@@ -425,7 +428,7 @@ export function presentEvent(event) {
   }
   setTimeout(() => playOutcomeSound(event), hasDice ? 450 : 0);
   if (isProjectileEvent(event) && !motionReduced()) animateProjectile(event);
-  showFloat(eventCardHtml(event), 'event slow', TIMING.importantBannerMs, frameFor(source));
+  showFloat(eventCardHtml(event), 'event slow', TIMING.importantBannerMs, frameFor(source, event.actor));
   return TIMING.importantGapMs;
 }
 
