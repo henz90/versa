@@ -1,7 +1,7 @@
 /* Constants, palettes, timings, symbols and the database client.
    Nothing here changes while the game runs. */
 
-export const APP_VERSION = '1.5.0';
+export const APP_VERSION = '1.6.0';
 
 // the database schema version this page expects; must match sql/96_full_names.sql
 export const EXPECTED_SCHEMA_VERSION = '5';
@@ -28,22 +28,23 @@ export const OUTCOME_COLOURS = {
 export const SOURCE_FRAME = {
   standard: {
     combat: '#ff5252', mind: '#c77dff', barrier: '#9a9a9a', object: '#ffd54f', hero: '#7cf0ff',
-    develop: '#34c759', card: '#ffd54f', buy: '#ffd54f', nuke: '#ff3d3d', turn: '#8ab4ff', concede: '#ff5252',
+    develop: '#34c759', card: '#ffd54f', buy: '#8a8a96', nuke: '#ff3d3d', turn: '#8ab4ff', concede: '#ff5252',
     disconnect: '#ff5252', move: '#8ab4ff', general: '#8ab4ff',
   },
   cb: {
     combat: '#D55E00', mind: '#CC79A7', barrier: '#999999', object: '#E69F00', hero: '#56B4E9',
-    develop: '#009E73', card: '#F0E442', buy: '#E69F00', nuke: '#FFFFFF', turn: '#0072B2', concede: '#D55E00',
+    develop: '#009E73', card: '#F0E442', buy: '#8a8a96', nuke: '#FFFFFF', turn: '#0072B2', concede: '#D55E00',
     disconnect: '#999999', move: '#56B4E9', general: '#56B4E9',
   },
 };
 
 export const TILE_COLORS = { str: '#7a2e38', def: '#24527a', rng: '#4f6b26', int: '#5b3478', bar: '#7a5a22' };
-export const TERRAIN_PATTERN = { str: 'pat-str', def: 'pat-def', rng: 'pat-rng', int: 'pat-int', bar: 'pat-bar' };
+export const TERRAIN_PATTERN = { str: 'pat-str', def: 'pat-def', rng: 'pat-rng', int: 'pat-int', bar: 'pat-bar', gz: 'pat-gz' };
 export const HERO_COLORS = ['#ff8fab', '#7cf0ff', '#c3f584', '#ffd166', '#b28dff', '#ffa94d', '#f1faee', '#90e0ef', '#e76f51', '#2ec4b6', '#f72585', '#caf0f8', '#fbf8cc', '#a0c4ff', '#ffadad', '#9bf6ff', '#bdb2ff', '#ffc6ff'];
 export const NEUTRAL_FILL = '#2a2a38';
+export const NEUTRAL_GREY = '#8a8a96';
 export const GROUND_ZERO_FILL = '#4d4118';
-export const UNOWNED_STROKE = '#c9a227';
+export const UNOWNED_STROKE = NEUTRAL_GREY;
 export const UNOCCUPIED_BARRIER = '#9a9a9a';
 export const APOCALYPSE_RED = '#4a1d1d';
 export const OFFLINE_LIMIT_SECONDS = 60;
