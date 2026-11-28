@@ -2,15 +2,15 @@
    version, loads saved names, rejoins a saved room, and opens the tutorial on first use. */
 
 import { SETTINGS_KEY, EXPECTED_SCHEMA_VERSION, TUTORIAL_KEY, db } from './config.js';
-import { state, settings } from './state.js';
+import { state } from './state.js';
 import { el } from './dom.js';
 import { isValidUsername } from './escape.js';
 import { render } from './render.js';
-import { applySettings } from './audio.js';
-import { fetchSchemaVersion } from './server.js';
+import { applySettings, audioContext } from './audio.js';
+import { fetchSchemaVersion, sendHeartbeat } from './server.js';
 import {
-  onCreateRoom, onJoinRoom, onStartGame, copyRoomCode, leaveRoom, loadSavedNames, onSaveLoadout,
-  onLoadoutInput, onSaveUsername, onRename, onJoinFromField, enterRoom, toast,
+  onCreateRoom, onJoinFromField, onStartGame, copyRoomCode, loadSavedNames, onSaveLoadout,
+  onLoadoutInput, onSaveUsername, onRename, enterRoom, toast,
 } from './lobby.js';
 import {
   onBoardPointerDown, onBoardPointerMove, onBoardPointerUp, onBoardClick, onBoardHover, onBoardLeave,
@@ -23,10 +23,8 @@ import {
   endTurnClick, toggleDrawer, showHand, showBuy, minimizeToggle, toggleMute, openLog, closeLog,
   reviewBoard, openHelp, openSettings, openLegend, leaveFromBar,
 } from './buttons.js';
-import {
-  openOverlay, closeOverlay, handleOverlayClick, changeSetting,
-} from './overlays.js';
-import { placeFeedback } from './layout.js';
+import { openOverlay, closeOverlay, handleOverlayClick, changeSetting } from './overlays.js';
+import { drawTop } from './panels.js';
 
 // the button actions reached by data-action attributes in the page
 const ACTIONS = {
@@ -54,7 +52,7 @@ const ACTIONS = {
   'show-buy': showBuy,
 };
 
-// the one place page clicks on data-action buttons are routed
+// routes clicks on any data-action button to its action
 function onDocumentClick(event) {
   const button = event.target.closest('[data-action]');
   if (!button || button.disabled) return;
@@ -84,7 +82,7 @@ function wireEvents() {
   });
   window.addEventListener('resize', render);
   window.addEventListener('orientationchange', render);
-  window.addEventListener('pointerdown', () => { import('./audio.js').then(m => m.audioContext()); }, { once: true });
+  window.addEventListener('pointerdown', () => audioContext(), { once: true });
 
   el('helpOverlay').addEventListener('click', handleOverlayClick);
   el('helpOverlay').addEventListener('input', event => {
@@ -114,17 +112,14 @@ async function checkDatabaseVersion() {
   }
 }
 
-// keeps the screen up to date with presence and offline warnings, once a second
+// once a second during a game: every fifth tick sends a heartbeat and checks for dropped players,
+// and the other ticks redraw the top bar so the offline warnings stay current
 function startTicker() {
-  setInterval(async () => {
+  setInterval(() => {
     if (!state.room || !state.game || state.game.winner) return;
     state.tick += 1;
-    const { sendHeartbeat } = await import('./server.js');
     if (state.tick % 5 === 0) sendHeartbeat();
-    else {
-      const { updateOfflineBadges } = await import('./panels.js');
-      updateOfflineBadges();
-    }
+    else drawTop();
   }, 1000);
 }
 
