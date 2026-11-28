@@ -112,8 +112,11 @@ export function tileSvg(tile) {
   const classes = [highlight ? 'ok' : '', removable ? 'rm' : '', hinted ? 'hint' : ''].join(' ');
   state.tooltips['t' + key] = tileTooltip(tile);
 
-  const texture = seen && tile.discovered && !tile.groundZero && TERRAIN_PATTERN[tile.skill]
-    ? `<polygon class="tex" points="${hexPoints(cube)}" fill="url(#${TERRAIN_PATTERN[tile.skill]})"/>`
+  // Ground Zero takes the hex-grid texture; skill tiles take their own pattern once discovered
+  const patternKey = tile.groundZero ? TERRAIN_PATTERN.gz
+    : seen && tile.discovered && TERRAIN_PATTERN[tile.skill] ? TERRAIN_PATTERN[tile.skill] : null;
+  const texture = patternKey
+    ? `<polygon class="tex" points="${hexPoints(cube)}" fill="url(#${patternKey})"/>`
     : '';
   const glowColor = barrierColor(cube);
   const glow = tile.barrier > 0
