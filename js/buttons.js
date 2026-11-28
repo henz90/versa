@@ -1,5 +1,5 @@
 /* Button actions in the bottom bar: end turn, the phone drawers, mute, minimise, the log,
-   the help and settings, and leaving a room. Each action changes state, then redraws. */
+   help and settings, and leaving a room. Each action changes state, then redraws. */
 
 import { state, settings, setMessage } from './state.js';
 import { saveSettings, SOUNDS } from './audio.js';
@@ -16,7 +16,7 @@ function unusedActionCount() {
 
 // ends the turn, after a confirmation if any hero still has actions left
 export function endTurnClick() {
-  if (!isMyTurn()) return;
+  if (!isMyTurn()) return undefined;
   if (!boardStepDone()) {
     setMessage('Finish your board step first');
     return render();
@@ -29,10 +29,33 @@ export function endTurnClick() {
   return submitAction({ type: 'end_turn' });
 }
 
+// whether the page is laid out for a phone held upright
+function isPhone() {
+  return window.matchMedia('(max-width: 700px)').matches;
+}
+
 // opens the hand or buy drawer on a phone, or closes it if it is already open
 export function toggleDrawer(tab) {
   state.ui.drawer = state.ui.drawer === tab ? null : tab;
   render();
+}
+
+// shows the hand: the phone drawer, or the expanded bottom bar on desktop
+export function showHand() {
+  if (isPhone()) toggleDrawer('hand');
+  else {
+    state.ui.botMinimized = false;
+    render();
+  }
+}
+
+// shows the buy panel: the phone drawer, or the expanded bottom bar on desktop
+export function showBuy() {
+  if (isPhone()) toggleDrawer('buy');
+  else {
+    state.ui.botMinimized = false;
+    render();
+  }
 }
 
 // shows the full bottom bar on desktop, or hides it again
@@ -61,35 +84,10 @@ export function closeLog() {
   render();
 }
 
-// the game-over screen's "review board" choice: keep the board, hide the dialog
+// the game-over dialog's "review board" choice: keep the board, hide the dialog
 export function reviewBoard() {
   state.ui.gameOverDismissed = true;
   render();
-}
-
-// shows the hand on a phone, or expands the bottom bar on desktop
-export function showHand() {
-  if (state.ui.drawer !== undefined && window.matchMedia('(max-width: 700px)').matches) toggleDrawer('hand');
-  else { state.ui.botMinimized = false; render(); }
-}
-
-// shows the buy panel on a phone, or expands the bottom bar on desktop
-export function showBuy() {
-  if (window.matchMedia('(max-width: 700px)').matches) toggleDrawer('buy');
-  else { state.ui.botMinimized = false; render(); }
-}
-
-// cancels the current mode, using the shared cancel in actions.js through the render path
-export function cancelFromBar() {
-  state.ui.mode = '';
-  state.ui.wheel = null;
-  setMessage('');
-  render();
-}
-
-// leaves the room, through the lobby's confirmation and concede flow
-export function leaveFromBar() {
-  return leaveRoom();
 }
 
 // opens the help overlay (rules, symbols and the tutorial replay)
@@ -105,4 +103,9 @@ export function openSettings() {
 // opens the legend overlay of symbols and terrain
 export function openLegend() {
   openOverlay('legend');
+}
+
+// leaves the room, through the lobby's confirmation and concede flow
+export function leaveFromBar() {
+  return leaveRoom();
 }
