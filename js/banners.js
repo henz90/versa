@@ -1,5 +1,5 @@
 /* Banners: the big event cards, the side chips, the queue that shows them one at a time,
-   the roll cards, and the symbols that replace words on banners. */
+   the roll cards, the symbols that replace words on banners, and the turn moment. */
 
 import {
   SYM, SOURCE_STYLE, SOURCE_FRAME, DEFENDER_MARK, SKILL_NAME, SKILL_ICON,
@@ -293,6 +293,22 @@ export function playApocalypseAnimation() {
   setTimeout(() => svg.classList.remove('apoc-flash'), 1700);
   SOUNDS.fanfare();
   showFloat(`<span>☢</span> ${SYM.boom}`, 'nat', 2600);
+}
+
+// the signature moment: when a turn passes to the signed-in player, the turn badge pulses once
+// and the turn sound plays. Skipped under reduce motion.
+export function startOfMyTurnMoment() {
+  if (motionReduced()) {
+    SOUNDS.turn();
+    return;
+  }
+  state.ui.turnPulse = true;
+  SOUNDS.turn();
+  setTimeout(() => {
+    state.ui.turnPulse = false;
+    const badge = document.querySelector('#top .badge');
+    if (badge) badge.classList.remove('turn-pulse');
+  }, 1200);
 }
 
 // the label on a roll card: what was rolled
