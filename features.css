@@ -25,3 +25,7 @@
 
 /* the tile texture stays subtle on Ground Zero's dark gold */
 polygon.tex[fill^="url(#pat-gz)"] { opacity: .9; }
+
+/* hero idle motion: a slow breath, scaled from the hero's centre; the start delay is set per hero */
+@keyframes heroBreathe { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.06); } }
+.hero-idle { transform-box: fill-box; transform-origin: center; animation: heroBreathe 3s ease-in-out infinite; }
