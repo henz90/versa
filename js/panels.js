@@ -2,7 +2,7 @@
 
 import {
   SKILL_NAME, CARD_NAME, CARD_ICON, RULES, ROUND, OFFLINE_LIMIT_SECONDS, OFFLINE_SHOW_SECONDS,
-  MUST_CHOOSE, LOADOUT_NAME_PATTERN,
+  MUST_CHOOSE, LOADOUT_NAME_PATTERN, HERO_COLORS,
 } from './config.js';
 import { state, settings } from './state.js';
 import { escapeHtml, markV, textWithV, colourLog, isValidUsername } from './escape.js';
@@ -13,7 +13,7 @@ import {
 import { screenPoint } from './board-position.js';
 import { layoutMode } from './layout.js';
 import { el } from './dom.js';
-import { hexX, hexY } from './geometry.js';
+import { hexX, hexY, tokenShape } from './geometry.js';
 
 // pads saved hero and object names to three each, for the name fields
 export function padLoadout(saved) {
@@ -57,7 +57,7 @@ export function drawTop() {
     ? '<button class="concede" data-action="leave">Concede</button>'
     : '<button class="ghost" data-action="leave">Leave</button>';
   el('top').innerHTML = `
-    <span class="badge" style="background:${state.playerColors[game.current]}">${escapeHtml(current.name)}'s turn</span>
+    <span class="badge${state.ui.turnPulse ? ' turn-pulse' : ''}" style="background:${state.playerColors[game.current]}">${escapeHtml(current.name)}'s turn</span>
     <span class="chip">Round ${escapeHtml(game.round)} · ${phaseName()}</span>
     ${game.apocalypse ? '<span class="alert">☢ Apocalypse</span>' : ''}
     ${game.winner ? `<span class="alert">🏆 ${escapeHtml(game.winner)}</span>` : ''}
@@ -366,6 +366,19 @@ function roomHtml() {
     <div class="row"><button class="ghost" data-action="leave">Leave room</button></div></div>`;
 }
 
+// the victory reveal: the surviving heroes lined up, each in its player's colour and shape, with the player's name under them
+function victoryLineupHtml() {
+  const survivors = state.game.heroes
+    .map((hero, index) => ({ hero, index }))
+    .filter(({ hero }) => hero.alive);
+  const heroes = survivors.map(({ hero }) => {
+    const color = state.playerColors[hero.player];
+    const shape = `<svg viewBox="0 0 40 40" width="40" height="40" aria-hidden="true">${tokenShape(hero.player, 20, 20, 14, HERO_COLORS[hero.slot - 1] || HERO_COLORS[0], color, 3)}</svg>`;
+    return `<div class="lineup-hero" title="${escapeHtml(heroLabel(hero))}">${shape}<small style="color:${color}">${escapeHtml(state.game.players[hero.player].name)}</small></div>`;
+  }).join('');
+  return survivors.length ? `<div class="lineup">${heroes}</div>` : '';
+}
+
 // the modal: username, main screen, room lobby, loading, log, or game over
 export function drawModal() {
   const modal = el('modal');
@@ -400,6 +413,7 @@ export function drawModal() {
     html = roomHtml();
   } else if (state.game && state.game.winner && !state.ui.gameOverDismissed) {
     html = `<div class="card"><h2 style="margin:0">🏆 ${escapeHtml(state.game.winner)}</h2>
+      ${victoryLineupHtml()}
       <div class="muted">The board stays visible so you can review the game. This room closes after an hour.</div>
       <div class="row">
         <button class="ghost" data-action="review-board">Review board</button>
