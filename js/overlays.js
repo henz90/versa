@@ -2,7 +2,7 @@
 
 import {
   TUTORIAL_KEY, APP_VERSION, EXPECTED_SCHEMA_VERSION, SYM, TILE_COLORS, TERRAIN_PATTERN,
-  DEFENDER_MARK, HERO_COLORS, GROUND_ZERO_FILL, UNOWNED_STROKE, NEUTRAL_FILL,
+  DEFENDER_MARK, HERO_COLORS, GROUND_ZERO_FILL, UNOWNED_STROKE, NEUTRAL_FILL, NEUTRAL_GREY,
 } from './config.js';
 import { state, settings } from './state.js';
 import { escapeHtml } from './escape.js';
@@ -87,9 +87,10 @@ export function legendHtml() {
     keySvg(tokenShape(i, 20, 20, 12, HERO_COLORS[i], state.playerColors[i], 3)),
     `Player ${i + 1}`, `heroes are a ${shape}, outlined in the player's colour`)).join('');
   const board = [
-    legendRow(glyphKey('🛑'), 'Barrier level', 'L3 to L12. Built at L3; below L3 it is removed.'),
-    legendRow(keySvg(`<polygon points="${polyPoints(20, 20, 17, 6, 0)}" fill="${GROUND_ZERO_FILL}" stroke="${UNOWNED_STROKE}" stroke-width="2"/>`),
-      'Ground Zero', '+1 to d20 rolls for heroes on it.'),
+    legendRow(glyphKey('🛑'), 'Barrier level', 'L3 to L12. Built at L3; below L3 it is removed. The glow is the holder\'s colour.'),
+    legendRow(keySvg(`<polygon points="${polyPoints(20, 20, 17, 6, 0)}" fill="${GROUND_ZERO_FILL}" stroke="${UNOWNED_STROKE}" stroke-width="2"/>`
+      + `<polygon points="${polyPoints(20, 20, 17, 6, 0)}" fill="url(#${TERRAIN_PATTERN.gz})"/>`),
+      'Ground Zero', 'hex-grid texture. +1 to d20 rolls for heroes on it.'),
     legendRow(glyphKey(SYM.nuke), 'Nuke', 'each attack is one hit. Destroying it triggers the Apocalypse.'),
     legendRow(keySvg('<line x1="3" y1="20" x2="37" y2="20" stroke="rgba(199,125,255,.9)" stroke-width="3" stroke-dasharray="5 3" stroke-linecap="round"/>'),
       'Purple chain', 'a Mind Controlled hero and the hero controlling it.'),
@@ -120,7 +121,9 @@ export function legendHtml() {
     ['🔮', 'Object', '5 V. Up to 3 per player. Needs one of your heroes on the tile.'],
     ['👤', 'Hero', '30 V. Up to 3 per player.'],
     ['✊', 'Skill point', '5 V. Adds one point to a hero or object.'],
-  ].map(([glyph, label, note]) => legendRow(glyphKey(glyph), label, note)).join('');
+  ].map(([glyph, label, note]) => legendRow(
+    `<span class="legend-glyph legend-buy" style="background:${NEUTRAL_GREY}" aria-hidden="true">${glyph}</span>`,
+    label, note)).join('');
   const banner = [
     [SYM.attack, 'Attack'], [SYM.mind, 'Mind Control'], [SYM.barrier, 'Barrier'], [SYM.develop, 'Develop (a roll)'],
     [SYM.buy, 'Buy (costs 💰)'], [SYM.versa, 'Versa'], [SYM.move, 'Move'], [SYM.win, 'Success'],
