@@ -11,6 +11,7 @@ import {
 import { cubeDistance } from './geometry.js';
 import { submitAction, sendEmojiToRoom } from './server.js';
 import { render } from './render.js';
+import { combatOdds, mindControlOdds, percentText } from './odds.js';
 
 // opens a wheel menu on the board; the wheel records what kind of choice it is
 export function openWheel(wheel) {
@@ -110,7 +111,7 @@ export function moveTo(heroIdx, cube) {
   return sendMove(heroIdx, cube, [], null);
 }
 
-// the attack or Mind Control choice for two heroes, with the options that are not available greyed out
+// the attack or Mind Control choice for two heroes; each option shows its chance, and greys out if unavailable
 export function openAttackChoice(attackerIdx, defenderIdx) {
   const attacker = state.game.heroes[attackerIdx];
   const defender = state.game.heroes[defenderIdx];
@@ -125,16 +126,22 @@ export function openAttackChoice(attackerIdx, defenderIdx) {
     if (state.game.round < ROUND.attacksFrom) return setMessage('Attacks and Mind Control unlock in round 4');
     return setMessage('No attack or Mind Control available to this hero on that target');
   }
+
+  const combat = combatOdds(attacker, defender);
+  const mindChance = mindControlOdds(attacker, defender);
   openWheel({
     cube: defender.cube,
     kind: 'attackChoice',
     heroIndex: attackerIdx,
     targetIndex: defenderIdx,
     items: [
-      { v: 'atk', ic: '⚔️', t: 'Combat', dis: !attackOk },
-      { v: 'mind', ic: '🧠', t: 'Mind Control', dis: !mindOk },
+      { v: 'atk', ic: '⚔️', t: `Combat ${percentText(combat.landed)}`, dis: !attackOk },
+      { v: 'mind', ic: '🧠', t: `Mind Control ${percentText(mindChance)}`, dis: !mindOk },
     ],
   });
+  if (combat.barrier > 0) {
+    setMessage(`Barrier L${combat.barrier}: ${percentText(combat.throughBarrier)} to get through first. Combat odds include this.`);
+  }
 }
 
 // when several enemies share a tile, asks which one to target
