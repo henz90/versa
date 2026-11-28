@@ -16,3 +16,12 @@
 .legend-key .roll-die { width: 1.9em; height: 1.9em; animation: none; }
 .legend-glyph { flex: none; width: 2.2em; text-align: center; font-size: 1.3em; }
 .legend-text small { color: #a8a8bb; }
+
+/* palette rule: neutral grey for buy buttons that are not currency */
+.bopt.b-neutral { --cc: #8a8a96; }
+
+/* Ground Zero texture and legend key for the buy buttons */
+.legend-buy { border-radius: .35em; color: #111; padding: 0 .2em; }
+
+/* the tile texture stays subtle on Ground Zero's dark gold */
+polygon.tex[fill^="url(#pat-gz)"] { opacity: .9; }
