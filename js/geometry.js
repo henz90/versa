@@ -62,7 +62,7 @@ export function tokenShape(player, x, y, radius, fill, stroke, strokeWidth) {
   }
 }
 
-// the terrain patterns, defined once and referenced by each tile: five skill textures and the Ground Zero hex grid
+// the terrain patterns, the Ground Zero hex grid, and the tile shadow filter, defined once and referenced by each tile
 export const TERRAIN_DEFS = `<defs>
   <pattern id="pat-str" width="10" height="10" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
     <line x1="0" y1="0" x2="0" y2="10" stroke="#ffffff" stroke-opacity=".22" stroke-width="3"/></pattern>
@@ -76,4 +76,6 @@ export const TERRAIN_DEFS = `<defs>
     <path d="M0 4 H14 M7 0 V4 M0 4 V8" stroke="#ffffff" stroke-opacity=".22" stroke-width="1.5" fill="none"/></pattern>
   <pattern id="pat-gz" width="16" height="14" patternUnits="userSpaceOnUse">
     <path d="M4 0 L12 0 L16 7 L12 14 L4 14 L0 7 Z" fill="none" stroke="#ffffff" stroke-opacity=".28" stroke-width="1.2"/></pattern>
+  <filter id="tile-shadow" x="-20%" y="-20%" width="140%" height="140%">
+    <feDropShadow dx="0" dy="2" stdDeviation="2" flood-color="#000" flood-opacity=".45"/></filter>
 </defs>`;
